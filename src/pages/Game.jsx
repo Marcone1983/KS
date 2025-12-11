@@ -1,0 +1,284 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import GameScene from '../components/game/GameScene';
+import GameUI from '../components/game/GameUI';
+import GameOver from '../components/game/GameOver';
+import PauseMenu from '../components/game/PauseMenu';
+import TutorPanel from '../components/game/TutorPanel';
+
+export default function Game() {
+  const queryClient = useQueryClient();
+  const [gameState, setGameState] = useState('loading');
+  const [level, setLevel] = useState(1);
+  const [score, setScore] = useState(0);
+  const [plantHealth, setPlantHealth] = useState(100);
+  const [sprayAmmo, setSprayAmmo] = useState(100);
+  const [pestsEliminated, setPestsEliminated] = useState({});
+  const [activePests, setActivePests] = useState([]);
+  const [isPaused, setIsPaused] = useState(false);
+  const [selectedPest, setSelectedPest] = useState(null);
+  const [gameTime, setGameTime] = useState(0);
+  const gameStartTime = useRef(null);
+
+  const { data: progress } = useQuery({
+    queryKey: ['gameProgress'],
+    queryFn: async () => {
+      const progressList = await base44.entities.GameProgress.list();
+      if (progressList.length === 0) {
+        return await base44.entities.GameProgress.create({
+          current_level: 1,
+          total_score: 0,
+          high_score: 0,
+          has_premium: false,
+          unlocked_skins: ['default'],
+          active_skin: 'default',
+          upgrades: {
+            spray_speed: 1,
+            spray_range: 1,
+            refill_speed: 1
+          },
+          pests_encountered: [],
+          leaf_currency: 0
+        });
+      }
+      return progressList[0];
+    }
+  });
+
+  const { data: allPests } = useQuery({
+    queryKey: ['pests'],
+    queryFn: () => base44.entities.Pest.list(),
+    initialData: []
+  });
+
+  const saveSessionMutation = useMutation({
+    mutationFn: (sessionData) => base44.entities.GameSession.create(sessionData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
+    }
+  });
+
+  const updateProgressMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.GameProgress.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
+    }
+  });
+
+  useEffect(() => {
+    if (progress && gameState === 'loading') {
+      setLevel(progress.current_level);
+      setGameState('playing');
+      gameStartTime.current = Date.now();
+    }
+  }, [progress, gameState]);
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused) {
+      const interval = setInterval(() => {
+        setGameTime(Math.floor((Date.now() - gameStartTime.current) / 1000));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [gameState, isPaused]);
+
+  useEffect(() => {
+    if (plantHealth <= 0 && gameState === 'playing') {
+      endGame(false);
+    }
+  }, [plantHealth, gameState]);
+
+  const spawnPests = () => {
+    if (!allPests || allPests.length === 0) return;
+    
+    const levelPests = allPests.filter(p => p.unlock_level <= level);
+    const pestCount = Math.min(2 + level, 10);
+    
+    const newPests = [];
+    for (let i = 0; i < pestCount; i++) {
+      const pestType = levelPests[Math.floor(Math.random() * levelPests.length)];
+      newPests.push({
+        id: `pest_${Date.now()}_${i}`,
+        type: pestType.type,
+        name: pestType.name,
+        health: pestType.health,
+        maxHealth: pestType.health,
+        speed: pestType.speed * (1 + level * 0.1),
+        damage: pestType.damage_per_second,
+        position: {
+          x: (Math.random() - 0.5) * 10,
+          y: Math.random() * 2 + 1,
+          z: -15 + Math.random() * 2
+        },
+        color: pestType.color || '#ff0000',
+        size: pestType.size_category,
+        pestData: pestType
+      });
+    }
+    
+    setActivePests(prev => [...prev, ...newPests]);
+  };
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused) {
+      const spawnInterval = setInterval(spawnPests, 5000);
+      spawnPests();
+      return () => clearInterval(spawnInterval);
+    }
+  }, [gameState, isPaused, level, allPests]);
+
+  const handlePestHit = (pestId, damage) => {
+    setActivePests(prev => {
+      const updated = prev.map(pest => {
+        if (pest.id === pestId) {
+          const newHealth = pest.health - damage;
+          if (newHealth <= 0) {
+            const pestType = pest.type;
+            setPestsEliminated(prev => ({
+              ...prev,
+              [pestType]: (prev[pestType] || 0) + 1
+            }));
+            setScore(s => s + 10);
+            return null;
+          }
+          return { ...pest, health: newHealth };
+        }
+        return pest;
+      }).filter(Boolean);
+      return updated;
+    });
+  };
+
+  const handleSpray = () => {
+    if (sprayAmmo > 0) {
+      setSprayAmmo(prev => Math.max(0, prev - 5));
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused) {
+      const refillSpeed = progress?.upgrades?.refill_speed || 1;
+      const refillInterval = setInterval(() => {
+        setSprayAmmo(prev => Math.min(100, prev + refillSpeed));
+      }, 200);
+      return () => clearInterval(refillInterval);
+    }
+  }, [gameState, isPaused, progress]);
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused && activePests.length > 0) {
+      const damageInterval = setInterval(() => {
+        const totalDamage = activePests.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
+        setPlantHealth(prev => Math.max(0, prev - totalDamage * 0.5));
+      }, 500);
+      return () => clearInterval(damageInterval);
+    }
+  }, [gameState, isPaused, activePests]);
+
+  const endGame = async (completed) => {
+    setGameState('gameover');
+    
+    const sessionData = {
+      level,
+      score,
+      pests_eliminated: pestsEliminated,
+      duration_seconds: gameTime,
+      plant_health_final: plantHealth,
+      completed
+    };
+    
+    await saveSessionMutation.mutateAsync(sessionData);
+    
+    if (progress) {
+      const updates = {
+        total_score: progress.total_score + score,
+        high_score: Math.max(progress.high_score, score),
+        leaf_currency: progress.leaf_currency + Math.floor(score / 10)
+      };
+      
+      if (completed) {
+        updates.current_level = Math.max(progress.current_level, level + 1);
+      }
+      
+      const newEncountered = [...new Set([
+        ...(progress.pests_encountered || []),
+        ...Object.keys(pestsEliminated)
+      ])];
+      updates.pests_encountered = newEncountered;
+      
+      await updateProgressMutation.mutateAsync({ id: progress.id, data: updates });
+    }
+  };
+
+  const restartGame = () => {
+    setGameState('playing');
+    setScore(0);
+    setPlantHealth(100);
+    setSprayAmmo(100);
+    setPestsEliminated({});
+    setActivePests([]);
+    setGameTime(0);
+    gameStartTime.current = Date.now();
+  };
+
+  const handlePestClick = (pest) => {
+    setSelectedPest(pest.pestData);
+  };
+
+  if (gameState === 'loading' || !progress) {
+    return (
+      <div className="h-screen w-full bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-2xl">Caricamento...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen w-full relative overflow-hidden">
+      <GameScene
+        pests={activePests}
+        onPestHit={handlePestHit}
+        onSpray={handleSpray}
+        sprayRange={progress.upgrades.spray_range}
+        isPaused={isPaused || gameState !== 'playing'}
+        onPestClick={handlePestClick}
+      />
+      
+      <GameUI
+        score={score}
+        level={level}
+        plantHealth={plantHealth}
+        sprayAmmo={sprayAmmo}
+        activeSkin={progress.active_skin}
+        onPause={() => setIsPaused(true)}
+      />
+      
+      {isPaused && gameState === 'playing' && (
+        <PauseMenu
+          onResume={() => setIsPaused(false)}
+          onRestart={restartGame}
+        />
+      )}
+      
+      {gameState === 'gameover' && (
+        <GameOver
+          score={score}
+          level={level}
+          pestsEliminated={pestsEliminated}
+          duration={gameTime}
+          onRestart={restartGame}
+        />
+      )}
+      
+      {selectedPest && (
+        <TutorPanel
+          pest={selectedPest}
+          onClose={() => setSelectedPest(null)}
+        />
+      )}
+    </div>
+  );
+}
