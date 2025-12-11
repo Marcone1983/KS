@@ -28,7 +28,7 @@ export default function SplashScreen() {
     <div className="h-screen w-full bg-gradient-to-br from-green-900 via-green-700 to-emerald-600 flex flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0 opacity-20">
         <div className="absolute top-10 left-10 w-32 h-32 bg-green-400 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-20 w-40 h-40 bg-emerald-400 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute bottom-20 right-20 w-40 h-40 bg-emerald-400 rounded-full blur-3xl animate-pulse" />
       </div>
 
       <motion.div
@@ -40,4 +40,13 @@ export default function SplashScreen() {
         <img 
           src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693a98c31d0729f805dd02ce/b4e51f644_1000240991.png"
           alt="Kurstaki Strike"
-          className="w-80 h-auto drop-shadow-2
+          className="w-80 h-auto drop-shadow-2xl"
+        />
+      </motion.div>
+
+      <div className="w-full max-w-md px-8 z-10">
+        <div className="relative h-16 bg-black/30 rounded-full overflow-hidden backdrop-blur-sm border-4 border-green-400/50">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300"
+            style={{ width: `${progress}%` }}
+            transition={{ duration: 0.3
