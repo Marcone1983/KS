@@ -67,4 +67,9 @@ export default function SplashScreen() {
           transition={{ delay: 0.5 }}
           className="text-center text-green-100 mt-6 text-lg font-medium"
         >
-          Caricamento Bacillus thu
+          Caricamento Bacillus thuringiensis kurstaki...
+        </motion.p>
+      </div>
+    </div>
+  );
+}
