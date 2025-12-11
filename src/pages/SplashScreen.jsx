@@ -39,14 +39,4 @@ export default function SplashScreen() {
       >
         <img 
           src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/693a98c31d0729f805dd02ce/b4e51f644_1000240991.png"
-          alt="Kurstaki Strike"
-          className="w-80 h-auto drop-shadow-2xl"
-        />
-      </motion.div>
-
-      <div className="w-full max-w-md px-8 z-10">
-        <div className="relative h-16 bg-black/30 rounded-full overflow-hidden backdrop-blur-sm border-4 border-green-400/50">
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-300"
-            style={{ width: `${progress}%` }}
-            transition={{ duration: 0.3
+          alt="Ku
