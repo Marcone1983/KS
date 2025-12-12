@@ -781,106 +781,93 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
   }, [pests]);
 
   const createRealisticPest = (pest) => {
-    const group = new THREE.Group();
-    const baseColor = new THREE.Color(pest.color || '#88cc44');
-    const darkColor = baseColor.clone().multiplyScalar(0.4);
-    const lightColor = baseColor.clone().multiplyScalar(1.3);
+    const caterpillarGroup = new THREE.Group();
+    const baseColor = new THREE.Color(pest.color || '#8B9F3B');
+    const darkColor = baseColor.clone().multiplyScalar(0.3);
 
-    const sizeMap = { tiny: 0.2, small: 0.3, medium: 0.45, large: 0.65 };
-    const baseSize = sizeMap[pest.size] || 0.35;
+    const sizeMap = { tiny: 0.25, small: 0.35, medium: 0.5, large: 0.7 };
+    const baseSize = sizeMap[pest.size] || 0.4;
 
-    const segmentCount = 10;
+    const bodyMaterial = new THREE.MeshLambertMaterial({ 
+      color: baseColor, 
+      flatShading: true 
+    });
+    const stripeMaterial = new THREE.MeshLambertMaterial({ 
+      color: darkColor, 
+      flatShading: true 
+    });
+
+    const segmentCount = 6;
     for (let i = 0; i < segmentCount; i++) {
-      const segmentSize = baseSize * (1 - i * 0.06);
-      const segmentGeometry = new THREE.SphereGeometry(segmentSize, 16, 16);
-      const isStripe = i % 2 === 0;
-      const segmentMaterial = new THREE.MeshStandardMaterial({
-        color: isStripe ? lightColor : darkColor,
-        roughness: 0.7,
-        metalness: 0.1,
-      });
-      const segment = new THREE.Mesh(segmentGeometry, segmentMaterial);
-      segment.position.z = -i * baseSize * 0.4;
+      const segmentGeo = new THREE.IcosahedronGeometry(baseSize * 0.3, 1);
+      const segment = new THREE.Mesh(segmentGeo, bodyMaterial);
+      segment.position.z = i * baseSize * 0.45;
       segment.castShadow = true;
-      segment.receiveShadow = true;
-      group.add(segment);
-    }
+      caterpillarGroup.add(segment);
 
-    const headGeometry = new THREE.SphereGeometry(baseSize * 0.9, 16, 16);
-    headGeometry.scale(1, 0.9, 1.2);
-    const headMaterial = new THREE.MeshStandardMaterial({
-      color: darkColor,
-      roughness: 0.6,
-    });
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.z = baseSize * 0.5;
-    head.castShadow = true;
-    group.add(head);
-
-    const eyeGeometry = new THREE.SphereGeometry(baseSize * 0.15, 8, 8);
-    const eyeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x000000,
-      roughness: 0.3,
-      metalness: 0.7,
-    });
-    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    leftEye.position.set(baseSize * 0.35, baseSize * 0.25, baseSize * 0.8);
-    group.add(leftEye);
-
-    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    rightEye.position.set(-baseSize * 0.35, baseSize * 0.25, baseSize * 0.8);
-    group.add(rightEye);
-
-    const legPairs = 6;
-    for (let i = 0; i < legPairs; i++) {
-      const segmentIndex = i + 1;
-      const legLength = baseSize * 1.5;
-
-      for (let side = -1; side <= 1; side += 2) {
-        const legGeometry = new THREE.CylinderGeometry(
-          baseSize * 0.05,
-          baseSize * 0.03,
-          legLength,
-          8
-        );
-        const legMaterial = new THREE.MeshStandardMaterial({
-          color: darkColor,
-          roughness: 0.8,
-        });
-        const leg = new THREE.Mesh(legGeometry, legMaterial);
-
-        leg.position.set(
-          side * baseSize * 0.6,
-          -baseSize * 0.5,
-          -segmentIndex * baseSize * 0.35
-        );
-        leg.rotation.z = side * (Math.PI / 2.5);
-        leg.rotation.x = Math.PI / 6;
-        leg.castShadow = true;
-        group.add(leg);
+      if (i < segmentCount - 1) {
+        const stripeGeo = new THREE.TorusGeometry(baseSize * 0.33, baseSize * 0.05, 4, 12);
+        const stripe = new THREE.Mesh(stripeGeo, stripeMaterial);
+        stripe.position.z = i * baseSize * 0.45 + baseSize * 0.225;
+        caterpillarGroup.add(stripe);
       }
     }
 
-    const hairCount = 15;
-    for (let i = 0; i < hairCount; i++) {
-      const hairGeometry = new THREE.CylinderGeometry(0.005, 0.002, baseSize * 0.3, 4);
-      const hairMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-      const hair = new THREE.Mesh(hairGeometry, hairMaterial);
-      
-      const segmentIndex = Math.floor(Math.random() * 5);
-      hair.position.set(
-        (Math.random() - 0.5) * baseSize * 1.5,
-        baseSize * 0.6,
-        -segmentIndex * baseSize * 0.4
-      );
-      hair.rotation.x = (Math.random() - 0.5) * Math.PI / 3;
-      hair.rotation.z = (Math.random() - 0.5) * Math.PI / 3;
-      group.add(hair);
+    const headGeo = new THREE.IcosahedronGeometry(baseSize * 0.35, 1);
+    const head = new THREE.Mesh(headGeo, bodyMaterial);
+    head.position.z = segmentCount * baseSize * 0.45;
+    head.castShadow = true;
+    caterpillarGroup.add(head);
+
+    const eyeGeo = new THREE.IcosahedronGeometry(baseSize * 0.08, 0);
+    const eyeMaterial = new THREE.MeshLambertMaterial({ 
+      color: 0x000000, 
+      flatShading: true 
+    });
+    const leftEye = new THREE.Mesh(eyeGeo, eyeMaterial);
+    leftEye.position.set(baseSize * 0.15, baseSize * 0.1, segmentCount * baseSize * 0.45 + baseSize * 0.2);
+    caterpillarGroup.add(leftEye);
+
+    const rightEye = new THREE.Mesh(eyeGeo, eyeMaterial);
+    rightEye.position.set(-baseSize * 0.15, baseSize * 0.1, segmentCount * baseSize * 0.45 + baseSize * 0.2);
+    caterpillarGroup.add(rightEye);
+
+    const antennaGeo = new THREE.CylinderGeometry(baseSize * 0.025, baseSize * 0.025, baseSize * 0.2, 4);
+    const antenna1 = new THREE.Mesh(antennaGeo, stripeMaterial);
+    antenna1.position.set(baseSize * 0.15, baseSize * 0.2, segmentCount * baseSize * 0.45 + baseSize * 0.125);
+    antenna1.rotation.x = Math.PI / 3;
+    antenna1.rotation.z = -Math.PI / 5;
+    antenna1.castShadow = true;
+    caterpillarGroup.add(antenna1);
+
+    const antenna2 = new THREE.Mesh(antennaGeo, stripeMaterial);
+    antenna2.position.set(-baseSize * 0.15, baseSize * 0.2, segmentCount * baseSize * 0.45 + baseSize * 0.125);
+    antenna2.rotation.x = Math.PI / 3;
+    antenna2.rotation.z = Math.PI / 5;
+    antenna2.castShadow = true;
+    caterpillarGroup.add(antenna2);
+
+    const legPairs = 4;
+    for (let i = 0; i < legPairs; i++) {
+      for (let side = -1; side <= 1; side += 2) {
+        const legGeo = new THREE.CylinderGeometry(baseSize * 0.04, baseSize * 0.03, baseSize * 0.4, 4);
+        const leg = new THREE.Mesh(legGeo, stripeMaterial);
+        leg.position.set(
+          side * baseSize * 0.25,
+          -baseSize * 0.2,
+          i * baseSize * 0.6 + baseSize * 0.3
+        );
+        leg.rotation.z = side * (Math.PI / 3);
+        leg.rotation.x = Math.PI / 8;
+        leg.castShadow = true;
+        caterpillarGroup.add(leg);
+      }
     }
 
-    group.scale.set(1.4, 1.4, 1.4);
+    caterpillarGroup.rotation.x = Math.PI / 2;
+    caterpillarGroup.scale.set(1.5, 1.5, 1.5);
 
-    return group;
+    return caterpillarGroup;
   };
 
   return <div ref={mountRef} className="w-full h-full absolute inset-0" />;
