@@ -184,8 +184,17 @@ export default function Game() {
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && activePests.length > 0) {
       const damageInterval = setInterval(() => {
-        const totalDamage = activePests.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
-        setPlantHealth(prev => Math.max(0, prev - totalDamage * 0.5));
+        const pestsNearPlant = activePests.filter(pest => {
+          const distanceToCenter = Math.sqrt(
+            Math.pow(pest.position.x, 2) + Math.pow(pest.position.z, 2)
+          );
+          return distanceToCenter < 2;
+        });
+        
+        if (pestsNearPlant.length > 0) {
+          const totalDamage = pestsNearPlant.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
+          setPlantHealth(prev => Math.max(0, prev - totalDamage * 0.3));
+        }
       }, 500);
       return () => clearInterval(damageInterval);
     }
