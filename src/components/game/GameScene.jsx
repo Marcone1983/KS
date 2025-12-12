@@ -83,11 +83,10 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     const createRealisticCannabisPlant = () => {
       const plantGroup = new THREE.Group();
 
-      const potGeometry = new THREE.CylinderGeometry(0.5, 0.4, 0.8, 32);
-      const potMaterial = new THREE.MeshStandardMaterial({
+      const potGeometry = new THREE.CylinderGeometry(0.5, 0.4, 0.8, 12);
+      const potMaterial = new THREE.MeshLambertMaterial({
         color: 0x6b4423,
-        roughness: 0.85,
-        metalness: 0.05,
+        flatShading: true,
       });
       const pot = new THREE.Mesh(potGeometry, potMaterial);
       pot.position.y = 0.4;
@@ -95,133 +94,76 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       pot.receiveShadow = true;
       plantGroup.add(pot);
 
-      const soilGeometry = new THREE.CylinderGeometry(0.48, 0.48, 0.08, 32);
-      const soilMaterial = new THREE.MeshStandardMaterial({
+      const soilGeometry = new THREE.CylinderGeometry(0.48, 0.48, 0.08, 12);
+      const soilMaterial = new THREE.MeshLambertMaterial({
         color: 0x3d2817,
-        roughness: 1,
+        flatShading: true,
       });
       const soil = new THREE.Mesh(soilGeometry, soilMaterial);
       soil.position.y = 0.82;
       plantGroup.add(soil);
 
-      const stemCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0, 0.8, 0),
-        new THREE.Vector3(0.02, 1.5, 0.01),
-        new THREE.Vector3(-0.01, 2.3, -0.01),
-        new THREE.Vector3(0.01, 3.2, 0.02),
-        new THREE.Vector3(0, 4.0, 0),
-      ]);
-      const stemGeometry = new THREE.TubeGeometry(stemCurve, 40, 0.08, 16, false);
-      const stemMaterial = new THREE.MeshStandardMaterial({
-        color: 0x4a8a2a,
-        roughness: 0.7,
-        metalness: 0.05,
+      const leafMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x4A7F1B, 
+        flatShading: true 
       });
-      const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+      const stemMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x3A5F0B, 
+        flatShading: true 
+      });
+
+      const stemGeo = new THREE.CylinderGeometry(0.08, 0.12, 3, 8);
+      const stem = new THREE.Mesh(stemGeo, stemMaterial);
+      stem.position.y = 2.3;
       stem.castShadow = true;
       plantGroup.add(stem);
 
-      const createCannabisLeafShape = () => {
-        const shape = new THREE.Shape();
-        shape.moveTo(0, 0);
-        shape.bezierCurveTo(0.05, 0.2, 0.08, 0.5, 0.03, 0.9);
-        shape.bezierCurveTo(0.01, 1.0, -0.01, 1.0, -0.03, 0.9);
-        shape.bezierCurveTo(-0.08, 0.5, -0.05, 0.2, 0, 0);
-        return shape;
+      const createLeaf = () => {
+        const leafShape = new THREE.Shape();
+        leafShape.moveTo(0, 0);
+        leafShape.lineTo(0.1, 0.1);
+        leafShape.lineTo(0.08, 0.25);
+        leafShape.lineTo(0.15, 0.4);
+        leafShape.lineTo(0, 0.8);
+        leafShape.lineTo(-0.15, 0.4);
+        leafShape.lineTo(-0.08, 0.25);
+        leafShape.lineTo(-0.1, 0.1);
+        leafShape.lineTo(0, 0);
+
+        const extrudeSettings = {
+          steps: 1,
+          depth: 0.02,
+          bevelEnabled: false,
+        };
+        const leafGeo = new THREE.ExtrudeGeometry(leafShape, extrudeSettings);
+        const leaf = new THREE.Mesh(leafGeo, leafMaterial);
+        leaf.castShadow = true;
+        return leaf;
       };
 
-      const createDetailedLeaf = (scale = 1) => {
-        const leafGroup = new THREE.Group();
-        const fingerCount = 7;
-        const leafMaterial = new THREE.MeshStandardMaterial({
-          color: 0x4CAF50,
-          side: THREE.DoubleSide,
-          roughness: 0.6,
-          metalness: 0.1,
-          emissive: 0x0a1a0a,
-          emissiveIntensity: 0.1,
-        });
-
-        for (let i = 0; i < fingerCount; i++) {
-          const fingerIndex = i - Math.floor(fingerCount / 2);
-          const shape = createCannabisLeafShape();
-          const extrudeSettings = {
-            steps: 1,
-            depth: 0.01,
-            bevelEnabled: true,
-            bevelThickness: 0.005,
-            bevelSize: 0.005,
-            bevelSegments: 2,
-          };
-          const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-          const finger = new THREE.Mesh(geometry, leafMaterial);
-
-          const isCenter = i === Math.floor(fingerCount / 2);
-          const fingerLength = isCenter ? 1.0 : 0.85 - Math.abs(fingerIndex) * 0.12;
-          finger.scale.set(scale * 0.8, scale * fingerLength, scale);
-
-          const angle = fingerIndex * 0.25;
-          finger.rotation.z = angle;
-          finger.position.x = Math.sin(angle) * 0.15 * scale;
-          finger.position.y = -Math.abs(fingerIndex) * 0.08 * scale;
-
-          finger.castShadow = true;
-          finger.receiveShadow = true;
-          leafGroup.add(finger);
-        }
-
-        const petioleGeometry = new THREE.CylinderGeometry(0.02 * scale, 0.025 * scale, 0.2 * scale, 8);
-        const petioleMaterial = new THREE.MeshStandardMaterial({ color: 0x3d6b2f, roughness: 0.7 });
-        const petiole = new THREE.Mesh(petioleGeometry, petioleMaterial);
-        petiole.position.y = -0.1 * scale;
-        petiole.rotation.x = Math.PI / 2;
-        petiole.castShadow = true;
-        leafGroup.add(petiole);
-
-        return leafGroup;
-      };
-
-      const leafConfigs = [
-        { height: 1.2, count: 2, size: 0.6, spread: 0.15 },
-        { height: 1.7, count: 3, size: 0.8, spread: 0.2 },
-        { height: 2.2, count: 4, size: 1.0, spread: 0.25 },
-        { height: 2.8, count: 5, size: 1.1, spread: 0.3 },
-        { height: 3.4, count: 6, size: 1.0, spread: 0.28 },
-        { height: 3.9, count: 5, size: 0.85, spread: 0.22 },
-      ];
-
-      leafConfigs.forEach((config, tierIndex) => {
-        for (let i = 0; i < config.count; i++) {
-          const angle = (i / config.count) * Math.PI * 2 + (tierIndex * Math.PI / 6);
-          const leaf = createDetailedLeaf(config.size);
-
-          const x = Math.cos(angle) * config.spread;
-          const z = Math.sin(angle) * config.spread;
-
-          leaf.position.set(x, config.height, z);
-          leaf.rotation.y = angle + Math.PI / 2;
-          leaf.rotation.x = -Math.PI / 3 + Math.sin(angle * 3) * 0.2;
-          leaf.rotation.z = Math.cos(angle * 2) * 0.15;
-
-          plantGroup.add(leaf);
-        }
-      });
-
-      const budGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-      const budMaterial = new THREE.MeshStandardMaterial({
-        color: 0x8BC34A,
-        roughness: 0.8,
-        metalness: 0.0,
-      });
-      for (let i = 0; i < 3; i++) {
-        const bud = new THREE.Mesh(budGeometry, budMaterial);
-        bud.position.y = 4.0 + i * 0.1;
-        bud.position.x = Math.sin(i) * 0.05;
-        bud.position.z = Math.cos(i) * 0.05;
-        bud.scale.set(1 - i * 0.2, 1 - i * 0.15, 1 - i * 0.2);
-        bud.castShadow = true;
-        plantGroup.add(bud);
+      for (let i = 0; i < 6; i++) {
+        const leaf = createLeaf();
+        leaf.position.y = 1.3 + i * 0.5;
+        leaf.rotation.x = Math.PI / 3;
+        leaf.rotation.y = i * (Math.PI * 2 / 6);
+        const scale = 1.2 - i * 0.1;
+        leaf.scale.set(scale, scale, scale);
+        plantGroup.add(leaf);
       }
+
+      const budGroup = new THREE.Group();
+      for (let j = 0; j < 20; j++) {
+        const budGeo = new THREE.SphereGeometry(0.08, 5, 5);
+        const bud = new THREE.Mesh(budGeo, leafMaterial);
+        bud.position.set(
+          (Math.random() - 0.5) * 0.4,
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.4
+        );
+        budGroup.add(bud);
+      }
+      budGroup.position.y = 3.8;
+      plantGroup.add(budGroup);
 
       return plantGroup;
     };
