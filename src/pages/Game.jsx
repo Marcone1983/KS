@@ -260,9 +260,9 @@ export default function Game() {
         pests={activePests}
         onPestHit={handlePestHit}
         onSpray={handleSpray}
-        spraySpeed={progress.upgrades.spray_speed}
-        sprayRadius={progress.upgrades.spray_radius}
-        sprayPotency={progress.upgrades.spray_potency}
+        spraySpeed={progress?.upgrades?.spray_speed || 1}
+        sprayRadius={progress?.upgrades?.spray_radius || 1}
+        sprayPotency={progress?.upgrades?.spray_potency || 1}
         isPaused={isPaused || gameState !== 'playing'}
         activeSkin={progress.active_skin}
         level={level}
