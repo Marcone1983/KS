@@ -1,8 +1,5 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber'; // Not using fiber as we are in vanilla threejs setup in useEffect
-// We are sticking to the existing vanilla three.js setup to avoid rewriting the whole rendering logic to R3F right now, 
-// but we will significantly upgrade the visual quality.
 
 export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPaused, onPestClick, activeSkin }) {
   const mountRef = useRef(null);
