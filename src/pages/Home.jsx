@@ -116,7 +116,7 @@ export default function Home() {
           </Card>
         </div>
 
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-4 flex-wrap">
           <Button 
             onClick={() => navigate(createPageUrl('SplashScreen'))}
             size="lg"
@@ -124,6 +124,24 @@ export default function Home() {
           >
             <Play className="h-8 w-8 mr-3" />
             Gioca Ora
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('Dashboard'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-white text-white hover:bg-white/10 text-xl px-12 py-8"
+          >
+            <Trophy className="h-8 w-8 mr-3" />
+            Dashboard
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('Shop'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-purple-400 text-white hover:bg-purple-500/20 text-xl px-12 py-8"
+          >
+            <Settings className="h-8 w-8 mr-3" />
+            Shop
           </Button>
         </div>
 

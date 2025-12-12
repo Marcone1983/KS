@@ -93,23 +93,35 @@ export default function Game() {
     if (!allPests || allPests.length === 0) return;
     
     const levelPests = allPests.filter(p => p.unlock_level <= level);
-    const pestCount = Math.min(2 + level, 10);
+    if (levelPests.length === 0) return;
+    
+    const baseCount = 2;
+    const levelScaling = Math.floor(level / 2);
+    const pestCount = Math.min(baseCount + levelScaling, 15);
+    
+    const healthMultiplier = 1 + (level - 1) * 0.15;
+    const speedMultiplier = 1 + (level - 1) * 0.08;
+    const damageMultiplier = 1 + (level - 1) * 0.1;
     
     const newPests = [];
     for (let i = 0; i < pestCount; i++) {
       const pestType = levelPests[Math.floor(Math.random() * levelPests.length)];
+      
+      const angle = (i / pestCount) * Math.PI * 2;
+      const distance = 8 + Math.random() * 4;
+      
       newPests.push({
         id: `pest_${Date.now()}_${i}`,
         type: pestType.type,
         name: pestType.name,
-        health: pestType.health,
-        maxHealth: pestType.health,
-        speed: pestType.speed * (1 + level * 0.1),
-        damage: pestType.damage_per_second,
+        health: Math.floor(pestType.health * healthMultiplier),
+        maxHealth: Math.floor(pestType.health * healthMultiplier),
+        speed: pestType.speed * speedMultiplier,
+        damage: pestType.damage_per_second * damageMultiplier,
         position: {
-          x: (Math.random() - 0.5) * 10,
-          y: Math.random() * 2 + 1,
-          z: -15 + Math.random() * 2
+          x: Math.cos(angle) * distance,
+          y: 1 + Math.random() * 1.5,
+          z: Math.sin(angle) * distance
         },
         color: pestType.color || '#ff0000',
         size: pestType.size_category,
@@ -122,7 +134,8 @@ export default function Game() {
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
-      const spawnInterval = setInterval(spawnPests, 5000);
+      const spawnDelay = Math.max(3000 - (level * 100), 2000);
+      const spawnInterval = setInterval(spawnPests, spawnDelay);
       spawnPests();
       return () => clearInterval(spawnInterval);
     }
@@ -245,6 +258,8 @@ export default function Game() {
         sprayRange={progress.upgrades.spray_range}
         isPaused={isPaused || gameState !== 'playing'}
         onPestClick={handlePestClick}
+        activeSkin={progress.active_skin}
+        level={level}
       />
       
       <GameUI
