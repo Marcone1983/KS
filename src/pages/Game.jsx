@@ -17,7 +17,6 @@ export default function Game() {
   const [pestsEliminated, setPestsEliminated] = useState({});
   const [activePests, setActivePests] = useState([]);
   const [isPaused, setIsPaused] = useState(false);
-  const [selectedPest, setSelectedPest] = useState(null);
   const [gameTime, setGameTime] = useState(0);
   const gameStartTime = useRef(null);
 
@@ -246,9 +245,7 @@ export default function Game() {
     gameStartTime.current = Date.now();
   };
 
-  const handlePestClick = (pest) => {
-    setSelectedPest(pest.pestData);
-  };
+
 
   if (gameState === 'loading' || !progress) {
     return (
@@ -266,7 +263,6 @@ export default function Game() {
         onSpray={handleSpray}
         sprayRange={progress.upgrades.spray_range}
         isPaused={isPaused || gameState !== 'playing'}
-        onPestClick={handlePestClick}
         activeSkin={progress.active_skin}
         level={level}
       />
@@ -294,13 +290,6 @@ export default function Game() {
           pestsEliminated={pestsEliminated}
           duration={gameTime}
           onRestart={restartGame}
-        />
-      )}
-      
-      {selectedPest && (
-        <TutorPanel
-          pest={selectedPest}
-          onClose={() => setSelectedPest(null)}
         />
       )}
     </div>

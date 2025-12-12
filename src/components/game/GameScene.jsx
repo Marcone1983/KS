@@ -256,10 +256,10 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       nozzle.castShadow = true;
       group.add(nozzle);
 
-      group.position.set(1.8, 0.5, 3.5);
+      group.position.set(2.2, 1.2, 4);
       group.rotation.y = -Math.PI / 6;
       group.rotation.x = -Math.PI / 12;
-      group.scale.set(1.3, 1.3, 1.3);
+      group.scale.set(2.5, 2.5, 2.5);
 
       return group;
     };
@@ -301,11 +301,6 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
               const damage = 25 + sprayRange * 5;
               onPestHit(pestId, damage);
               createHitEffect(intersects[0].point);
-
-              const pest = pests.find((p) => p.id === pestId);
-              if (pest && onPestClick) {
-                onPestClick(pest);
-              }
               break;
             }
             hitPest = hitPest.parent;
@@ -441,35 +436,48 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       scene.add(particles);
       sprayParticlesRef.current.push(particles);
 
-      const shockwaveGeometry = new THREE.RingGeometry(0.05, 0.15, 16);
+      const shockwaveGeometry = new THREE.RingGeometry(0.05, 0.25, 16);
       const shockwaveMaterial = new THREE.MeshBasicMaterial({
-        color: 0x66ff66,
+        color: 0xffff00,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.9,
         side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
       });
       const shockwave = new THREE.Mesh(shockwaveGeometry, shockwaveMaterial);
       shockwave.position.copy(position);
       shockwave.rotation.x = -Math.PI / 2;
-      shockwave.userData = { life: 0.5, isShockwave: true, scale: 1 };
+      shockwave.userData = { life: 0.6, isShockwave: true, scale: 1 };
       scene.add(shockwave);
       sprayParticlesRef.current.push(shockwave);
 
-      for (let i = 0; i < 3; i++) {
-        const glowGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+      for (let i = 0; i < 5; i++) {
+        const glowGeometry = new THREE.SphereGeometry(0.25, 8, 8);
         const glowMaterial = new THREE.MeshBasicMaterial({
-          color: 0x88ff88,
+          color: 0xffaa00,
           transparent: true,
-          opacity: 0.4,
+          opacity: 0.7,
           blending: THREE.AdditiveBlending,
         });
         const glow = new THREE.Mesh(glowGeometry, glowMaterial);
         glow.position.copy(position);
-        glow.userData = { life: 0.3 + i * 0.1, isGlow: true };
+        glow.userData = { life: 0.4 + i * 0.1, isGlow: true };
         scene.add(glow);
         sprayParticlesRef.current.push(glow);
       }
+
+      const flashGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+      const flashMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending,
+      });
+      const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+      flash.position.copy(position);
+      flash.userData = { life: 0.15, isFlash: true };
+      scene.add(flash);
+      sprayParticlesRef.current.push(flash);
     };
 
     const createCircleTexture = () => {
@@ -563,12 +571,12 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
         }
 
         if (sprayBottleRef.current) {
-          const targetX = 1.8 + mouseRef.current.x * 0.4;
-          const targetY = 0.5 + mouseRef.current.y * 0.3;
-          sprayBottleRef.current.position.x += (targetX - sprayBottleRef.current.position.x) * 0.08;
-          sprayBottleRef.current.position.y += (targetY - sprayBottleRef.current.position.y) * 0.08;
+          const targetX = 2.2 + mouseRef.current.x * 0.6;
+          const targetY = 1.2 + mouseRef.current.y * 0.5;
+          sprayBottleRef.current.position.x += (targetX - sprayBottleRef.current.position.x) * 0.12;
+          sprayBottleRef.current.position.y += (targetY - sprayBottleRef.current.position.y) * 0.12;
 
-          const idleBob = Math.sin(t * 1.2) * 0.015;
+          const idleBob = Math.sin(t * 1.2) * 0.02;
           sprayBottleRef.current.position.y += idleBob;
         }
 
@@ -576,17 +584,43 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
           const mesh = pestMeshesRef.current[id];
           const pestData = pests.find((p) => p.id === id);
           if (pestData && mesh) {
-            const target = new THREE.Vector3(0, mesh.position.y, 0);
-            const direction = new THREE.Vector3().subVectors(target, mesh.position).normalize();
-            const distance = mesh.position.distanceTo(target);
+            if (!mesh.userData.targetAngle) {
+              mesh.userData.targetAngle = Math.random() * Math.PI * 2;
+              mesh.userData.changeTime = t + Math.random() * 3 + 2;
+              mesh.userData.approachPhase = Math.random() > 0.3;
+            }
 
-            const speed = pestData.speed * 0.012;
+            if (t > mesh.userData.changeTime) {
+              mesh.userData.targetAngle = Math.random() * Math.PI * 2;
+              mesh.userData.changeTime = t + Math.random() * 3 + 2;
+              mesh.userData.approachPhase = !mesh.userData.approachPhase;
+            }
+
+            const distanceToCenter = Math.sqrt(
+              Math.pow(mesh.position.x, 2) + Math.pow(mesh.position.z, 2)
+            );
+
+            let direction;
+            if (mesh.userData.approachPhase || distanceToCenter > 10) {
+              const target = new THREE.Vector3(
+                Math.cos(mesh.userData.targetAngle) * 1.5,
+                mesh.position.y,
+                Math.sin(mesh.userData.targetAngle) * 1.5
+              );
+              direction = new THREE.Vector3().subVectors(target, mesh.position).normalize();
+            } else {
+              direction = new THREE.Vector3(
+                Math.cos(mesh.userData.targetAngle),
+                0,
+                Math.sin(mesh.userData.targetAngle)
+              );
+            }
+
+            const speed = pestData.speed * 0.015;
             mesh.position.add(direction.multiplyScalar(speed));
 
-            if (distance > 0.5) {
-              const targetRotation = Math.atan2(direction.x, direction.z);
-              mesh.rotation.y += (targetRotation - mesh.rotation.y) * 0.1;
-            }
+            const targetRotation = Math.atan2(direction.x, direction.z);
+            mesh.rotation.y += (targetRotation - mesh.rotation.y) * 0.1;
 
             const crawlSpeed = pestData.speed * 2;
             const crawl = Math.sin(t * crawlSpeed + parseInt(id.slice(-3)) * 0.5);
@@ -603,7 +637,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
               }
             });
 
-            if (distance < 2) {
+            if (distanceToCenter < 2) {
               const attackAnim = Math.sin(t * 10);
               mesh.scale.y += attackAnim * 0.05;
               mesh.rotation.x = Math.sin(t * 8) * 0.1;
@@ -641,7 +675,13 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
           if (particleSystem.userData.isGlow) {
             const scale = 1 + (1 - particleSystem.userData.life) * 1.5;
             particleSystem.scale.set(scale, scale, scale);
-            particleSystem.material.opacity = particleSystem.userData.life * 0.4;
+            particleSystem.material.opacity = particleSystem.userData.life * 0.7;
+          }
+
+          if (particleSystem.userData.isFlash) {
+            const scale = 1 + (1 - particleSystem.userData.life) * 0.5;
+            particleSystem.scale.set(scale, scale, scale);
+            particleSystem.material.opacity = particleSystem.userData.life * 2;
           }
 
           if (particleSystem.userData.isDeath && particleSystem.userData.velocity) {
