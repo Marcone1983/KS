@@ -1,11 +1,15 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
 export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPaused, onPestClick, activeSkin, level }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
+  const composerRef = useRef(null);
   const pestMeshesRef = useRef({});
   const plantRef = useRef(null);
   const sprayParticlesRef = useRef([]);
@@ -15,170 +19,176 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
   const mouseRef = useRef(new THREE.Vector2());
   const timeRef = useRef(0);
   const lastSprayTimeRef = useRef(0);
+  const dustParticlesRef = useRef(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
-    const bgColor = level <= 3 ? 0x1a3d1a : level <= 6 ? 0x1a1a3d : 0x3d1a1a;
-    scene.background = new THREE.Color(bgColor);
-    scene.fog = new THREE.Fog(bgColor, 8, 25);
+    scene.background = new THREE.Color(0x0a140a);
+    scene.fog = new THREE.FogExp2(0x0a140a, 0.08);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 2.5, 5);
-    camera.lookAt(0, 2, 0);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(-2, 1.5, 3.5);
+    camera.lookAt(0, 1.2, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    renderer.toneMappingExposure = 1.0;
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const renderPass = new RenderPass(scene, camera);
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      1.5,
+      0.4,
+      0.85
+    );
+    bloomPass.threshold = 0.2;
+    bloomPass.strength = 0.4;
+    bloomPass.radius = 0.5;
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(renderPass);
+    composer.addPass(bloomPass);
+    composerRef.current = composer;
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xfff8e8, 1.8);
-    mainLight.position.set(4, 10, 6);
-    mainLight.castShadow = true;
-    mainLight.shadow.mapSize.width = 2048;
-    mainLight.shadow.mapSize.height = 2048;
-    mainLight.shadow.camera.near = 0.5;
-    mainLight.shadow.camera.far = 50;
-    mainLight.shadow.camera.left = -10;
-    mainLight.shadow.camera.right = 10;
-    mainLight.shadow.camera.top = 10;
-    mainLight.shadow.camera.bottom = -10;
-    mainLight.shadow.bias = -0.0001;
-    scene.add(mainLight);
+    const spotLight = new THREE.SpotLight(0xffffee, 100);
+    spotLight.position.set(-5, 8, 5);
+    spotLight.angle = Math.PI / 6;
+    spotLight.penumbra = 0.5;
+    spotLight.decay = 2;
+    spotLight.distance = 50;
+    spotLight.castShadow = true;
+    spotLight.shadow.bias = -0.0001;
+    spotLight.shadow.mapSize.width = 2048;
+    spotLight.shadow.mapSize.height = 2048;
+    scene.add(spotLight);
 
-    const fillLight = new THREE.DirectionalLight(0x88ccff, 0.4);
-    fillLight.position.set(-3, 5, -3);
-    scene.add(fillLight);
-
-    const rimLight = new THREE.SpotLight(0x66ff88, 0.6);
-    rimLight.position.set(0, 8, -8);
-    rimLight.angle = Math.PI / 4;
-    rimLight.penumbra = 0.5;
-    rimLight.decay = 2;
-    rimLight.distance = 20;
+    const rimLight = new THREE.DirectionalLight(0x445566, 2);
+    rimLight.position.set(0, 2, -5);
     scene.add(rimLight);
 
     const groundGeometry = new THREE.PlaneGeometry(50, 50, 1, 1);
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1a2b1a,
+      color: 0x0a140a,
       roughness: 0.9,
       metalness: 0.0,
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
+    ground.position.y = -0.5;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    const createLeafletGeometry = () => {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.lineTo(0.05, 0.1); 
+      shape.lineTo(0.08, 0.15);
+      shape.lineTo(0.06, 0.2); 
+      shape.lineTo(0.09, 0.3);
+      shape.lineTo(0.07, 0.4); 
+      shape.lineTo(0.1, 0.5);
+      shape.lineTo(0.05, 0.6); 
+      shape.lineTo(0.08, 0.7);
+      shape.lineTo(0, 1.0);
+      shape.lineTo(-0.08, 0.7); 
+      shape.lineTo(-0.05, 0.6);
+      shape.lineTo(-0.1, 0.5);  
+      shape.lineTo(-0.07, 0.4);
+      shape.lineTo(-0.09, 0.3); 
+      shape.lineTo(-0.06, 0.2);
+      shape.lineTo(-0.08, 0.15); 
+      shape.lineTo(-0.05, 0.1);
+      shape.lineTo(0, 0);
+      return new THREE.ShapeGeometry(shape);
+    };
 
     const createRealisticCannabisPlant = () => {
       const plantGroup = new THREE.Group();
 
-      const potGeometry = new THREE.CylinderGeometry(0.6, 0.5, 0.9, 32);
-      const potMaterial = new THREE.MeshPhongMaterial({
-        color: 0x6b4423,
-        shininess: 30,
-        specular: 0x222222,
+      const stemMat = new THREE.MeshStandardMaterial({ 
+        color: 0x4a3c31, 
+        roughness: 0.8, 
+        flatShading: true 
       });
-      const pot = new THREE.Mesh(potGeometry, potMaterial);
-      pot.position.y = 0.45;
+      const leafMat = new THREE.MeshStandardMaterial({ 
+        color: 0x2d5a1e,
+        roughness: 0.6,
+        metalness: 0.1,
+        flatShading: true,
+        side: THREE.DoubleSide
+      });
+
+      const stemPoints = [];
+      for (let i = 0; i <= 10; i++) {
+        const x = Math.sin(i * 0.5) * 0.1;
+        const y = i * 0.3;
+        const z = Math.cos(i * 0.3) * 0.1;
+        stemPoints.push(new THREE.Vector3(x, y, z));
+      }
+      const stemCurve = new THREE.CatmullRomCurve3(stemPoints);
+      const stemGeo = new THREE.TubeGeometry(stemCurve, 10, 0.06, 6, false);
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.castShadow = true;
+      stem.receiveShadow = true;
+      plantGroup.add(stem);
+
+      const leafletGeo = createLeafletGeometry();
+      
+      for(let i=1; i<9; i++) {
+        const yPos = i * 0.35;
+        const scale = 1.0 - (i * 0.05);
+        
+        for(let k=0; k<2; k++) {
+          const fanGroup = new THREE.Group();
+          
+          const angles = [-35, -15, 0, 15, 35];
+          const sizes =  [0.6, 0.8, 1.0, 0.8, 0.6];
+          
+          angles.forEach((angle, idx) => {
+            const leaflet = new THREE.Mesh(leafletGeo, leafMat);
+            leaflet.rotation.z = angle * (Math.PI / 180);
+            leaflet.scale.set(sizes[idx], sizes[idx], sizes[idx]);
+            leaflet.position.y = 0.1 * sizes[idx];
+            leaflet.castShadow = true;
+            leaflet.receiveShadow = true;
+            fanGroup.add(leaflet);
+          });
+
+          fanGroup.position.set(
+            Math.sin(i * 0.5) * 0.1, 
+            yPos, 
+            Math.cos(i * 0.3) * 0.1
+          );
+          
+          const rotY = (k * Math.PI) + (i * Math.PI / 2);
+          fanGroup.rotation.y = rotY;
+          fanGroup.rotation.x = Math.PI / 3;
+
+          fanGroup.scale.set(scale, scale, scale);
+          plantGroup.add(fanGroup);
+        }
+      }
+
+      const potGeo = new THREE.CylinderGeometry(0.5, 0.4, 0.6, 7);
+      const potMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, flatShading: true });
+      const pot = new THREE.Mesh(potGeo, potMat);
+      pot.position.y = -0.3;
       pot.castShadow = true;
       pot.receiveShadow = true;
       plantGroup.add(pot);
-
-      const soilGeometry = new THREE.CylinderGeometry(0.58, 0.58, 0.1, 32);
-      const soilMaterial = new THREE.MeshPhongMaterial({
-        color: 0x3d2817,
-        shininess: 5,
-      });
-      const soil = new THREE.Mesh(soilGeometry, soilMaterial);
-      soil.position.y = 0.92;
-      plantGroup.add(soil);
-
-      const leafMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x32CD32,
-        shininess: 60,
-        specular: 0x88FF88,
-      });
-      const stemMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x228B22,
-        shininess: 40,
-        specular: 0x66DD66,
-      });
-
-      const stemGeo = new THREE.CylinderGeometry(0.09, 0.13, 3.2, 16);
-      const stem = new THREE.Mesh(stemGeo, stemMaterial);
-      stem.position.y = 1.6;
-      stem.castShadow = true;
-      plantGroup.add(stem);
-
-      const createLeaf = () => {
-        const leafShape = new THREE.Shape();
-        leafShape.moveTo(0, 0);
-        leafShape.lineTo(0.15, 0.15);
-        leafShape.lineTo(0.12, 0.35);
-        leafShape.lineTo(0.2, 0.55);
-        leafShape.lineTo(0, 1.0);
-        leafShape.lineTo(-0.2, 0.55);
-        leafShape.lineTo(-0.12, 0.35);
-        leafShape.lineTo(-0.15, 0.15);
-        leafShape.lineTo(0, 0);
-
-        const extrudeSettings = {
-          steps: 2,
-          depth: 0.04,
-          bevelEnabled: true,
-          bevelThickness: 0.01,
-          bevelSize: 0.01,
-          bevelSegments: 3,
-        };
-        const leafGeo = new THREE.ExtrudeGeometry(leafShape, extrudeSettings);
-        const leaf = new THREE.Mesh(leafGeo, leafMaterial);
-        leaf.castShadow = true;
-        leaf.receiveShadow = true;
-        return leaf;
-      };
-
-      for (let i = 0; i < 8; i++) {
-        const leaf = createLeaf();
-        leaf.position.y = 0.6 + i * 0.45;
-        leaf.rotation.x = Math.PI / 3.5;
-        leaf.rotation.y = i * (Math.PI * 2 / 8);
-        const scale = 1.3 - i * 0.08;
-        leaf.scale.set(scale, scale, scale);
-        plantGroup.add(leaf);
-      }
-
-      const budMaterial = new THREE.MeshPhongMaterial({
-        color: 0x9ACD32,
-        shininess: 80,
-        specular: 0xAAFF88,
-      });
-
-      const budGroup = new THREE.Group();
-      for (let j = 0; j < 30; j++) {
-        const budGeo = new THREE.SphereGeometry(0.09, 12, 12);
-        const bud = new THREE.Mesh(budGeo, budMaterial);
-        bud.position.set(
-          (Math.random() - 0.5) * 0.5,
-          (Math.random() - 0.5) * 0.6,
-          (Math.random() - 0.5) * 0.5
-        );
-        bud.castShadow = true;
-        budGroup.add(bud);
-      }
-      budGroup.position.y = 3.2;
-      plantGroup.add(budGroup);
 
       return plantGroup;
     };
@@ -186,6 +196,26 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     const plant = createRealisticCannabisPlant();
     scene.add(plant);
     plantRef.current = plant;
+
+    const dustGeometry = new THREE.BufferGeometry();
+    const dustVertices = [];
+    for (let i = 0; i < 500; i++) {
+      dustVertices.push(
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10
+      );
+    }
+    dustGeometry.setAttribute('position', new THREE.Float32BufferAttribute(dustVertices, 3));
+    const dustMaterial = new THREE.PointsMaterial({ 
+      color: 0xffffff, 
+      size: 0.05, 
+      transparent: true, 
+      opacity: 0.4 
+    });
+    const dustParticles = new THREE.Points(dustGeometry, dustMaterial);
+    scene.add(dustParticles);
+    dustParticlesRef.current = dustParticles;
 
     const createSprayBottleWithHand = () => {
       const group = new THREE.Group();
@@ -573,6 +603,9 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       cameraRef.current.aspect = window.innerWidth / window.innerHeight;
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(window.innerWidth, window.innerHeight);
+      if (composerRef.current) {
+        composerRef.current.setSize(window.innerWidth, window.innerHeight);
+      }
     };
     window.addEventListener('resize', handleResize);
 
@@ -601,19 +634,18 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
           
           const lookAtTarget = new THREE.Vector3(
             Math.sin(t * 0.15) * 0.1,
-            2.5 + Math.sin(t * 0.6) * 0.05,
+            1.2 + Math.sin(t * 0.6) * 0.05,
             Math.cos(t * 0.2) * 0.1
           );
           cameraRef.current.lookAt(lookAtTarget);
         }
 
         if (plantRef.current) {
-          plantRef.current.children.forEach((child, index) => {
-            if (child.type === 'Group' && child.children.length > 0) {
-              const sway = Math.sin(t * 1.5 + index * 0.8) * 0.015;
-              child.rotation.z = sway;
-            }
-          });
+          plantRef.current.rotation.y = Math.sin(t * 0.2) * 0.05;
+        }
+
+        if (dustParticlesRef.current) {
+          dustParticlesRef.current.rotation.y += 0.001;
         }
 
         if (sprayBottleRef.current) {
@@ -761,7 +793,11 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
         }
       }
 
-      renderer.render(scene, camera);
+      if (composerRef.current) {
+        composerRef.current.render();
+      } else {
+        renderer.render(scene, camera);
+      }
     };
     animate();
 
@@ -868,102 +904,42 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
 
   const createRealisticPest = (pest) => {
     const caterpillarGroup = new THREE.Group();
-    const baseColor = new THREE.Color(pest.color || '#FFA500');
-    const darkColor = baseColor.clone().multiplyScalar(0.5);
+    const baseColor = new THREE.Color(pest.color || '#9ACD32');
+    const darkColor = new THREE.Color(0x222222);
 
     const sizeMap = { tiny: 0.3, small: 0.4, medium: 0.55, large: 0.75 };
     const baseSize = sizeMap[pest.size] || 0.45;
 
-    const bodyMaterial = new THREE.MeshPhongMaterial({ 
+    const bodyMaterial = new THREE.MeshStandardMaterial({ 
       color: baseColor,
-      shininess: 70,
-      specular: 0xFFFFFF,
+      flatShading: true,
+      roughness: 0.4,
     });
-    const stripeMaterial = new THREE.MeshPhongMaterial({ 
+    const stripeMaterial = new THREE.MeshStandardMaterial({ 
       color: darkColor,
-      shininess: 60,
-      specular: 0xCCCCCC,
+      flatShading: true,
     });
 
-    const segmentCount = 7;
+    const segmentCount = 4;
     for (let i = 0; i < segmentCount; i++) {
-      const segmentGeo = new THREE.SphereGeometry(baseSize * 0.32, 16, 16);
-      const segment = new THREE.Mesh(segmentGeo, bodyMaterial);
-      segment.position.z = i * baseSize * 0.5;
+      const segGeo = new THREE.IcosahedronGeometry(baseSize * 0.2, 0);
+      const segment = new THREE.Mesh(segGeo, bodyMaterial);
+      segment.position.z = i * baseSize * 0.3;
       segment.castShadow = true;
-      segment.receiveShadow = true;
       caterpillarGroup.add(segment);
 
       if (i < segmentCount - 1) {
-        const stripeGeo = new THREE.TorusGeometry(baseSize * 0.34, baseSize * 0.06, 8, 16);
-        const stripe = new THREE.Mesh(stripeGeo, stripeMaterial);
-        stripe.position.z = i * baseSize * 0.5 + baseSize * 0.25;
-        stripe.castShadow = true;
+        const stripe = new THREE.Mesh(
+          new THREE.TorusGeometry(baseSize * 0.18, baseSize * 0.025, 3, 6), 
+          stripeMaterial
+        );
+        stripe.position.z = i * baseSize * 0.3 + baseSize * 0.15;
         caterpillarGroup.add(stripe);
       }
     }
 
-    const headGeo = new THREE.SphereGeometry(baseSize * 0.38, 16, 16);
-    const head = new THREE.Mesh(headGeo, bodyMaterial);
-    head.position.z = segmentCount * baseSize * 0.5;
-    head.castShadow = true;
-    head.receiveShadow = true;
-    caterpillarGroup.add(head);
-
-    const eyeGeo = new THREE.SphereGeometry(baseSize * 0.09, 12, 12);
-    const eyeMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x000000,
-      shininess: 100,
-      specular: 0xFFFFFF,
-    });
-    const leftEye = new THREE.Mesh(eyeGeo, eyeMaterial);
-    leftEye.position.set(baseSize * 0.18, baseSize * 0.12, segmentCount * baseSize * 0.5 + baseSize * 0.22);
-    leftEye.castShadow = true;
-    caterpillarGroup.add(leftEye);
-
-    const rightEye = new THREE.Mesh(eyeGeo, eyeMaterial);
-    rightEye.position.set(-baseSize * 0.18, baseSize * 0.12, segmentCount * baseSize * 0.5 + baseSize * 0.22);
-    rightEye.castShadow = true;
-    caterpillarGroup.add(rightEye);
-
-    const antennaGeo = new THREE.CylinderGeometry(baseSize * 0.03, baseSize * 0.03, baseSize * 0.25, 8);
-    const antennaMaterial = new THREE.MeshPhongMaterial({
-      color: darkColor,
-      shininess: 50,
-    });
-    const antenna1 = new THREE.Mesh(antennaGeo, antennaMaterial);
-    antenna1.position.set(baseSize * 0.16, baseSize * 0.24, segmentCount * baseSize * 0.5 + baseSize * 0.15);
-    antenna1.rotation.x = Math.PI / 3;
-    antenna1.rotation.z = -Math.PI / 5;
-    antenna1.castShadow = true;
-    caterpillarGroup.add(antenna1);
-
-    const antenna2 = new THREE.Mesh(antennaGeo, antennaMaterial);
-    antenna2.position.set(-baseSize * 0.16, baseSize * 0.24, segmentCount * baseSize * 0.5 + baseSize * 0.15);
-    antenna2.rotation.x = Math.PI / 3;
-    antenna2.rotation.z = Math.PI / 5;
-    antenna2.castShadow = true;
-    caterpillarGroup.add(antenna2);
-
-    const legPairs = 5;
-    for (let i = 0; i < legPairs; i++) {
-      for (let side = -1; side <= 1; side += 2) {
-        const legGeo = new THREE.CylinderGeometry(baseSize * 0.045, baseSize * 0.035, baseSize * 0.45, 8);
-        const leg = new THREE.Mesh(legGeo, antennaMaterial);
-        leg.position.set(
-          side * baseSize * 0.28,
-          -baseSize * 0.22,
-          i * baseSize * 0.55 + baseSize * 0.35
-        );
-        leg.rotation.z = side * (Math.PI / 3);
-        leg.rotation.x = Math.PI / 8;
-        leg.castShadow = true;
-        caterpillarGroup.add(leg);
-      }
-    }
-
     caterpillarGroup.rotation.x = Math.PI / 2;
-    caterpillarGroup.scale.set(1.6, 1.6, 1.6);
+    caterpillarGroup.scale.set(1.8, 1.8, 1.8);
 
     return caterpillarGroup;
   };
