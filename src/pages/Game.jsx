@@ -120,6 +120,39 @@ export default function Game() {
   }, [gameState, isPaused, progress]);
 
   useEffect(() => {
+    if (gameState === 'playing' && !isPaused && progress) {
+      const plantDecayInterval = setInterval(() => {
+        const isDay = dayNightHour >= 6 && dayNightHour < 18;
+        const waterDecay = 0.1;
+        const nutritionDecay = 0.05;
+        
+        const updates = {
+          plant_stats: {
+            ...progress.plant_stats,
+            water_level: Math.max(0, progress.plant_stats.water_level - waterDecay),
+            nutrition_level: Math.max(0, progress.plant_stats.nutrition_level - nutritionDecay)
+          }
+        };
+
+        if (isDay && progress.plant_stats.light_exposure > 60 && progress.plant_stats.water_level > 30) {
+          const growthChance = 0.02;
+          if (Math.random() < growthChance) {
+            updates.plant_stats.growth_level = Math.min(10, progress.plant_stats.growth_level + 0.1);
+          }
+        }
+
+        if (progress.plant_stats.water_level < 20 || progress.plant_stats.nutrition_level < 20) {
+          setPlantHealth(prev => Math.max(0, prev - 0.2));
+        }
+
+        updateProgressMutation.mutate({ id: progress.id, data: updates });
+      }, 3000);
+
+      return () => clearInterval(plantDecayInterval);
+    }
+  }, [gameState, isPaused, progress, dayNightHour]);
+
+  useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
       const interval = setInterval(() => {
         setGameTime(Math.floor((Date.now() - gameStartTime.current) / 1000));
@@ -413,8 +446,12 @@ export default function Game() {
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress) {
-      const resistanceBonus = progress.plant_stats?.resistance_bonus || 0;
-      const damageReduction = 1 - (resistanceBonus / 100);
+      let resistanceBonus = progress.plant_stats?.resistance_bonus || 0;
+      const activeBuffs = (progress.plant_stats?.temporary_buffs || []).filter(buff => buff.expiresAt > Date.now());
+      const tempResistance = activeBuffs.reduce((sum, buff) => sum + (buff.type === 'resistance' ? buff.value : 0), 0);
+      resistanceBonus += tempResistance;
+      
+      const damageReduction = 1 - (Math.min(resistanceBonus, 75) / 100);
       
       const damageInterval = setInterval(() => {
         let totalDamage = 0;
@@ -698,6 +735,8 @@ export default function Game() {
         sprayAmmo={sprayAmmo}
         activeSkin={progress.active_skin}
         onPause={() => setIsPaused(true)}
+        dayNightHour={dayNightHour}
+        plantStats={progress?.plant_stats}
       />
       
       {isPaused && gameState === 'playing' && (

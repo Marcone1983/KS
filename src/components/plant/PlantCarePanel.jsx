@@ -12,7 +12,8 @@ const NUTRIENTS = [
     cost: 50, 
     nutrition: 30,
     icon: Sprout,
-    description: 'Aumenta nutrizione +30'
+    description: 'Aumenta nutrizione +30',
+    type: 'consumable'
   },
   { 
     id: 'advanced_fertilizer', 
@@ -21,7 +22,9 @@ const NUTRIENTS = [
     nutrition: 50,
     resistance: 5,
     icon: Sparkles,
-    description: 'Nutrizione +50, Resistenza +5%'
+    description: 'Nutrizione +50, Resistenza +5%',
+    type: 'temporary',
+    duration: 180
   },
   { 
     id: 'super_fertilizer', 
@@ -31,7 +34,26 @@ const NUTRIENTS = [
     resistance: 15,
     growth: 1,
     icon: Sparkles,
-    description: 'Nutrizione FULL, Resistenza +15%, Crescita +1'
+    description: 'Nutrizione FULL, Resistenza +15%, Crescita +1',
+    type: 'permanent'
+  },
+  {
+    id: 'growth_booster',
+    name: 'Booster Crescita',
+    cost: 150,
+    growth: 0.5,
+    icon: Sparkles,
+    description: 'Accelera crescita +0.5 livelli',
+    type: 'consumable'
+  },
+  {
+    id: 'pest_repellent',
+    name: 'Repellente Naturale',
+    cost: 180,
+    resistance: 10,
+    icon: Sparkles,
+    description: 'Resistenza permanente +10%',
+    type: 'permanent'
   }
 ];
 
@@ -103,25 +125,42 @@ export default function PlantCarePanel({ progress, onUpdate }) {
     }
 
     setProcessing(true);
-    const newNutrition = Math.min(100, progress.plant_stats.nutrition_level + nutrient.nutrition);
-    const newResistance = progress.plant_stats.resistance_bonus + (nutrient.resistance || 0);
+    const newNutrition = Math.min(100, progress.plant_stats.nutrition_level + (nutrient.nutrition || 0));
     const newGrowth = progress.plant_stats.growth_level + (nutrient.growth || 0);
 
-    await onUpdate({
+    const updates = {
       ...progress,
       leaf_currency: progress.leaf_currency - nutrient.cost,
       plant_stats: {
         ...progress.plant_stats,
         nutrition_level: newNutrition,
-        resistance_bonus: newResistance,
         growth_level: newGrowth
       }
-    });
-    toast.success(`${nutrient.name} applicato!`);
+    };
+
+    if (nutrient.type === 'permanent') {
+      updates.plant_stats.resistance_bonus = progress.plant_stats.resistance_bonus + (nutrient.resistance || 0);
+      toast.success(`${nutrient.name} applicato! Effetto permanente.`);
+    } else if (nutrient.type === 'temporary') {
+      const tempBuffs = progress.plant_stats.temporary_buffs || [];
+      tempBuffs.push({
+        type: 'resistance',
+        value: nutrient.resistance,
+        expiresAt: Date.now() + (nutrient.duration * 1000)
+      });
+      updates.plant_stats.temporary_buffs = tempBuffs;
+      toast.success(`${nutrient.name} applicato! Dura ${nutrient.duration}s.`);
+    } else {
+      toast.success(`${nutrient.name} applicato!`);
+    }
+
+    await onUpdate(updates);
     setProcessing(false);
   };
 
   const plantStats = progress.plant_stats;
+  const activeBuffs = (plantStats.temporary_buffs || []).filter(buff => buff.expiresAt > Date.now());
+  const tempResistance = activeBuffs.reduce((sum, buff) => sum + (buff.type === 'resistance' ? buff.value : 0), 0);
 
   return (
     <div className="space-y-6">
@@ -182,9 +221,28 @@ export default function PlantCarePanel({ progress, onUpdate }) {
           <div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-300">Resistenza Parassiti</span>
-              <span className="text-white font-bold">+{plantStats.resistance_bonus}%</span>
+              <span className="text-white font-bold">
+                +{plantStats.resistance_bonus}%
+                {tempResistance > 0 && (
+                  <span className="text-cyan-400 ml-2">(+{tempResistance}% temp)</span>
+                )}
+              </span>
             </div>
           </div>
+
+          {activeBuffs.length > 0 && (
+            <div className="mt-3 p-3 bg-cyan-900/30 rounded border border-cyan-500/30">
+              <div className="text-xs text-cyan-400 font-semibold mb-2">Buff Attivi:</div>
+              {activeBuffs.map((buff, idx) => {
+                const remainingTime = Math.ceil((buff.expiresAt - Date.now()) / 1000);
+                return (
+                  <div key={idx} className="text-xs text-gray-300">
+                    • Resistenza +{buff.value}% ({remainingTime}s rimasti)
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="text-sm text-gray-400">
             Foglie potate: {plantStats.pruned_leaves}
