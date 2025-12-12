@@ -88,6 +88,20 @@ export default function Game() {
     }
   }, [plantHealth, gameState]);
 
+  const getPestBehaviorType = (pestType) => {
+    const behaviorMap = {
+      'aphid': 'swarm',
+      'thrip': 'fast',
+      'spider_mite': 'zigzag',
+      'whitefly': 'flying',
+      'caterpillar': 'resistant',
+      'grasshopper': 'jumper',
+      'leafhopper': 'fast',
+      'fungus_gnat': 'flying'
+    };
+    return behaviorMap[pestType] || 'normal';
+  };
+
   const spawnPests = () => {
     if (!allPests || allPests.length === 0) return;
     
@@ -105,25 +119,41 @@ export default function Game() {
     const newPests = [];
     for (let i = 0; i < pestCount; i++) {
       const pestType = levelPests[Math.floor(Math.random() * levelPests.length)];
+      const behavior = getPestBehaviorType(pestType.type);
       
       const angle = (i / pestCount) * Math.PI * 2;
       const distance = 8 + Math.random() * 4;
+      
+      const behaviorModifiers = {
+        flying: { speedMult: 0.7, healthMult: 0.8, yOffset: 2 },
+        fast: { speedMult: 1.5, healthMult: 0.7, yOffset: 0 },
+        resistant: { speedMult: 0.6, healthMult: 1.8, yOffset: 0 },
+        zigzag: { speedMult: 1.0, healthMult: 1.0, yOffset: 0 },
+        swarm: { speedMult: 0.9, healthMult: 0.9, yOffset: 0 },
+        jumper: { speedMult: 1.2, healthMult: 1.1, yOffset: 0 },
+        normal: { speedMult: 1.0, healthMult: 1.0, yOffset: 0 }
+      };
+      
+      const mods = behaviorModifiers[behavior] || behaviorModifiers.normal;
       
       newPests.push({
         id: `pest_${Date.now()}_${i}`,
         type: pestType.type,
         name: pestType.name,
-        health: Math.floor(pestType.health * healthMultiplier),
-        maxHealth: Math.floor(pestType.health * healthMultiplier),
-        speed: pestType.speed * speedMultiplier,
+        health: Math.floor(pestType.health * healthMultiplier * mods.healthMult),
+        maxHealth: Math.floor(pestType.health * healthMultiplier * mods.healthMult),
+        speed: pestType.speed * speedMultiplier * mods.speedMult,
         damage: pestType.damage_per_second * damageMultiplier,
         position: {
           x: Math.cos(angle) * distance,
-          y: 1 + Math.random() * 1.5,
+          y: 1 + Math.random() * 1.5 + mods.yOffset,
           z: Math.sin(angle) * distance
         },
         color: pestType.color || '#ff0000',
         size: pestType.size_category,
+        behavior: behavior,
+        alarmLevel: 0,
+        movementPattern: Math.random(),
         pestData: pestType
       });
     }
@@ -142,22 +172,87 @@ export default function Game() {
 
   const handlePestHit = (pestId, damage) => {
     setActivePests(prev => {
+      const hitPest = prev.find(p => p.id === pestId);
+      if (!hitPest) return prev;
+
+      const hitPosition = hitPest.position;
+      const alarmRadius = 4;
+
       const updated = prev.map(pest => {
         if (pest.id === pestId) {
-          const newHealth = pest.health - damage;
+          const resistanceMult = pest.behavior === 'resistant' ? 0.6 : 1.0;
+          const alarmMult = Math.max(1.0, 1.0 - (pest.alarmLevel * 0.1));
+          const finalDamage = damage * resistanceMult * alarmMult;
+          const newHealth = pest.health - finalDamage;
+          
           if (newHealth <= 0) {
             const pestType = pest.type;
             setPestsEliminated(prev => ({
               ...prev,
               [pestType]: (prev[pestType] || 0) + 1
             }));
-            setScore(s => s + 10);
+            const behaviorBonus = pest.behavior === 'resistant' ? 5 : 
+                                 pest.behavior === 'flying' ? 8 : 
+                                 pest.behavior === 'fast' ? 6 : 0;
+            setScore(s => s + 10 + behaviorBonus);
             return null;
           }
-          return { ...pest, health: newHealth };
+          return { ...pest, health: newHealth, alarmLevel: Math.min(5, pest.alarmLevel + 1) };
         }
+
+        const distance = Math.sqrt(
+          Math.pow(pest.position.x - hitPosition.x, 2) +
+          Math.pow(pest.position.y - hitPosition.y, 2) +
+          Math.pow(pest.position.z - hitPosition.z, 2)
+        );
+
+        if (distance < alarmRadius) {
+          const newAlarmLevel = Math.min(5, pest.alarmLevel + 1);
+          const speedBoost = 1 + (newAlarmLevel * 0.1);
+          return { 
+            ...pest, 
+            alarmLevel: newAlarmLevel,
+            speed: pest.speed * speedBoost,
+            alerted: true,
+            alertTarget: hitPosition
+          };
+        }
+
         return pest;
       }).filter(Boolean);
+
+      if (Math.random() < 0.3 && updated.length < 20) {
+        const angle = Math.random() * Math.PI * 2;
+        const spawnDistance = alarmRadius + 2;
+        const newPestType = allPests.find(p => p.type === hitPest.type);
+        
+        if (newPestType) {
+          const reinforcement = {
+            id: `pest_alarm_${Date.now()}_${Math.random()}`,
+            type: hitPest.type,
+            name: hitPest.name,
+            health: hitPest.maxHealth * 0.7,
+            maxHealth: hitPest.maxHealth * 0.7,
+            speed: hitPest.speed * 1.2,
+            damage: hitPest.damage,
+            position: {
+              x: hitPosition.x + Math.cos(angle) * spawnDistance,
+              y: hitPosition.y,
+              z: hitPosition.z + Math.sin(angle) * spawnDistance
+            },
+            color: hitPest.color,
+            size: hitPest.size,
+            behavior: hitPest.behavior,
+            alarmLevel: 2,
+            movementPattern: Math.random(),
+            alerted: true,
+            alertTarget: hitPosition,
+            pestData: newPestType
+          };
+          updated.push(reinforcement);
+        }
+      }
+
       return updated;
     });
   };

@@ -666,9 +666,13 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
               mesh.userData.targetAngle = Math.random() * Math.PI * 2;
               mesh.userData.changeTime = t + Math.random() * 3 + 2;
               mesh.userData.approachPhase = Math.random() > 0.3;
+              mesh.userData.noiseOffset = Math.random() * 100;
+              mesh.userData.spiralPhase = 0;
+              mesh.userData.zigzagPhase = 0;
+              mesh.userData.jumpTimer = 0;
             }
 
-            if (t > mesh.userData.changeTime) {
+            if (t > mesh.userData.changeTime && !pestData.alerted) {
               mesh.userData.targetAngle = Math.random() * Math.PI * 2;
               mesh.userData.changeTime = t + Math.random() * 3 + 2;
               mesh.userData.approachPhase = !mesh.userData.approachPhase;
@@ -678,24 +682,123 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
               Math.pow(mesh.position.x, 2) + Math.pow(mesh.position.z, 2)
             );
 
-            let direction;
-            if (mesh.userData.approachPhase || distanceToCenter > 10) {
-              const target = new THREE.Vector3(
-                Math.cos(mesh.userData.targetAngle) * 1.5,
-                mesh.position.y,
-                Math.sin(mesh.userData.targetAngle) * 1.5
-              );
-              direction = new THREE.Vector3().subVectors(target, mesh.position).normalize();
-            } else {
-              direction = new THREE.Vector3(
-                Math.cos(mesh.userData.targetAngle),
+            let direction = new THREE.Vector3(0, 0, 0);
+            const behavior = pestData.behavior || 'normal';
+            const baseSpeed = pestData.speed * 0.015;
+
+            if (pestData.alerted && pestData.alertTarget) {
+              const alertDir = new THREE.Vector3(
+                0 - mesh.position.x,
                 0,
-                Math.sin(mesh.userData.targetAngle)
-              );
+                0 - mesh.position.z
+              ).normalize();
+              direction.copy(alertDir);
+            } else {
+              switch(behavior) {
+                case 'flying':
+                  mesh.userData.spiralPhase += 0.03;
+                  const spiralRadius = 2 + Math.sin(mesh.userData.spiralPhase * 0.5) * 1;
+                  const targetX = Math.cos(mesh.userData.spiralPhase) * spiralRadius;
+                  const targetZ = Math.sin(mesh.userData.spiralPhase) * spiralRadius;
+                  direction.set(targetX - mesh.position.x, 0, targetZ - mesh.position.z).normalize();
+                  mesh.position.y = 2 + Math.sin(t * 2 + mesh.userData.noiseOffset) * 0.5;
+                  break;
+
+                case 'zigzag':
+                  mesh.userData.zigzagPhase += 0.05;
+                  const zigzagOffset = Math.sin(mesh.userData.zigzagPhase * 3) * 2;
+                  const toCenter = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
+                  const perpendicular = new THREE.Vector3(-toCenter.z, 0, toCenter.x);
+                  direction.copy(toCenter).add(perpendicular.multiplyScalar(zigzagOffset)).normalize();
+                  break;
+
+                case 'fast':
+                  const directToPlant = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
+                  const erraticX = Math.sin(t * 5 + mesh.userData.noiseOffset) * 0.3;
+                  const erraticZ = Math.cos(t * 4 + mesh.userData.noiseOffset) * 0.3;
+                  direction.copy(directToPlant).add(new THREE.Vector3(erraticX, 0, erraticZ)).normalize();
+                  break;
+
+                case 'jumper':
+                  mesh.userData.jumpTimer += 0.016;
+                  if (mesh.userData.jumpTimer > 1.5) {
+                    mesh.userData.jumpTimer = 0;
+                    mesh.userData.isJumping = true;
+                    mesh.userData.jumpStartY = mesh.position.y;
+                  }
+                  if (mesh.userData.isJumping) {
+                    const jumpProgress = mesh.userData.jumpTimer / 0.5;
+                    if (jumpProgress < 1) {
+                      mesh.position.y = mesh.userData.jumpStartY + Math.sin(jumpProgress * Math.PI) * 1.5;
+                    } else {
+                      mesh.userData.isJumping = false;
+                      mesh.position.y = mesh.userData.jumpStartY;
+                    }
+                  }
+                  const jumpDir = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
+                  direction.copy(jumpDir);
+                  break;
+
+                case 'swarm':
+                  const nearbyPests = Object.values(pestMeshesRef.current).filter(other => {
+                    if (other === mesh) return false;
+                    const dist = mesh.position.distanceTo(other.position);
+                    return dist < 2;
+                  });
+                  
+                  let swarmDir = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
+                  if (nearbyPests.length > 0) {
+                    const cohesion = new THREE.Vector3();
+                    nearbyPests.forEach(other => {
+                      cohesion.add(other.position);
+                    });
+                    cohesion.divideScalar(nearbyPests.length);
+                    const toCohesion = new THREE.Vector3().subVectors(cohesion, mesh.position).normalize();
+                    swarmDir.lerp(toCohesion, 0.3);
+                  }
+                  direction.copy(swarmDir);
+                  break;
+
+                case 'resistant':
+                  const noiseX = Math.sin(t * 0.5 + mesh.userData.noiseOffset) * 0.5;
+                  const noiseZ = Math.cos(t * 0.7 + mesh.userData.noiseOffset) * 0.5;
+                  if (mesh.userData.approachPhase || distanceToCenter > 10) {
+                    const target = new THREE.Vector3(
+                      Math.cos(mesh.userData.targetAngle) * 1.5 + noiseX,
+                      mesh.position.y,
+                      Math.sin(mesh.userData.targetAngle) * 1.5 + noiseZ
+                    );
+                    direction = new THREE.Vector3().subVectors(target, mesh.position).normalize();
+                  } else {
+                    direction = new THREE.Vector3(
+                      Math.cos(mesh.userData.targetAngle) + noiseX,
+                      0,
+                      Math.sin(mesh.userData.targetAngle) + noiseZ
+                    ).normalize();
+                  }
+                  break;
+
+                default:
+                  if (mesh.userData.approachPhase || distanceToCenter > 10) {
+                    const target = new THREE.Vector3(
+                      Math.cos(mesh.userData.targetAngle) * 1.5,
+                      mesh.position.y,
+                      Math.sin(mesh.userData.targetAngle) * 1.5
+                    );
+                    direction = new THREE.Vector3().subVectors(target, mesh.position).normalize();
+                  } else {
+                    direction = new THREE.Vector3(
+                      Math.cos(mesh.userData.targetAngle),
+                      0,
+                      Math.sin(mesh.userData.targetAngle)
+                    );
+                  }
+              }
             }
 
-            const speed = pestData.speed * 0.015;
-            mesh.position.add(direction.multiplyScalar(speed));
+            const alarmSpeedMult = 1 + (pestData.alarmLevel || 0) * 0.15;
+            const finalSpeed = baseSpeed * alarmSpeedMult;
+            mesh.position.add(direction.multiplyScalar(finalSpeed));
 
             const targetRotation = Math.atan2(direction.x, direction.z);
             mesh.rotation.y += (targetRotation - mesh.rotation.y) * 0.1;
@@ -704,7 +807,12 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
             const crawl = Math.sin(t * crawlSpeed + parseInt(id.slice(-3)) * 0.5);
             const wiggle = Math.sin(t * crawlSpeed * 1.5 + parseInt(id.slice(-3)) * 0.3) * 0.1;
             
-            mesh.scale.set(1 + crawl * 0.12, 1 - crawl * 0.1, 1 + crawl * 0.06);
+            const alarmPulse = 1 + (pestData.alarmLevel || 0) * 0.03;
+            mesh.scale.set(
+              (1 + crawl * 0.12) * alarmPulse, 
+              (1 - crawl * 0.1) * alarmPulse, 
+              (1 + crawl * 0.06) * alarmPulse
+            );
             mesh.rotation.z = wiggle;
 
             mesh.children.forEach((child, index) => {
@@ -719,6 +827,27 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
               const attackAnim = Math.sin(t * 10);
               mesh.scale.y += attackAnim * 0.05;
               mesh.rotation.x = Math.sin(t * 8) * 0.1;
+            }
+
+            if (pestData.alarmLevel > 0) {
+              const alarmGlowIntensity = pestData.alarmLevel / 5;
+              if (!mesh.userData.alarmGlow) {
+                const glowGeo = new THREE.SphereGeometry(0.3, 8, 8);
+                const glowMat = new THREE.MeshBasicMaterial({
+                  color: 0xff0000,
+                  transparent: true,
+                  opacity: 0.3,
+                  blending: THREE.AdditiveBlending
+                });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                glow.position.set(0, 0, 0);
+                mesh.add(glow);
+                mesh.userData.alarmGlow = glow;
+              }
+              if (mesh.userData.alarmGlow) {
+                mesh.userData.alarmGlow.material.opacity = 0.2 + alarmGlowIntensity * 0.3;
+                mesh.userData.alarmGlow.scale.setScalar(1 + Math.sin(t * 5) * 0.2);
+              }
             }
           }
         });
@@ -904,7 +1033,16 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
 
   const createRealisticPest = (pest) => {
     const caterpillarGroup = new THREE.Group();
-    const baseColor = new THREE.Color(pest.color || '#9ACD32');
+    let baseColor = new THREE.Color(pest.color || '#9ACD32');
+
+    if (pest.behavior === 'resistant') {
+      baseColor = new THREE.Color(0x8B4513);
+    } else if (pest.behavior === 'flying') {
+      baseColor = new THREE.Color(0xFFFFFF);
+    } else if (pest.behavior === 'fast') {
+      baseColor = new THREE.Color(0xFF4500);
+    }
+
     const darkColor = new THREE.Color(0x222222);
 
     const sizeMap = { tiny: 0.3, small: 0.4, medium: 0.55, large: 0.75 };
@@ -914,6 +1052,8 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
       color: baseColor,
       flatShading: true,
       roughness: 0.4,
+      emissive: pest.behavior === 'flying' ? new THREE.Color(0x4444FF) : new THREE.Color(0x000000),
+      emissiveIntensity: pest.behavior === 'flying' ? 0.3 : 0,
     });
     const stripeMaterial = new THREE.MeshStandardMaterial({ 
       color: darkColor,
