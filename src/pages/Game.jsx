@@ -34,8 +34,8 @@ export default function Game() {
           active_skin: 'default',
           upgrades: {
             spray_speed: 1,
-            spray_range: 1,
-            refill_speed: 1
+            spray_radius: 1,
+            spray_potency: 1
           },
           pests_encountered: [],
           leaf_currency: 0
@@ -172,13 +172,12 @@ export default function Game() {
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
-      const refillSpeed = progress?.upgrades?.refill_speed || 1;
       const refillInterval = setInterval(() => {
-        setSprayAmmo(prev => Math.min(100, prev + refillSpeed));
+        setSprayAmmo(prev => Math.min(100, prev + 1));
       }, 200);
       return () => clearInterval(refillInterval);
     }
-  }, [gameState, isPaused, progress]);
+  }, [gameState, isPaused]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && activePests.length > 0) {
@@ -261,7 +260,9 @@ export default function Game() {
         pests={activePests}
         onPestHit={handlePestHit}
         onSpray={handleSpray}
-        sprayRange={progress.upgrades.spray_range}
+        spraySpeed={progress.upgrades.spray_speed}
+        sprayRadius={progress.upgrades.spray_radius}
+        sprayPotency={progress.upgrades.spray_potency}
         isPaused={isPaused || gameState !== 'playing'}
         activeSkin={progress.active_skin}
         level={level}

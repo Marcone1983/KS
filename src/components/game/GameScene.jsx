@@ -14,6 +14,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const timeRef = useRef(0);
+  const lastSprayTimeRef = useRef(0);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -287,6 +288,14 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     const handleClick = (event) => {
       if (isPaused) return;
 
+      const currentTime = Date.now();
+      const sprayDelay = Math.max(50, 500 - (spraySpeed - 1) * 45);
+      
+      if (currentTime - lastSprayTimeRef.current < sprayDelay) {
+        return;
+      }
+      lastSprayTimeRef.current = currentTime;
+
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
 
       if (sprayBottleRef.current) {
@@ -309,7 +318,8 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
               (key) => pestMeshesRef.current[key] === hitPest
             );
             if (pestId) {
-              const damage = 25 + sprayRange * 5;
+              const baseDamage = 25;
+              const damage = baseDamage + (sprayPotency - 1) * 15;
               onPestHit(pestId, damage);
               createHitEffect(intersects[0].point);
               break;
@@ -321,7 +331,8 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     };
 
     const createAdvancedSprayEffect = () => {
-      const particleCount = 150;
+      const baseParticleCount = 150;
+      const particleCount = Math.floor(baseParticleCount * (1 + (sprayRadius - 1) * 0.3));
       const positions = [];
       const colors = [];
       const sizes = [];
@@ -340,10 +351,13 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
 
       const direction = new THREE.Vector3().subVectors(targetPos, sprayOrigin).normalize();
 
+      const potencyColorMultiplier = 0.5 + (sprayPotency / 10) * 0.5;
+      const baseSpread = 0.35;
+      const spread = baseSpread * (1 + (sprayRadius - 1) * 0.15);
+
       for (let i = 0; i < particleCount; i++) {
         positions.push(sprayOrigin.x, sprayOrigin.y, sprayOrigin.z);
 
-        const spread = 0.35;
         const speedVariance = 0.2 + Math.random() * 0.15;
         const velocity = direction.clone()
           .multiplyScalar(speedVariance)
@@ -354,10 +368,17 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
           ));
         velocities.push(velocity);
 
-        const cyan = 0.5 + Math.random() * 0.5;
-        const brightness = 0.8 + Math.random() * 0.2;
-        colors.push(cyan * 0.4 * brightness, cyan * brightness, cyan * 0.9 * brightness);
-        sizes.push(0.1 + Math.random() * 0.08);
+        const cyan = (0.5 + Math.random() * 0.5) * potencyColorMultiplier;
+        const brightness = (0.8 + Math.random() * 0.2) * potencyColorMultiplier;
+        const greenBoost = Math.min(1, sprayPotency / 5);
+        colors.push(
+          cyan * 0.4 * brightness + greenBoost * 0.3, 
+          cyan * brightness + greenBoost * 0.5, 
+          cyan * 0.9 * brightness
+        );
+        
+        const baseSize = 0.1 + Math.random() * 0.08;
+        sizes.push(baseSize * (1 + (sprayRadius - 1) * 0.1));
       }
 
       const geometry = new THREE.BufferGeometry();
@@ -366,10 +387,10 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
       const material = new THREE.PointsMaterial({
-        size: 0.15,
+        size: 0.15 * (1 + (sprayRadius - 1) * 0.1),
         vertexColors: true,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.85 + (sprayPotency - 1) * 0.01,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         sizeAttenuation: true,
@@ -381,11 +402,14 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       scene.add(particles);
       sprayParticlesRef.current.push(particles);
 
-      const coneGeometry = new THREE.ConeGeometry(0.05, 0.3, 8);
+      const coneSize = 0.05 * (1 + (sprayRadius - 1) * 0.2);
+      const coneHeight = 0.3 * (1 + (sprayRadius - 1) * 0.15);
+      const coneGeometry = new THREE.ConeGeometry(coneSize, coneHeight, 8);
+      const coneColor = new THREE.Color(0x00ffff).lerp(new THREE.Color(0x00ff88), (sprayPotency - 1) / 9);
       const coneMaterial = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
+        color: coneColor,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.3 + (sprayPotency - 1) * 0.02,
         blending: THREE.AdditiveBlending,
       });
       const sprayMist = new THREE.Mesh(coneGeometry, coneMaterial);
@@ -397,11 +421,14 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     };
 
     const createHitEffect = (position) => {
-      const particleCount = 50;
+      const baseParticleCount = 50;
+      const particleCount = Math.floor(baseParticleCount * (1 + (sprayPotency - 1) * 0.2));
       const positions = [];
       const colors = [];
       const velocities = [];
       const sizes = [];
+
+      const impactIntensity = 1 + (sprayPotency - 1) * 0.15;
 
       for (let i = 0; i < particleCount; i++) {
         const angle = (i / particleCount) * Math.PI * 2;
@@ -412,7 +439,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
           position.z + Math.sin(angle) * distance * 0.5
         );
 
-        const explosionForce = 0.12 + Math.random() * 0.1;
+        const explosionForce = (0.12 + Math.random() * 0.1) * impactIntensity;
         const velocity = new THREE.Vector3(
           Math.cos(angle) * explosionForce,
           Math.random() * 0.15 + 0.05,
@@ -420,10 +447,12 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
         );
         velocities.push(velocity);
 
-        const green = 0.5 + Math.random() * 0.5;
-        const yellow = Math.random() * 0.4;
-        colors.push(yellow + green * 0.3, green, yellow);
-        sizes.push(0.12 + Math.random() * 0.1);
+        const potencyFactor = sprayPotency / 10;
+        const green = (0.5 + Math.random() * 0.5) * (1 + potencyFactor * 0.5);
+        const yellow = Math.random() * 0.4 * (1 + potencyFactor);
+        const red = potencyFactor * 0.3;
+        colors.push(yellow + green * 0.3 + red, green, yellow * 0.5);
+        sizes.push((0.12 + Math.random() * 0.1) * impactIntensity);
       }
 
       const geometry = new THREE.BufferGeometry();
@@ -432,7 +461,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
       const material = new THREE.PointsMaterial({
-        size: 0.2,
+        size: 0.2 * impactIntensity,
         vertexColors: true,
         transparent: true,
         opacity: 1.0,
@@ -447,9 +476,11 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       scene.add(particles);
       sprayParticlesRef.current.push(particles);
 
-      const shockwaveGeometry = new THREE.RingGeometry(0.05, 0.25, 16);
+      const shockwaveSize = 0.25 * (1 + (sprayPotency - 1) * 0.1);
+      const shockwaveGeometry = new THREE.RingGeometry(0.05, shockwaveSize, 16);
+      const shockwaveColor = new THREE.Color(0xffff00).lerp(new THREE.Color(0xff6600), (sprayPotency - 1) / 9);
       const shockwaveMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffff00,
+        color: shockwaveColor,
         transparent: true,
         opacity: 0.9,
         side: THREE.DoubleSide,
@@ -462,10 +493,13 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       scene.add(shockwave);
       sprayParticlesRef.current.push(shockwave);
 
-      for (let i = 0; i < 5; i++) {
-        const glowGeometry = new THREE.SphereGeometry(0.25, 8, 8);
+      const glowCount = 5 + Math.floor((sprayPotency - 1) * 0.5);
+      for (let i = 0; i < glowCount; i++) {
+        const glowSize = 0.25 * (1 + (sprayPotency - 1) * 0.08);
+        const glowGeometry = new THREE.SphereGeometry(glowSize, 8, 8);
+        const glowColor = new THREE.Color(0xffaa00).lerp(new THREE.Color(0xff3300), (sprayPotency - 1) / 9);
         const glowMaterial = new THREE.MeshBasicMaterial({
-          color: 0xffaa00,
+          color: glowColor,
           transparent: true,
           opacity: 0.7,
           blending: THREE.AdditiveBlending,
@@ -477,7 +511,8 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
         sprayParticlesRef.current.push(glow);
       }
 
-      const flashGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+      const flashSize = 0.5 * impactIntensity;
+      const flashGeometry = new THREE.SphereGeometry(flashSize, 16, 16);
       const flashMaterial = new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
@@ -740,7 +775,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       }
       renderer.dispose();
     };
-  }, [isPaused, activeSkin, level]);
+  }, [isPaused, activeSkin, level, spraySpeed, sprayRadius, sprayPotency]);
 
   useEffect(() => {
     if (!sceneRef.current) return;
