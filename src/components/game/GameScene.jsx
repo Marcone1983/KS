@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, isPaused, onPestClick, activeSkin, level }) {
+export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, sprayDuration, slowEffect, areaDamage, isPaused, onPestClick, activeSkin, level, dayNightHour, plantStats, activeSprayEffects }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
@@ -25,8 +25,9 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a140a);
-    scene.fog = new THREE.FogExp2(0x0a140a, 0.08);
+    const bgColor = 0x0a140a;
+    scene.background = new THREE.Color(bgColor);
+    scene.fog = new THREE.FogExp2(bgColor, 0.08);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -335,7 +336,11 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
         }, 120);
       }
 
-      if (onSpray()) {
+      raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
+      const sprayWorldPos = new THREE.Vector3();
+      raycasterRef.current.ray.at(5, sprayWorldPos);
+
+      if (onSpray(sprayWorldPos)) {
         createAdvancedSprayEffect();
 
         const pestMeshes = Object.values(pestMeshesRef.current);
@@ -615,6 +620,39 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
       timeRef.current += 0.016;
       const t = timeRef.current;
 
+      if (!isPaused && sceneRef.current) {
+        const hour = dayNightHour || 12;
+        const isDay = hour >= 6 && hour < 18;
+        const dayProgress = isDay ? (hour - 6) / 12 : 0;
+        const nightProgress = !isDay ? (hour < 6 ? (6 - hour) / 6 : (hour - 18) / 6) : 0;
+        
+        const dayColor = new THREE.Color(0x0a140a);
+        const sunsetColor = new THREE.Color(0x1a0a0a);
+        const nightColor = new THREE.Color(0x020408);
+        
+        let targetColor = dayColor;
+        if (!isDay) {
+          targetColor = nightColor.clone().lerp(sunsetColor, nightProgress);
+        } else if (dayProgress < 0.1 || dayProgress > 0.9) {
+          targetColor = dayColor.clone().lerp(sunsetColor, 0.5);
+        }
+        
+        sceneRef.current.background.lerp(targetColor, 0.01);
+        sceneRef.current.fog.color.lerp(targetColor, 0.01);
+        
+        if (plantStats) {
+          const nutritionScale = 1 + (plantStats.nutrition_level / 100) * 0.2;
+          const growthScale = 1 + (plantStats.growth_level - 1) * 0.15;
+          if (plantRef.current) {
+            const targetScale = nutritionScale * growthScale;
+            plantRef.current.scale.lerp(
+              new THREE.Vector3(targetScale, targetScale, targetScale),
+              0.01
+            );
+          }
+        }
+      }
+
       if (!isPaused) {
         if (cameraRef.current) {
           const slowRotation = t * 0.08;
@@ -849,8 +887,60 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
                 mesh.userData.alarmGlow.scale.setScalar(1 + Math.sin(t * 5) * 0.2);
               }
             }
+
+            if (pestData.slowed && pestData.slowedUntil > Date.now()) {
+              if (!mesh.userData.slowGlow) {
+                const slowGeo = new THREE.SphereGeometry(0.25, 8, 8);
+                const slowMat = new THREE.MeshBasicMaterial({
+                  color: 0x00ffff,
+                  transparent: true,
+                  opacity: 0.4,
+                  blending: THREE.AdditiveBlending
+                });
+                const slowGlow = new THREE.Mesh(slowGeo, slowMat);
+                slowGlow.position.set(0, 0, 0);
+                mesh.add(slowGlow);
+                mesh.userData.slowGlow = slowGlow;
+              }
+              if (mesh.userData.slowGlow) {
+                mesh.userData.slowGlow.material.opacity = 0.3 + Math.sin(t * 8) * 0.2;
+              }
+            } else if (mesh.userData.slowGlow) {
+              mesh.remove(mesh.userData.slowGlow);
+              mesh.userData.slowGlow = null;
+            }
           }
         });
+
+        if (activeSprayEffects && activeSprayEffects.length > 0 && areaDamage > 0) {
+          activeSprayEffects.forEach((effect, idx) => {
+            if (!effect.mesh) {
+              const effectGeo = new THREE.SphereGeometry(1.5, 16, 16);
+              const effectMat = new THREE.MeshBasicMaterial({
+                color: 0xff6600,
+                transparent: true,
+                opacity: 0.2,
+                blending: THREE.AdditiveBlending,
+                wireframe: true
+              });
+              const effectMesh = new THREE.Mesh(effectGeo, effectMat);
+              effectMesh.position.set(effect.position.x, effect.position.y, effect.position.z);
+              scene.add(effectMesh);
+              effect.mesh = effectMesh;
+            }
+            
+            if (effect.mesh) {
+              const age = (Date.now() - effect.timestamp) / 1000;
+              effect.mesh.material.opacity = Math.max(0, 0.3 - age * 0.1);
+              effect.mesh.scale.setScalar(1 + age * 0.2);
+              
+              if (age > 5) {
+                scene.remove(effect.mesh);
+                effect.mesh = null;
+              }
+            }
+          });
+        }
 
         for (let i = sprayParticlesRef.current.length - 1; i >= 0; i--) {
           const particleSystem = sprayParticlesRef.current[i];

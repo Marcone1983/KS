@@ -168,6 +168,22 @@ export default function Dashboard() {
                 <Progress value={(progress?.upgrades?.spray_potency || 1) * 10} className="h-2 bg-gray-700" indicatorClassName="bg-purple-500" />
               </div>
 
+              <div className="pt-2 border-t border-gray-600 mt-2">
+                <div className="text-sm text-gray-400 mb-2">Upgrade Speciali</div>
+                {(progress?.upgrades?.slow_effect || 0) > 0 && (
+                  <div className="flex justify-between mb-1 text-xs">
+                    <span className="text-cyan-400">Effetto Gelo</span>
+                    <span className="text-white">Lvl {progress.upgrades.slow_effect}</span>
+                  </div>
+                )}
+                {(progress?.upgrades?.area_damage || 0) > 0 && (
+                  <div className="flex justify-between mb-1 text-xs">
+                    <span className="text-orange-400">Danno ad Area</span>
+                    <span className="text-white">Lvl {progress.upgrades.area_damage}</span>
+                  </div>
+                )}
+              </div>
+
               <Button 
                 onClick={() => navigate(createPageUrl('Shop'))}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"

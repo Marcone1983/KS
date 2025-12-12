@@ -5,9 +5,10 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets } from 'lucide-react';
+import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snowflake, Flame } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
+import PlantCarePanel from '../components/plant/PlantCarePanel';
 
 const SKINS = [
   { id: 'default', name: 'Classico', price: 0, description: 'Spruzzino base', color: '#00BFFF' },
@@ -26,7 +27,8 @@ const UPGRADES = [
     description: 'Aumenta la velocità di fuoco del proiettile',
     maxLevel: 10,
     baseCost: 50,
-    costMultiplier: 1.5
+    costMultiplier: 1.5,
+    category: 'basic'
   },
   { 
     id: 'spray_radius', 
@@ -35,7 +37,8 @@ const UPGRADES = [
     description: 'Aumenta l\'area di effetto dello spray',
     maxLevel: 10,
     baseCost: 75,
-    costMultiplier: 1.6
+    costMultiplier: 1.6,
+    category: 'basic'
   },
   { 
     id: 'spray_potency', 
@@ -44,7 +47,48 @@ const UPGRADES = [
     description: 'Aumenta il danno per proiettile',
     maxLevel: 10,
     baseCost: 80,
-    costMultiplier: 1.7
+    costMultiplier: 1.7,
+    category: 'basic'
+  },
+  { 
+    id: 'refill_speed', 
+    name: 'Velocità Ricarica', 
+    icon: Clock,
+    description: 'Ricarica più velocemente le munizioni spray',
+    maxLevel: 10,
+    baseCost: 60,
+    costMultiplier: 1.5,
+    category: 'advanced'
+  },
+  { 
+    id: 'spray_duration', 
+    name: 'Durata Spray', 
+    icon: Timer,
+    description: 'Prolunga l\'effetto dannoso dello spray sui parassiti',
+    maxLevel: 10,
+    baseCost: 70,
+    costMultiplier: 1.6,
+    category: 'advanced'
+  },
+  { 
+    id: 'slow_effect', 
+    name: 'Effetto Gelo', 
+    icon: Snowflake,
+    description: 'Lo spray rallenta i parassiti colpiti',
+    maxLevel: 5,
+    baseCost: 150,
+    costMultiplier: 2.0,
+    category: 'special'
+  },
+  { 
+    id: 'area_damage', 
+    name: 'Danno ad Area', 
+    icon: Flame,
+    description: 'Infligge danno continuo ai parassiti nell\'area',
+    maxLevel: 5,
+    baseCost: 180,
+    costMultiplier: 2.2,
+    category: 'special'
   },
 ];
 
@@ -52,6 +96,7 @@ export default function Shop() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState('skins');
+  const [upgradeFilter, setUpgradeFilter] = useState('all');
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -68,7 +113,23 @@ export default function Shop() {
           upgrades: {
             spray_speed: 1,
             spray_radius: 1,
-            spray_potency: 1
+            spray_potency: 1,
+            refill_speed: 1,
+            spray_duration: 1,
+            slow_effect: 0,
+            area_damage: 0
+          },
+          plant_stats: {
+            growth_level: 1,
+            nutrition_level: 100,
+            light_exposure: 50,
+            water_level: 100,
+            pruned_leaves: 0,
+            resistance_bonus: 0
+          },
+          day_night_cycle: {
+            current_hour: 12,
+            cycle_speed: 1
           },
           pests_encountered: [],
           leaf_currency: 0
@@ -186,7 +247,51 @@ export default function Shop() {
           >
             Potenziamenti
           </Button>
+          <Button
+            onClick={() => setSelectedTab('plant')}
+            variant={selectedTab === 'plant' ? 'default' : 'outline'}
+            className={selectedTab === 'plant' ? 'bg-green-600' : 'border-green-600 text-white'}
+          >
+            Cura Pianta
+          </Button>
         </div>
+
+        {selectedTab === 'upgrades' && (
+          <div className="flex gap-2 mb-6">
+            <Button
+              onClick={() => setUpgradeFilter('all')}
+              variant={upgradeFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              className={upgradeFilter === 'all' ? 'bg-purple-500' : 'border-purple-400 text-white'}
+            >
+              Tutti
+            </Button>
+            <Button
+              onClick={() => setUpgradeFilter('basic')}
+              variant={upgradeFilter === 'basic' ? 'default' : 'outline'}
+              size="sm"
+              className={upgradeFilter === 'basic' ? 'bg-blue-500' : 'border-blue-400 text-white'}
+            >
+              Base
+            </Button>
+            <Button
+              onClick={() => setUpgradeFilter('advanced')}
+              variant={upgradeFilter === 'advanced' ? 'default' : 'outline'}
+              size="sm"
+              className={upgradeFilter === 'advanced' ? 'bg-cyan-500' : 'border-cyan-400 text-white'}
+            >
+              Avanzati
+            </Button>
+            <Button
+              onClick={() => setUpgradeFilter('special')}
+              variant={upgradeFilter === 'special' ? 'default' : 'outline'}
+              size="sm"
+              className={upgradeFilter === 'special' ? 'bg-orange-500' : 'border-orange-400 text-white'}
+            >
+              Speciali
+            </Button>
+          </div>
+        )}
 
         {selectedTab === 'skins' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -253,7 +358,7 @@ export default function Shop() {
 
         {selectedTab === 'upgrades' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {UPGRADES.map(upgrade => {
+            {UPGRADES.filter(u => upgradeFilter === 'all' || u.category === upgradeFilter).map(upgrade => {
               const currentLevel = progress?.upgrades[upgrade.id] || 1;
               const cost = getUpgradeCost(upgrade);
               const isMaxLevel = currentLevel >= upgrade.maxLevel;
@@ -310,6 +415,15 @@ export default function Shop() {
               );
             })}
           </div>
+        )}
+
+        {selectedTab === 'plant' && (
+          <PlantCarePanel 
+            progress={progress}
+            onUpdate={async (updatedData) => {
+              await updateProgressMutation.mutateAsync({ id: progress.id, data: updatedData });
+            }}
+          />
         )}
       </div>
     </div>

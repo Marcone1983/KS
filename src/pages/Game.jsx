@@ -18,6 +18,8 @@ export default function Game() {
   const [activePests, setActivePests] = useState([]);
   const [isPaused, setIsPaused] = useState(false);
   const [gameTime, setGameTime] = useState(0);
+  const [dayNightHour, setDayNightHour] = useState(12);
+  const [activeSprayEffects, setActiveSprayEffects] = useState([]);
   const gameStartTime = useRef(null);
 
   const { data: progress } = useQuery({
@@ -35,7 +37,23 @@ export default function Game() {
           upgrades: {
             spray_speed: 1,
             spray_radius: 1,
-            spray_potency: 1
+            spray_potency: 1,
+            refill_speed: 1,
+            spray_duration: 1,
+            slow_effect: 0,
+            area_damage: 0
+          },
+          plant_stats: {
+            growth_level: 1,
+            nutrition_level: 100,
+            light_exposure: 50,
+            water_level: 100,
+            pruned_leaves: 0,
+            resistance_bonus: 0
+          },
+          day_night_cycle: {
+            current_hour: 12,
+            cycle_speed: 1
           },
           pests_encountered: [],
           leaf_currency: 0
@@ -68,10 +86,24 @@ export default function Game() {
   useEffect(() => {
     if (progress && gameState === 'loading') {
       setLevel(progress.current_level);
+      setDayNightHour(progress.day_night_cycle?.current_hour || 12);
       setGameState('playing');
       gameStartTime.current = Date.now();
     }
   }, [progress, gameState]);
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused && progress) {
+      const cycleSpeed = progress.day_night_cycle?.cycle_speed || 1;
+      const interval = setInterval(() => {
+        setDayNightHour(prev => {
+          const newHour = (prev + (0.1 * cycleSpeed)) % 24;
+          return newHour;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [gameState, isPaused, progress]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
@@ -178,6 +210,8 @@ export default function Game() {
       const hitPosition = hitPest.position;
       const alarmRadius = 4;
 
+      const slowEffect = progress?.upgrades?.slow_effect || 0;
+      
       const updated = prev.map(pest => {
         if (pest.id === pestId) {
           const resistanceMult = pest.behavior === 'resistant' ? 0.6 : 1.0;
@@ -197,7 +231,17 @@ export default function Game() {
             setScore(s => s + 10 + behaviorBonus);
             return null;
           }
-          return { ...pest, health: newHealth, alarmLevel: Math.min(5, pest.alarmLevel + 1) };
+          
+          const slowedSpeed = slowEffect > 0 ? pest.speed * (1 - slowEffect * 0.08) : pest.speed;
+          
+          return { 
+            ...pest, 
+            health: newHealth, 
+            alarmLevel: Math.min(5, pest.alarmLevel + 1),
+            speed: slowedSpeed,
+            slowed: slowEffect > 0,
+            slowedUntil: slowEffect > 0 ? Date.now() + 3000 : 0
+          };
         }
 
         const distance = Math.sqrt(
@@ -266,16 +310,23 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused) {
+    if (gameState === 'playing' && !isPaused && progress) {
+      const refillSpeed = progress.upgrades?.refill_speed || 1;
+      const refillAmount = 1 + (refillSpeed - 1) * 0.3;
+      const refillDelay = Math.max(50, 200 - (refillSpeed - 1) * 15);
+      
       const refillInterval = setInterval(() => {
-        setSprayAmmo(prev => Math.min(100, prev + 1));
-      }, 200);
+        setSprayAmmo(prev => Math.min(100, prev + refillAmount));
+      }, refillDelay);
       return () => clearInterval(refillInterval);
     }
-  }, [gameState, isPaused]);
+  }, [gameState, isPaused, progress]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && activePests.length > 0) {
+    if (gameState === 'playing' && !isPaused && activePests.length > 0 && progress) {
+      const resistanceBonus = progress.plant_stats?.resistance_bonus || 0;
+      const damageReduction = 1 - (resistanceBonus / 100);
+      
       const damageInterval = setInterval(() => {
         const pestsNearPlant = activePests.filter(pest => {
           const distanceToCenter = Math.sqrt(
@@ -286,12 +337,58 @@ export default function Game() {
         
         if (pestsNearPlant.length > 0) {
           const totalDamage = pestsNearPlant.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
-          setPlantHealth(prev => Math.max(0, prev - totalDamage * 0.3));
+          setPlantHealth(prev => Math.max(0, prev - totalDamage * 0.3 * damageReduction));
         }
       }, 500);
       return () => clearInterval(damageInterval);
     }
-  }, [gameState, isPaused, activePests]);
+  }, [gameState, isPaused, activePests, progress]);
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused && progress) {
+      const sprayDuration = progress.upgrades?.spray_duration || 1;
+      const slowEffect = progress.upgrades?.slow_effect || 0;
+      const areaDamage = progress.upgrades?.area_damage || 0;
+
+      if (activeSprayEffects.length > 0) {
+        const effectInterval = setInterval(() => {
+          setActiveSprayEffects(prev => {
+            const now = Date.now();
+            return prev.filter(effect => now - effect.timestamp < 3000 + sprayDuration * 500);
+          });
+
+          if (areaDamage > 0) {
+            setActivePests(prev => prev.map(pest => {
+              const inEffectArea = activeSprayEffects.some(effect => {
+                const dist = Math.sqrt(
+                  Math.pow(pest.position.x - effect.position.x, 2) +
+                  Math.pow(pest.position.y - effect.position.y, 2) +
+                  Math.pow(pest.position.z - effect.position.z, 2)
+                );
+                return dist < 1.5;
+              });
+
+              if (inEffectArea) {
+                const dotDamage = areaDamage * 2;
+                const newHealth = pest.health - dotDamage;
+                if (newHealth <= 0) {
+                  setPestsEliminated(prevElim => ({
+                    ...prevElim,
+                    [pest.type]: (prevElim[pest.type] || 0) + 1
+                  }));
+                  setScore(s => s + 5);
+                  return null;
+                }
+                return { ...pest, health: newHealth };
+              }
+              return pest;
+            }).filter(Boolean));
+          }
+        }, 500);
+        return () => clearInterval(effectInterval);
+      }
+    }
+  }, [gameState, isPaused, activeSprayEffects, progress]);
 
   const endGame = async (completed) => {
     setGameState('gameover');
@@ -308,10 +405,22 @@ export default function Game() {
     await saveSessionMutation.mutateAsync(sessionData);
     
     if (progress) {
+      const nutritionDecay = 5;
+      const waterDecay = 10;
+      
       const updates = {
         total_score: progress.total_score + score,
         high_score: Math.max(progress.high_score, score),
-        leaf_currency: progress.leaf_currency + Math.floor(score / 10)
+        leaf_currency: progress.leaf_currency + Math.floor(score / 10),
+        plant_stats: {
+          ...progress.plant_stats,
+          nutrition_level: Math.max(0, progress.plant_stats.nutrition_level - nutritionDecay),
+          water_level: Math.max(0, progress.plant_stats.water_level - waterDecay)
+        },
+        day_night_cycle: {
+          ...progress.day_night_cycle,
+          current_hour: dayNightHour
+        }
       };
       
       if (completed) {
@@ -354,13 +463,28 @@ export default function Game() {
       <GameScene
         pests={activePests}
         onPestHit={handlePestHit}
-        onSpray={handleSpray}
+        onSpray={(position) => {
+          const success = handleSpray();
+          if (success && position) {
+            setActiveSprayEffects(prev => [...prev, { 
+              position, 
+              timestamp: Date.now() 
+            }]);
+          }
+          return success;
+        }}
         spraySpeed={progress?.upgrades?.spray_speed || 1}
         sprayRadius={progress?.upgrades?.spray_radius || 1}
         sprayPotency={progress?.upgrades?.spray_potency || 1}
+        sprayDuration={progress?.upgrades?.spray_duration || 1}
+        slowEffect={progress?.upgrades?.slow_effect || 0}
+        areaDamage={progress?.upgrades?.area_damage || 0}
         isPaused={isPaused || gameState !== 'playing'}
         activeSkin={progress.active_skin}
         level={level}
+        dayNightHour={dayNightHour}
+        plantStats={progress?.plant_stats}
+        activeSprayEffects={activeSprayEffects}
       />
       
       <GameUI
