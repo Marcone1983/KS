@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Clock } from 'lucide-react';
+import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 
@@ -21,30 +21,30 @@ const SKINS = [
 const UPGRADES = [
   { 
     id: 'spray_speed', 
-    name: 'Velocità Spray', 
+    name: 'Velocità Sparo', 
     icon: Zap,
-    description: 'Aumenta la velocità di spruzzamento',
-    maxLevel: 5,
+    description: 'Aumenta la velocità di fuoco del proiettile',
+    maxLevel: 10,
     baseCost: 50,
     costMultiplier: 1.5
   },
   { 
-    id: 'spray_range', 
+    id: 'spray_radius', 
     name: 'Raggio Spray', 
     icon: Target,
-    description: 'Aumenta il raggio d\'azione dello spray',
-    maxLevel: 5,
+    description: 'Aumenta l\'area di effetto dello spray',
+    maxLevel: 10,
     baseCost: 75,
-    costMultiplier: 1.5
+    costMultiplier: 1.6
   },
   { 
-    id: 'refill_speed', 
-    name: 'Ricarica Rapida', 
-    icon: Clock,
-    description: 'Ricarica più veloce della munizione',
-    maxLevel: 5,
-    baseCost: 60,
-    costMultiplier: 1.5
+    id: 'spray_potency', 
+    name: 'Potenza Spray', 
+    icon: Droplets,
+    description: 'Aumenta il danno per proiettile',
+    maxLevel: 10,
+    baseCost: 80,
+    costMultiplier: 1.7
   },
 ];
 
@@ -67,8 +67,8 @@ export default function Shop() {
           active_skin: 'default',
           upgrades: {
             spray_speed: 1,
-            spray_range: 1,
-            refill_speed: 1
+            spray_radius: 1,
+            spray_potency: 1
           },
           pests_encountered: [],
           leaf_currency: 0

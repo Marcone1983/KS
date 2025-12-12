@@ -146,26 +146,26 @@ export default function Dashboard() {
             <CardContent className="space-y-4">
               <div>
                 <div className="flex justify-between mb-2">
-                  <span className="text-gray-300">Velocità Spray</span>
+                  <span className="text-gray-300">Velocità Sparo</span>
                   <span className="text-white font-bold">Livello {progress?.upgrades?.spray_speed || 1}</span>
                 </div>
-                <Progress value={(progress?.upgrades?.spray_speed || 1) * 20} className="h-2 bg-gray-700" indicatorClassName="bg-cyan-500" />
+                <Progress value={(progress?.upgrades?.spray_speed || 1) * 10} className="h-2 bg-gray-700" indicatorClassName="bg-cyan-500" />
               </div>
 
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-300">Raggio Spray</span>
-                  <span className="text-white font-bold">Livello {progress?.upgrades?.spray_range || 1}</span>
+                  <span className="text-white font-bold">Livello {progress?.upgrades?.spray_radius || 1}</span>
                 </div>
-                <Progress value={(progress?.upgrades?.spray_range || 1) * 20} className="h-2 bg-gray-700" indicatorClassName="bg-blue-500" />
+                <Progress value={(progress?.upgrades?.spray_radius || 1) * 10} className="h-2 bg-gray-700" indicatorClassName="bg-blue-500" />
               </div>
 
               <div>
                 <div className="flex justify-between mb-2">
-                  <span className="text-gray-300">Ricarica Rapida</span>
-                  <span className="text-white font-bold">Livello {progress?.upgrades?.refill_speed || 1}</span>
+                  <span className="text-gray-300">Potenza Spray</span>
+                  <span className="text-white font-bold">Livello {progress?.upgrades?.spray_potency || 1}</span>
                 </div>
-                <Progress value={(progress?.upgrades?.refill_speed || 1) * 20} className="h-2 bg-gray-700" indicatorClassName="bg-purple-500" />
+                <Progress value={(progress?.upgrades?.spray_potency || 1) * 10} className="h-2 bg-gray-700" indicatorClassName="bg-purple-500" />
               </div>
 
               <Button 
