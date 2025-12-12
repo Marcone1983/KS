@@ -373,7 +373,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     };
 
     const createAdvancedSprayEffect = () => {
-      const particleCount = 80;
+      const particleCount = 150;
       const positions = [];
       const colors = [];
       const sizes = [];
@@ -395,19 +395,21 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       for (let i = 0; i < particleCount; i++) {
         positions.push(sprayOrigin.x, sprayOrigin.y, sprayOrigin.z);
 
-        const spread = 0.3;
+        const spread = 0.35;
+        const speedVariance = 0.2 + Math.random() * 0.15;
         const velocity = direction.clone()
-          .multiplyScalar(0.15 + Math.random() * 0.1)
+          .multiplyScalar(speedVariance)
           .add(new THREE.Vector3(
             (Math.random() - 0.5) * spread,
-            (Math.random() - 0.5) * spread,
+            (Math.random() - 0.5) * spread * 0.7,
             (Math.random() - 0.5) * spread
           ));
         velocities.push(velocity);
 
-        const cyan = 0.6 + Math.random() * 0.4;
-        colors.push(cyan * 0.3, cyan * 0.9, cyan);
-        sizes.push(0.08 + Math.random() * 0.06);
+        const cyan = 0.5 + Math.random() * 0.5;
+        const brightness = 0.8 + Math.random() * 0.2;
+        colors.push(cyan * 0.4 * brightness, cyan * brightness, cyan * 0.9 * brightness);
+        sizes.push(0.1 + Math.random() * 0.08);
       }
 
       const geometry = new THREE.BufferGeometry();
@@ -416,64 +418,116 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
       const material = new THREE.PointsMaterial({
-        size: 0.12,
+        size: 0.15,
         vertexColors: true,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.85,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         sizeAttenuation: true,
-        map: createCircleTexture(),
+        map: createGlowTexture(),
       });
 
       const particles = new THREE.Points(geometry, material);
-      particles.userData = { velocities, life: 1.0, isSpray: true };
+      particles.userData = { velocities, life: 1.2, isSpray: true };
       scene.add(particles);
       sprayParticlesRef.current.push(particles);
+
+      const coneGeometry = new THREE.ConeGeometry(0.05, 0.3, 8);
+      const coneMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+      });
+      const sprayMist = new THREE.Mesh(coneGeometry, coneMaterial);
+      sprayMist.position.copy(sprayOrigin);
+      sprayMist.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      sprayMist.userData = { life: 0.4, isMist: true };
+      scene.add(sprayMist);
+      sprayParticlesRef.current.push(sprayMist);
     };
 
     const createHitEffect = (position) => {
-      const particleCount = 25;
+      const particleCount = 50;
       const positions = [];
       const colors = [];
       const velocities = [];
+      const sizes = [];
 
       for (let i = 0; i < particleCount; i++) {
+        const angle = (i / particleCount) * Math.PI * 2;
+        const distance = Math.random() * 0.3;
         positions.push(
-          position.x + (Math.random() - 0.5) * 0.2,
-          position.y + (Math.random() - 0.5) * 0.2,
-          position.z + (Math.random() - 0.5) * 0.2
+          position.x + Math.cos(angle) * distance * 0.5,
+          position.y + Math.random() * 0.2,
+          position.z + Math.sin(angle) * distance * 0.5
         );
 
+        const explosionForce = 0.12 + Math.random() * 0.1;
         const velocity = new THREE.Vector3(
-          (Math.random() - 0.5) * 0.15,
-          Math.random() * 0.1,
-          (Math.random() - 0.5) * 0.15
+          Math.cos(angle) * explosionForce,
+          Math.random() * 0.15 + 0.05,
+          Math.sin(angle) * explosionForce
         );
         velocities.push(velocity);
 
-        const green = 0.6 + Math.random() * 0.4;
-        colors.push(green * 0.4, green, green * 0.3);
+        const green = 0.5 + Math.random() * 0.5;
+        const yellow = Math.random() * 0.4;
+        colors.push(yellow + green * 0.3, green, yellow);
+        sizes.push(0.12 + Math.random() * 0.1);
       }
 
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
       const material = new THREE.PointsMaterial({
-        size: 0.15,
+        size: 0.2,
         vertexColors: true,
         transparent: true,
-        opacity: 0.9,
+        opacity: 1.0,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        map: createCircleTexture(),
+        sizeAttenuation: true,
+        map: createGlowTexture(),
       });
 
       const particles = new THREE.Points(geometry, material);
-      particles.userData = { velocities, life: 0.8, isHit: true };
+      particles.userData = { velocities, life: 1.0, isHit: true };
       scene.add(particles);
       sprayParticlesRef.current.push(particles);
+
+      const shockwaveGeometry = new THREE.RingGeometry(0.05, 0.15, 16);
+      const shockwaveMaterial = new THREE.MeshBasicMaterial({
+        color: 0x66ff66,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+      });
+      const shockwave = new THREE.Mesh(shockwaveGeometry, shockwaveMaterial);
+      shockwave.position.copy(position);
+      shockwave.rotation.x = -Math.PI / 2;
+      shockwave.userData = { life: 0.5, isShockwave: true, scale: 1 };
+      scene.add(shockwave);
+      sprayParticlesRef.current.push(shockwave);
+
+      for (let i = 0; i < 3; i++) {
+        const glowGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+          color: 0x88ff88,
+          transparent: true,
+          opacity: 0.4,
+          blending: THREE.AdditiveBlending,
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.copy(position);
+        glow.userData = { life: 0.3 + i * 0.1, isGlow: true };
+        scene.add(glow);
+        sprayParticlesRef.current.push(glow);
+      }
     };
 
     const createCircleTexture = () => {
@@ -487,6 +541,31 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
       gradient.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(canvas);
+    };
+
+    const createGlowTexture = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      
+      const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.2, 'rgba(255,255,255,0.9)');
+      gradient.addColorStop(0.4, 'rgba(255,255,255,0.6)');
+      gradient.addColorStop(0.7, 'rgba(255,255,255,0.2)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 128, 128);
+      
+      ctx.globalCompositeOperation = 'screen';
+      const innerGradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 32);
+      innerGradient.addColorStop(0, 'rgba(255,255,255,1)');
+      innerGradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = innerGradient;
+      ctx.fillRect(0, 0, 128, 128);
+      
       return new THREE.CanvasTexture(canvas);
     };
 
@@ -509,14 +588,27 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
 
       if (!isPaused) {
         if (cameraRef.current) {
-          const rotationRadius = 0.3;
-          const rotationSpeed = 0.15;
-          cameraRef.current.position.x = Math.sin(t * rotationSpeed) * rotationRadius;
-          cameraRef.current.position.z = 5 + Math.cos(t * rotationSpeed) * rotationRadius;
-          cameraRef.current.lookAt(0, 2.5, 0);
-
-          const breathe = Math.sin(t * 0.8) * 0.05;
-          cameraRef.current.position.y = 2.5 + breathe;
+          const slowRotation = t * 0.08;
+          const fastOscillation = Math.sin(t * 1.2) * 0.15;
+          const verticalWave = Math.sin(t * 0.5) * 0.1;
+          
+          const baseRadius = 5.0;
+          const radiusVariation = Math.sin(t * 0.3) * 0.4;
+          const currentRadius = baseRadius + radiusVariation;
+          
+          cameraRef.current.position.x = Math.sin(slowRotation) * currentRadius + fastOscillation;
+          cameraRef.current.position.z = Math.cos(slowRotation) * currentRadius + Math.cos(t * 0.9) * 0.2;
+          
+          const baseHeight = 2.5;
+          const heightVariation = Math.sin(t * 0.4) * 0.15;
+          cameraRef.current.position.y = baseHeight + heightVariation + verticalWave;
+          
+          const lookAtTarget = new THREE.Vector3(
+            Math.sin(t * 0.15) * 0.1,
+            2.5 + Math.sin(t * 0.6) * 0.05,
+            Math.cos(t * 0.2) * 0.1
+          );
+          cameraRef.current.lookAt(lookAtTarget);
         }
 
         if (plantRef.current) {
@@ -544,35 +636,81 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
           if (pestData && mesh) {
             const target = new THREE.Vector3(0, mesh.position.y, 0);
             const direction = new THREE.Vector3().subVectors(target, mesh.position).normalize();
+            const distance = mesh.position.distanceTo(target);
 
             const speed = pestData.speed * 0.012;
             mesh.position.add(direction.multiplyScalar(speed));
 
-            const distance = mesh.position.distanceTo(target);
             if (distance > 0.5) {
-              mesh.lookAt(target);
+              const targetRotation = Math.atan2(direction.x, direction.z);
+              mesh.rotation.y += (targetRotation - mesh.rotation.y) * 0.1;
             }
 
-            const crawl = Math.sin(t * 8 + parseInt(id.slice(-3)) * 0.1);
-            mesh.scale.set(1 + crawl * 0.08, 1 - crawl * 0.08, 1 + crawl * 0.04);
+            const crawlSpeed = pestData.speed * 2;
+            const crawl = Math.sin(t * crawlSpeed + parseInt(id.slice(-3)) * 0.5);
+            const wiggle = Math.sin(t * crawlSpeed * 1.5 + parseInt(id.slice(-3)) * 0.3) * 0.1;
+            
+            mesh.scale.set(1 + crawl * 0.12, 1 - crawl * 0.1, 1 + crawl * 0.06);
+            mesh.rotation.z = wiggle;
 
-            mesh.rotation.y += 0.01;
+            mesh.children.forEach((child, index) => {
+              if (child.type === 'Mesh' && index > 0) {
+                const segmentWave = Math.sin(t * crawlSpeed - index * 0.5);
+                child.position.x = Math.sin(segmentWave * 0.3) * 0.05;
+                child.rotation.y = segmentWave * 0.2;
+              }
+            });
+
+            if (distance < 2) {
+              const attackAnim = Math.sin(t * 10);
+              mesh.scale.y += attackAnim * 0.05;
+              mesh.rotation.x = Math.sin(t * 8) * 0.1;
+            }
           }
         });
 
         for (let i = sprayParticlesRef.current.length - 1; i >= 0; i--) {
           const particleSystem = sprayParticlesRef.current[i];
-          particleSystem.userData.life -= 0.018;
+          particleSystem.userData.life -= 0.016;
 
           if (particleSystem.userData.life <= 0) {
             scene.remove(particleSystem);
-            particleSystem.geometry.dispose();
-            particleSystem.material.dispose();
+            if (particleSystem.geometry) particleSystem.geometry.dispose();
+            if (particleSystem.material) particleSystem.material.dispose();
             sprayParticlesRef.current.splice(i, 1);
             continue;
           }
 
-          particleSystem.material.opacity = particleSystem.userData.life * 0.8;
+          if (particleSystem.material && particleSystem.material.opacity !== undefined) {
+            particleSystem.material.opacity = Math.max(0, particleSystem.userData.life);
+          }
+
+          if (particleSystem.userData.isMist) {
+            const scale = 1 + (1 - particleSystem.userData.life) * 2;
+            particleSystem.scale.set(scale, 1, scale);
+          }
+
+          if (particleSystem.userData.isShockwave) {
+            const scale = 1 + (1 - particleSystem.userData.life) * 4;
+            particleSystem.scale.set(scale, scale, 1);
+            particleSystem.material.opacity = particleSystem.userData.life * 0.6;
+          }
+
+          if (particleSystem.userData.isGlow) {
+            const scale = 1 + (1 - particleSystem.userData.life) * 1.5;
+            particleSystem.scale.set(scale, scale, scale);
+            particleSystem.material.opacity = particleSystem.userData.life * 0.4;
+          }
+
+          if (particleSystem.userData.isDeath && particleSystem.userData.velocity) {
+            particleSystem.position.add(particleSystem.userData.velocity);
+            particleSystem.userData.velocity.y -= 0.012;
+            particleSystem.userData.velocity.multiplyScalar(0.96);
+            particleSystem.scale.multiplyScalar(0.95);
+            if (particleSystem.material) {
+              particleSystem.material.opacity = particleSystem.userData.life;
+            }
+          }
 
           if (particleSystem.userData.velocities) {
             const positions = particleSystem.geometry.attributes.position.array;
@@ -582,8 +720,13 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
               positions[j * 3 + 1] += velocity.y;
               positions[j * 3 + 2] += velocity.z;
 
-              velocity.y -= 0.008;
-              velocity.multiplyScalar(0.98);
+              if (particleSystem.userData.isSpray) {
+                velocity.y -= 0.01;
+                velocity.multiplyScalar(0.97);
+              } else if (particleSystem.userData.isHit) {
+                velocity.y -= 0.015;
+                velocity.multiplyScalar(0.95);
+              }
             }
             particleSystem.geometry.attributes.position.needsUpdate = true;
           }
@@ -614,16 +757,60 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     Object.keys(pestMeshesRef.current).forEach((id) => {
       if (!currentIds.includes(id)) {
         const mesh = pestMeshesRef.current[id];
+        const deathPos = mesh.position.clone();
+        
+        for (let i = 0; i < 15; i++) {
+          const angle = (i / 15) * Math.PI * 2;
+          const radius = Math.random() * 0.3;
+          const particleGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+          const particleMaterial = new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setHSL(0.3 + Math.random() * 0.1, 0.8, 0.5),
+            transparent: true,
+            opacity: 0.9,
+          });
+          const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+          particle.position.copy(deathPos);
+          particle.userData = {
+            velocity: new THREE.Vector3(
+              Math.cos(angle) * 0.1,
+              Math.random() * 0.15 + 0.05,
+              Math.sin(angle) * 0.1
+            ),
+            life: 1.0,
+            isDeath: true,
+          };
+          scene.add(particle);
+          sprayParticlesRef.current.push(particle);
+        }
         
         let scale = 1;
-        let rotation = 0;
+        let rotX = 0;
+        let rotZ = 0;
+        let posY = mesh.position.y;
         const deathAnim = setInterval(() => {
-          scale -= 0.15;
-          rotation += 0.5;
+          scale -= 0.12;
+          rotX += 0.3;
+          rotZ += 0.25;
+          posY -= 0.08;
+          
           if (mesh && mesh.parent === scene) {
             mesh.scale.setScalar(Math.max(0, scale));
-            mesh.rotation.x += rotation;
-            mesh.rotation.z += rotation * 0.7;
+            mesh.rotation.x = rotX;
+            mesh.rotation.z = rotZ;
+            mesh.position.y = posY;
+            
+            if (mesh.material && mesh.material.opacity !== undefined) {
+              mesh.material.opacity = scale;
+              mesh.material.transparent = true;
+            }
+            
+            mesh.children.forEach((child) => {
+              if (child.material) {
+                child.material.transparent = true;
+                child.material.opacity = scale;
+              }
+            });
+            
             if (scale <= 0) {
               clearInterval(deathAnim);
               scene.remove(mesh);
@@ -631,7 +818,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
           } else {
             clearInterval(deathAnim);
           }
-        }, 40);
+        }, 35);
 
         delete pestMeshesRef.current[id];
       }
