@@ -5,56 +5,56 @@ import { Pause, Droplets } from 'lucide-react';
 
 export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSkin, onPause }) {
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 text-white pointer-events-auto">
-        <div className="text-2xl font-bold">{score}</div>
-        <div className="text-xs text-gray-300">Punteggio</div>
-      </div>
-
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 text-white pointer-events-auto">
-        <div className="text-lg font-semibold">Livello {level}</div>
-      </div>
-
-      <Button 
-        onClick={onPause}
-        variant="ghost"
-        size="icon"
-        className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 pointer-events-auto"
-      >
-        <Pause className="h-5 w-5" />
-      </Button>
-
-      <div className="absolute top-20 left-4 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 text-white pointer-events-auto min-w-[200px]">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs">Salute Pianta</span>
-          <span className="text-sm font-bold">{Math.round(plantHealth)}%</span>
+    <div className="absolute inset-0 pointer-events-none z-10">
+      <div className="absolute top-3 left-3 space-y-2 pointer-events-auto">
+        <div className="bg-black/40 backdrop-blur-sm rounded-md px-3 py-1.5 border border-white/10">
+          <div className="text-white text-lg font-bold">{score}</div>
+          <div className="text-gray-300 text-[10px] uppercase tracking-wide">Punteggio</div>
         </div>
-        <Progress 
-          value={plantHealth} 
-          className="h-2 bg-gray-700"
-          indicatorClassName={
-            plantHealth > 60 ? "bg-green-500" :
-            plantHealth > 30 ? "bg-yellow-500" :
-            "bg-red-500"
-          }
-        />
+        
+        <div className="bg-black/40 backdrop-blur-sm rounded-md px-3 py-1.5 border border-white/10">
+          <div className="text-white text-base font-semibold">Livello {level}</div>
+        </div>
       </div>
 
-      <div className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-sm rounded-lg p-3 text-white pointer-events-auto">
-        <div className="flex items-center gap-2 mb-1">
-          <Droplets className="h-5 w-5 text-cyan-400" />
-          <span className="text-xs font-medium">Spray Btk</span>
+      <div className="absolute top-3 right-3 pointer-events-auto">
+        <Button
+          onClick={onPause}
+          variant="ghost"
+          size="icon"
+          className="bg-black/40 backdrop-blur-sm hover:bg-black/60 text-white border border-white/10 h-9 w-9"
+        >
+          <Pause className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="absolute bottom-3 left-3 space-y-2 pointer-events-auto">
+        <div className="bg-black/40 backdrop-blur-sm rounded-md px-3 py-2 border border-white/10 w-40">
+          <div className="text-white text-[10px] uppercase tracking-wide mb-1.5">Salute Pianta</div>
+          <Progress 
+            value={plantHealth} 
+            className="h-2 bg-gray-700/50"
+            indicatorClassName={
+              plantHealth > 60 ? "bg-green-500" :
+              plantHealth > 30 ? "bg-yellow-500" :
+              "bg-red-500"
+            }
+          />
+          <div className="text-white text-xs font-semibold mt-1">{Math.round(plantHealth)}%</div>
         </div>
-        <Progress 
-          value={sprayAmmo} 
-          className="h-2 w-32 bg-gray-700"
-          indicatorClassName="bg-cyan-400"
-        />
-        {activeSkin !== 'default' && (
-          <div className="mt-2 text-xs px-2 py-1 bg-purple-600/40 rounded text-center">
-            {activeSkin}
+
+        <div className="bg-black/40 backdrop-blur-sm rounded-md px-3 py-2 border border-white/10 w-40">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Droplets className="h-3 w-3 text-cyan-400" />
+            <div className="text-white text-[10px] uppercase tracking-wide">Spray</div>
           </div>
-        )}
+          <Progress 
+            value={sprayAmmo} 
+            className="h-2 bg-gray-700/50"
+            indicatorClassName="bg-cyan-400"
+          />
+          <div className="text-white text-xs font-semibold mt-1">{Math.round(sprayAmmo)}%</div>
+        </div>
       </div>
     </div>
   );
