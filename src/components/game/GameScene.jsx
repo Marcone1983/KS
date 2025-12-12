@@ -83,86 +83,100 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     const createRealisticCannabisPlant = () => {
       const plantGroup = new THREE.Group();
 
-      const potGeometry = new THREE.CylinderGeometry(0.5, 0.4, 0.8, 12);
-      const potMaterial = new THREE.MeshLambertMaterial({
+      const potGeometry = new THREE.CylinderGeometry(0.6, 0.5, 0.9, 32);
+      const potMaterial = new THREE.MeshPhongMaterial({
         color: 0x6b4423,
-        flatShading: true,
+        shininess: 30,
+        specular: 0x222222,
       });
       const pot = new THREE.Mesh(potGeometry, potMaterial);
-      pot.position.y = 0.4;
+      pot.position.y = 0.45;
       pot.castShadow = true;
       pot.receiveShadow = true;
       plantGroup.add(pot);
 
-      const soilGeometry = new THREE.CylinderGeometry(0.48, 0.48, 0.08, 12);
-      const soilMaterial = new THREE.MeshLambertMaterial({
+      const soilGeometry = new THREE.CylinderGeometry(0.58, 0.58, 0.1, 32);
+      const soilMaterial = new THREE.MeshPhongMaterial({
         color: 0x3d2817,
-        flatShading: true,
+        shininess: 5,
       });
       const soil = new THREE.Mesh(soilGeometry, soilMaterial);
-      soil.position.y = 0.82;
+      soil.position.y = 0.92;
       plantGroup.add(soil);
 
-      const leafMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x4A7F1B, 
-        flatShading: true 
+      const leafMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x32CD32,
+        shininess: 60,
+        specular: 0x88FF88,
       });
-      const stemMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x3A5F0B, 
-        flatShading: true 
+      const stemMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x228B22,
+        shininess: 40,
+        specular: 0x66DD66,
       });
 
-      const stemGeo = new THREE.CylinderGeometry(0.08, 0.12, 3, 8);
+      const stemGeo = new THREE.CylinderGeometry(0.09, 0.13, 3.2, 16);
       const stem = new THREE.Mesh(stemGeo, stemMaterial);
-      stem.position.y = 1.5;
+      stem.position.y = 1.6;
       stem.castShadow = true;
       plantGroup.add(stem);
 
       const createLeaf = () => {
         const leafShape = new THREE.Shape();
         leafShape.moveTo(0, 0);
-        leafShape.lineTo(0.1, 0.1);
-        leafShape.lineTo(0.08, 0.25);
-        leafShape.lineTo(0.15, 0.4);
-        leafShape.lineTo(0, 0.8);
-        leafShape.lineTo(-0.15, 0.4);
-        leafShape.lineTo(-0.08, 0.25);
-        leafShape.lineTo(-0.1, 0.1);
+        leafShape.lineTo(0.15, 0.15);
+        leafShape.lineTo(0.12, 0.35);
+        leafShape.lineTo(0.2, 0.55);
+        leafShape.lineTo(0, 1.0);
+        leafShape.lineTo(-0.2, 0.55);
+        leafShape.lineTo(-0.12, 0.35);
+        leafShape.lineTo(-0.15, 0.15);
         leafShape.lineTo(0, 0);
 
         const extrudeSettings = {
-          steps: 1,
-          depth: 0.02,
-          bevelEnabled: false,
+          steps: 2,
+          depth: 0.04,
+          bevelEnabled: true,
+          bevelThickness: 0.01,
+          bevelSize: 0.01,
+          bevelSegments: 3,
         };
         const leafGeo = new THREE.ExtrudeGeometry(leafShape, extrudeSettings);
         const leaf = new THREE.Mesh(leafGeo, leafMaterial);
         leaf.castShadow = true;
+        leaf.receiveShadow = true;
         return leaf;
       };
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 8; i++) {
         const leaf = createLeaf();
-        leaf.position.y = 0.5 + i * 0.5;
-        leaf.rotation.x = Math.PI / 3;
-        leaf.rotation.y = i * (Math.PI * 2 / 6);
-        const scale = 1.2 - i * 0.1;
+        leaf.position.y = 0.6 + i * 0.45;
+        leaf.rotation.x = Math.PI / 3.5;
+        leaf.rotation.y = i * (Math.PI * 2 / 8);
+        const scale = 1.3 - i * 0.08;
         leaf.scale.set(scale, scale, scale);
         plantGroup.add(leaf);
       }
 
+      const budMaterial = new THREE.MeshPhongMaterial({
+        color: 0x9ACD32,
+        shininess: 80,
+        specular: 0xAAFF88,
+      });
+
       const budGroup = new THREE.Group();
-      for (let j = 0; j < 20; j++) {
-        const budGeo = new THREE.SphereGeometry(0.08, 5, 5);
-        const bud = new THREE.Mesh(budGeo, leafMaterial);
+      for (let j = 0; j < 30; j++) {
+        const budGeo = new THREE.SphereGeometry(0.09, 12, 12);
+        const bud = new THREE.Mesh(budGeo, budMaterial);
         bud.position.set(
-          (Math.random() - 0.5) * 0.4,
           (Math.random() - 0.5) * 0.5,
-          (Math.random() - 0.5) * 0.4
+          (Math.random() - 0.5) * 0.6,
+          (Math.random() - 0.5) * 0.5
         );
+        bud.castShadow = true;
         budGroup.add(bud);
       }
-      budGroup.position.y = 3;
+      budGroup.position.y = 3.2;
       plantGroup.add(budGroup);
 
       return plantGroup;
@@ -202,56 +216,53 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
         group.add(finger);
       }
 
-      const bottleGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.4, 20);
-      const bottleMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xe8f4ff,
+      const bottleGeometry = new THREE.CylinderGeometry(0.15, 0.14, 0.5, 32);
+      const bottleMaterial = new THREE.MeshPhongMaterial({
+        color: 0xADD8E6,
         transparent: true,
-        opacity: 0.4,
-        transmission: 0.9,
-        thickness: 0.5,
-        roughness: 0.1,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
+        opacity: 0.7,
+        shininess: 90,
+        specular: 0xFFFFFF,
       });
       const bottle = new THREE.Mesh(bottleGeometry, bottleMaterial);
-      bottle.position.y = 0.1;
+      bottle.position.y = 0.15;
       bottle.castShadow = true;
       bottle.receiveShadow = true;
       group.add(bottle);
 
-      const liquidGeometry = new THREE.CylinderGeometry(0.11, 0.11, 0.32, 20);
-      const liquidMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0x00e5ff,
+      const liquidGeometry = new THREE.CylinderGeometry(0.13, 0.13, 0.4, 32);
+      const liquidMaterial = new THREE.MeshPhongMaterial({
+        color: 0x00CED1,
         transparent: true,
-        opacity: 0.6,
-        transmission: 0.8,
-        roughness: 0.2,
+        opacity: 0.8,
+        shininess: 100,
+        specular: 0xFFFFFF,
       });
       const liquid = new THREE.Mesh(liquidGeometry, liquidMaterial);
-      liquid.position.y = 0.06;
+      liquid.position.y = 0.1;
       group.add(liquid);
 
-      const capGeometry = new THREE.CylinderGeometry(0.13, 0.13, 0.06, 20);
-      const capMaterial = new THREE.MeshStandardMaterial({
-        color: 0x333333,
-        roughness: 0.4,
-        metalness: 0.6,
+      const capGeometry = new THREE.CylinderGeometry(0.16, 0.16, 0.08, 32);
+      const capMaterial = new THREE.MeshPhongMaterial({
+        color: 0x1a1a1a,
+        shininess: 80,
+        specular: 0x666666,
       });
       const cap = new THREE.Mesh(capGeometry, capMaterial);
-      cap.position.y = 0.33;
+      cap.position.y = 0.44;
       cap.castShadow = true;
       group.add(cap);
 
-      const triggerGeometry = new THREE.BoxGeometry(0.08, 0.15, 0.18);
+      const triggerGeometry = new THREE.BoxGeometry(0.1, 0.18, 0.22);
       const trigger = new THREE.Mesh(triggerGeometry, capMaterial);
-      trigger.position.set(0, 0.15, 0.12);
+      trigger.position.set(0, 0.2, 0.15);
       trigger.rotation.x = -Math.PI / 8;
       trigger.castShadow = true;
       group.add(trigger);
 
-      const nozzleGeometry = new THREE.CylinderGeometry(0.02, 0.025, 0.1, 12);
+      const nozzleGeometry = new THREE.CylinderGeometry(0.025, 0.03, 0.12, 16);
       const nozzle = new THREE.Mesh(nozzleGeometry, capMaterial);
-      nozzle.position.set(0, 0.3, 0.15);
+      nozzle.position.set(0, 0.4, 0.18);
       nozzle.rotation.x = Math.PI / 2;
       nozzle.castShadow = true;
       group.add(nozzle);
@@ -822,80 +833,92 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
 
   const createRealisticPest = (pest) => {
     const caterpillarGroup = new THREE.Group();
-    const baseColor = new THREE.Color(pest.color || '#8B9F3B');
-    const darkColor = baseColor.clone().multiplyScalar(0.3);
+    const baseColor = new THREE.Color(pest.color || '#FFA500');
+    const darkColor = baseColor.clone().multiplyScalar(0.5);
 
-    const sizeMap = { tiny: 0.25, small: 0.35, medium: 0.5, large: 0.7 };
-    const baseSize = sizeMap[pest.size] || 0.4;
+    const sizeMap = { tiny: 0.3, small: 0.4, medium: 0.55, large: 0.75 };
+    const baseSize = sizeMap[pest.size] || 0.45;
 
-    const bodyMaterial = new THREE.MeshLambertMaterial({ 
-      color: baseColor, 
-      flatShading: true 
+    const bodyMaterial = new THREE.MeshPhongMaterial({ 
+      color: baseColor,
+      shininess: 70,
+      specular: 0xFFFFFF,
     });
-    const stripeMaterial = new THREE.MeshLambertMaterial({ 
-      color: darkColor, 
-      flatShading: true 
+    const stripeMaterial = new THREE.MeshPhongMaterial({ 
+      color: darkColor,
+      shininess: 60,
+      specular: 0xCCCCCC,
     });
 
-    const segmentCount = 6;
+    const segmentCount = 7;
     for (let i = 0; i < segmentCount; i++) {
-      const segmentGeo = new THREE.IcosahedronGeometry(baseSize * 0.3, 1);
+      const segmentGeo = new THREE.SphereGeometry(baseSize * 0.32, 16, 16);
       const segment = new THREE.Mesh(segmentGeo, bodyMaterial);
-      segment.position.z = i * baseSize * 0.45;
+      segment.position.z = i * baseSize * 0.5;
       segment.castShadow = true;
+      segment.receiveShadow = true;
       caterpillarGroup.add(segment);
 
       if (i < segmentCount - 1) {
-        const stripeGeo = new THREE.TorusGeometry(baseSize * 0.33, baseSize * 0.05, 4, 12);
+        const stripeGeo = new THREE.TorusGeometry(baseSize * 0.34, baseSize * 0.06, 8, 16);
         const stripe = new THREE.Mesh(stripeGeo, stripeMaterial);
-        stripe.position.z = i * baseSize * 0.45 + baseSize * 0.225;
+        stripe.position.z = i * baseSize * 0.5 + baseSize * 0.25;
+        stripe.castShadow = true;
         caterpillarGroup.add(stripe);
       }
     }
 
-    const headGeo = new THREE.IcosahedronGeometry(baseSize * 0.35, 1);
+    const headGeo = new THREE.SphereGeometry(baseSize * 0.38, 16, 16);
     const head = new THREE.Mesh(headGeo, bodyMaterial);
-    head.position.z = segmentCount * baseSize * 0.45;
+    head.position.z = segmentCount * baseSize * 0.5;
     head.castShadow = true;
+    head.receiveShadow = true;
     caterpillarGroup.add(head);
 
-    const eyeGeo = new THREE.IcosahedronGeometry(baseSize * 0.08, 0);
-    const eyeMaterial = new THREE.MeshLambertMaterial({ 
-      color: 0x000000, 
-      flatShading: true 
+    const eyeGeo = new THREE.SphereGeometry(baseSize * 0.09, 12, 12);
+    const eyeMaterial = new THREE.MeshPhongMaterial({ 
+      color: 0x000000,
+      shininess: 100,
+      specular: 0xFFFFFF,
     });
     const leftEye = new THREE.Mesh(eyeGeo, eyeMaterial);
-    leftEye.position.set(baseSize * 0.15, baseSize * 0.1, segmentCount * baseSize * 0.45 + baseSize * 0.2);
+    leftEye.position.set(baseSize * 0.18, baseSize * 0.12, segmentCount * baseSize * 0.5 + baseSize * 0.22);
+    leftEye.castShadow = true;
     caterpillarGroup.add(leftEye);
 
     const rightEye = new THREE.Mesh(eyeGeo, eyeMaterial);
-    rightEye.position.set(-baseSize * 0.15, baseSize * 0.1, segmentCount * baseSize * 0.45 + baseSize * 0.2);
+    rightEye.position.set(-baseSize * 0.18, baseSize * 0.12, segmentCount * baseSize * 0.5 + baseSize * 0.22);
+    rightEye.castShadow = true;
     caterpillarGroup.add(rightEye);
 
-    const antennaGeo = new THREE.CylinderGeometry(baseSize * 0.025, baseSize * 0.025, baseSize * 0.2, 4);
-    const antenna1 = new THREE.Mesh(antennaGeo, stripeMaterial);
-    antenna1.position.set(baseSize * 0.15, baseSize * 0.2, segmentCount * baseSize * 0.45 + baseSize * 0.125);
+    const antennaGeo = new THREE.CylinderGeometry(baseSize * 0.03, baseSize * 0.03, baseSize * 0.25, 8);
+    const antennaMaterial = new THREE.MeshPhongMaterial({
+      color: darkColor,
+      shininess: 50,
+    });
+    const antenna1 = new THREE.Mesh(antennaGeo, antennaMaterial);
+    antenna1.position.set(baseSize * 0.16, baseSize * 0.24, segmentCount * baseSize * 0.5 + baseSize * 0.15);
     antenna1.rotation.x = Math.PI / 3;
     antenna1.rotation.z = -Math.PI / 5;
     antenna1.castShadow = true;
     caterpillarGroup.add(antenna1);
 
-    const antenna2 = new THREE.Mesh(antennaGeo, stripeMaterial);
-    antenna2.position.set(-baseSize * 0.15, baseSize * 0.2, segmentCount * baseSize * 0.45 + baseSize * 0.125);
+    const antenna2 = new THREE.Mesh(antennaGeo, antennaMaterial);
+    antenna2.position.set(-baseSize * 0.16, baseSize * 0.24, segmentCount * baseSize * 0.5 + baseSize * 0.15);
     antenna2.rotation.x = Math.PI / 3;
     antenna2.rotation.z = Math.PI / 5;
     antenna2.castShadow = true;
     caterpillarGroup.add(antenna2);
 
-    const legPairs = 4;
+    const legPairs = 5;
     for (let i = 0; i < legPairs; i++) {
       for (let side = -1; side <= 1; side += 2) {
-        const legGeo = new THREE.CylinderGeometry(baseSize * 0.04, baseSize * 0.03, baseSize * 0.4, 4);
-        const leg = new THREE.Mesh(legGeo, stripeMaterial);
+        const legGeo = new THREE.CylinderGeometry(baseSize * 0.045, baseSize * 0.035, baseSize * 0.45, 8);
+        const leg = new THREE.Mesh(legGeo, antennaMaterial);
         leg.position.set(
-          side * baseSize * 0.25,
-          -baseSize * 0.2,
-          i * baseSize * 0.6 + baseSize * 0.3
+          side * baseSize * 0.28,
+          -baseSize * 0.22,
+          i * baseSize * 0.55 + baseSize * 0.35
         );
         leg.rotation.z = side * (Math.PI / 3);
         leg.rotation.x = Math.PI / 8;
@@ -905,7 +928,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
     }
 
     caterpillarGroup.rotation.x = Math.PI / 2;
-    caterpillarGroup.scale.set(1.5, 1.5, 1.5);
+    caterpillarGroup.scale.set(1.6, 1.6, 1.6);
 
     return caterpillarGroup;
   };
