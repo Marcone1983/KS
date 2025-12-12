@@ -4,13 +4,15 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, sprayDuration, slowEffect, areaDamage, isPaused, onPestClick, activeSkin, level, dayNightHour, plantStats, activeSprayEffects }) {
+export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, sprayDuration, slowEffect, areaDamage, isPaused, onPestClick, activeSkin, level, dayNightHour, plantStats, activeSprayEffects }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const composerRef = useRef(null);
   const pestMeshesRef = useRef({});
+  const bossRef = useRef(null);
+  const toxicCloudMeshesRef = useRef({});
   const plantRef = useRef(null);
   const sprayParticlesRef = useRef([]);
   const sprayBottleRef = useRef(null);
@@ -343,23 +345,38 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
       if (onSpray(sprayWorldPos)) {
         createAdvancedSprayEffect();
 
-        const pestMeshes = Object.values(pestMeshesRef.current);
-        const intersects = raycasterRef.current.intersectObjects(pestMeshes, true);
+        let hitSomething = false;
 
-        if (intersects.length > 0) {
-          let hitPest = intersects[0].object;
-          while (hitPest.parent && hitPest.parent !== scene) {
-            const pestId = Object.keys(pestMeshesRef.current).find(
-              (key) => pestMeshesRef.current[key] === hitPest
-            );
-            if (pestId) {
-              const baseDamage = 25;
-              const damage = baseDamage + (sprayPotency - 1) * 15;
-              onPestHit(pestId, damage);
-              createHitEffect(intersects[0].point);
-              break;
+        if (bossRef.current) {
+          const bossIntersects = raycasterRef.current.intersectObjects([bossRef.current], true);
+          if (bossIntersects.length > 0) {
+            const baseDamage = 25;
+            const damage = baseDamage + (sprayPotency - 1) * 15;
+            onPestHit(boss.id, damage);
+            createHitEffect(bossIntersects[0].point);
+            hitSomething = true;
+          }
+        }
+
+        if (!hitSomething) {
+          const pestMeshes = Object.values(pestMeshesRef.current);
+          const intersects = raycasterRef.current.intersectObjects(pestMeshes, true);
+
+          if (intersects.length > 0) {
+            let hitPest = intersects[0].object;
+            while (hitPest.parent && hitPest.parent !== scene) {
+              const pestId = Object.keys(pestMeshesRef.current).find(
+                (key) => pestMeshesRef.current[key] === hitPest
+              );
+              if (pestId) {
+                const baseDamage = 25;
+                const damage = baseDamage + (sprayPotency - 1) * 15;
+                onPestHit(pestId, damage);
+                createHitEffect(intersects[0].point);
+                break;
+              }
+              hitPest = hitPest.parent;
             }
-            hitPest = hitPest.parent;
           }
         }
       }
@@ -650,6 +667,79 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
               0.01
             );
           }
+        }
+
+        if (boss && bossRef.current) {
+          const distanceToCenter = Math.sqrt(
+            Math.pow(boss.position.x, 2) + Math.pow(boss.position.z, 2)
+          );
+
+          let direction = new THREE.Vector3(-boss.position.x, 0, -boss.position.z).normalize();
+
+          if (boss.type === 'colossus') {
+            const speed = boss.speed * 0.015 * 0.5;
+            boss.position.x += direction.x * speed;
+            boss.position.z += direction.z * speed;
+            bossRef.current.position.set(boss.position.x, boss.position.y, boss.position.z);
+
+            const crawl = Math.sin(t * 2);
+            bossRef.current.scale.set(1 + crawl * 0.05, 1 - crawl * 0.03, 1 + crawl * 0.05);
+          } else if (boss.type === 'swarm') {
+            const orbitSpeed = 0.5;
+            const orbitRadius = 5 + Math.sin(t * 0.3) * 2;
+            boss.position.x = Math.cos(t * orbitSpeed) * orbitRadius;
+            boss.position.z = Math.sin(t * orbitSpeed) * orbitRadius;
+            boss.position.y = 2 + Math.sin(t * 2) * 0.5;
+            bossRef.current.position.set(boss.position.x, boss.position.y, boss.position.z);
+            bossRef.current.rotation.y = t * 3;
+          } else if (boss.type === 'toxic') {
+            const zigzagPhase = t * 2;
+            const zigzagOffset = Math.sin(zigzagPhase * 3) * 1.5;
+            const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+            const finalDir = direction.clone().add(perpendicular.multiplyScalar(zigzagOffset)).normalize();
+            
+            const speed = boss.speed * 0.015;
+            boss.position.x += finalDir.x * speed;
+            boss.position.z += finalDir.z * speed;
+            bossRef.current.position.set(boss.position.x, boss.position.y, boss.position.z);
+
+            const pulse = 1 + Math.sin(t * 4) * 0.1;
+            bossRef.current.scale.setScalar(pulse);
+          }
+
+          const targetRotation = Math.atan2(direction.x, direction.z);
+          bossRef.current.rotation.y += (targetRotation - bossRef.current.rotation.y) * 0.1;
+        }
+
+        if (toxicClouds && toxicClouds.length > 0) {
+          toxicClouds.forEach(cloud => {
+            if (!toxicCloudMeshesRef.current[cloud.id]) {
+              const cloudGeo = new THREE.SphereGeometry(1.5, 16, 16);
+              const cloudMat = new THREE.MeshBasicMaterial({
+                color: 0x9400D3,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.AdditiveBlending
+              });
+              const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+              cloudMesh.position.set(cloud.position.x, cloud.position.y, cloud.position.z);
+              scene.add(cloudMesh);
+              toxicCloudMeshesRef.current[cloud.id] = cloudMesh;
+            }
+
+            const cloudMesh = toxicCloudMeshesRef.current[cloud.id];
+            if (cloudMesh) {
+              const age = (Date.now() - cloud.timestamp) / 1000;
+              cloudMesh.scale.setScalar(1 + age * 0.2);
+              cloudMesh.material.opacity = Math.max(0, 0.4 - age * 0.04);
+              cloudMesh.rotation.y += 0.02;
+
+              if (age > 10) {
+                scene.remove(cloudMesh);
+                delete toxicCloudMeshesRef.current[cloud.id];
+              }
+            }
+          });
         }
       }
 
@@ -1036,6 +1126,42 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
     if (!sceneRef.current) return;
     const scene = sceneRef.current;
 
+    if (boss && !bossRef.current) {
+      const bossMesh = createBossMesh(boss);
+      bossMesh.position.set(boss.position.x, boss.position.y, boss.position.z);
+      scene.add(bossMesh);
+      bossRef.current = bossMesh;
+    } else if (!boss && bossRef.current) {
+      const bossPos = bossRef.current.position.clone();
+      
+      for (let i = 0; i < 30; i++) {
+        const angle = (i / 30) * Math.PI * 2;
+        const radius = Math.random() * 0.8;
+        const particleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+        const particleMaterial = new THREE.MeshBasicMaterial({
+          color: new THREE.Color().setHSL(0.1 + Math.random() * 0.1, 0.9, 0.5),
+          transparent: true,
+          opacity: 1.0,
+        });
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(bossPos);
+        particle.userData = {
+          velocity: new THREE.Vector3(
+            Math.cos(angle) * 0.15,
+            Math.random() * 0.2 + 0.1,
+            Math.sin(angle) * 0.15
+          ),
+          life: 1.5,
+          isDeath: true,
+        };
+        scene.add(particle);
+        sprayParticlesRef.current.push(particle);
+      }
+
+      scene.remove(bossRef.current);
+      bossRef.current = null;
+    }
+
     const currentIds = pests.map((p) => p.id);
     Object.keys(pestMeshesRef.current).forEach((id) => {
       if (!currentIds.includes(id)) {
@@ -1120,6 +1246,94 @@ export default function GameScene({ pests, onPestHit, onSpray, spraySpeed, spray
       }
     });
   }, [pests]);
+
+  const createBossMesh = (boss) => {
+    const bossGroup = new THREE.Group();
+    const color = new THREE.Color(boss.color || '#FF0000');
+
+    if (boss.type === 'colossus') {
+      const bodyGeo = new THREE.BoxGeometry(1.5, 2, 1.5);
+      const bodyMat = new THREE.MeshStandardMaterial({ 
+        color: color,
+        flatShading: true,
+        roughness: 0.3,
+        metalness: 0.5
+      });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.castShadow = true;
+      bossGroup.add(body);
+
+      const segments = boss.armor_segments || 4;
+      for (let i = 0; i < segments; i++) {
+        const armorGeo = new THREE.BoxGeometry(1.6, 0.4, 1.6);
+        const armorMat = new THREE.MeshStandardMaterial({ 
+          color: 0xFFAA00,
+          flatShading: true,
+          metalness: 0.8
+        });
+        const armor = new THREE.Mesh(armorGeo, armorMat);
+        armor.position.y = -0.8 + i * 0.5;
+        armor.castShadow = true;
+        bossGroup.add(armor);
+      }
+
+      const headGeo = new THREE.IcosahedronGeometry(0.6, 0);
+      const headMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, flatShading: true });
+      const head = new THREE.Mesh(headGeo, headMat);
+      head.position.y = 1.3;
+      head.castShadow = true;
+      bossGroup.add(head);
+    } else if (boss.type === 'swarm') {
+      const coreGeo = new THREE.SphereGeometry(0.8, 16, 16);
+      const coreMat = new THREE.MeshStandardMaterial({ 
+        color: color,
+        emissive: new THREE.Color(0xFFAA00),
+        emissiveIntensity: 0.5
+      });
+      const core = new THREE.Mesh(coreGeo, coreMat);
+      core.castShadow = true;
+      bossGroup.add(core);
+
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const wingGeo = new THREE.ConeGeometry(0.2, 0.6, 4);
+        const wingMat = new THREE.MeshStandardMaterial({ 
+          color: 0xFFFFFF,
+          transparent: true,
+          opacity: 0.6
+        });
+        const wing = new THREE.Mesh(wingGeo, wingMat);
+        wing.position.set(Math.cos(angle) * 0.9, 0, Math.sin(angle) * 0.9);
+        wing.rotation.x = Math.PI / 2;
+        bossGroup.add(wing);
+      }
+    } else if (boss.type === 'toxic') {
+      const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
+      const bodyMat = new THREE.MeshStandardMaterial({ 
+        color: color,
+        emissive: new THREE.Color(0x9400D3),
+        emissiveIntensity: 0.6,
+        transparent: true,
+        opacity: 0.8
+      });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.castShadow = true;
+      bossGroup.add(body);
+
+      const glowGeo = new THREE.SphereGeometry(1.2, 16, 16);
+      const glowMat = new THREE.MeshBasicMaterial({ 
+        color: 0x9400D3,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending
+      });
+      const glow = new THREE.Mesh(glowGeo, glowMat);
+      bossGroup.add(glow);
+    }
+
+    bossGroup.scale.set(2.5, 2.5, 2.5);
+    return bossGroup;
+  };
 
   const createRealisticPest = (pest) => {
     const caterpillarGroup = new THREE.Group();

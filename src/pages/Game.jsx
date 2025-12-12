@@ -6,6 +6,7 @@ import GameUI from '../components/game/GameUI';
 import GameOver from '../components/game/GameOver';
 import PauseMenu from '../components/game/PauseMenu';
 import TutorPanel from '../components/game/TutorPanel';
+import BossHealthBar from '../components/game/BossHealthBar';
 
 export default function Game() {
   const queryClient = useQueryClient();
@@ -20,7 +21,14 @@ export default function Game() {
   const [gameTime, setGameTime] = useState(0);
   const [dayNightHour, setDayNightHour] = useState(12);
   const [activeSprayEffects, setActiveSprayEffects] = useState([]);
+  const [activeBoss, setActiveBoss] = useState(null);
+  const [bossHealth, setBossHealth] = useState(0);
+  const [bossMaxHealth, setBossMaxHealth] = useState(0);
+  const [bossArmorSegments, setBossArmorSegments] = useState(0);
+  const [toxicClouds, setToxicClouds] = useState([]);
   const gameStartTime = useRef(null);
+  const bossSpawnTimerRef = useRef(null);
+  const toxicCloudTimerRef = useRef(null);
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -66,6 +74,12 @@ export default function Game() {
   const { data: allPests } = useQuery({
     queryKey: ['pests'],
     queryFn: () => base44.entities.Pest.list(),
+    initialData: []
+  });
+
+  const { data: allBosses } = useQuery({
+    queryKey: ['bosses'],
+    queryFn: () => base44.entities.Boss.list(),
     initialData: []
   });
 
@@ -119,6 +133,44 @@ export default function Game() {
       endGame(false);
     }
   }, [plantHealth, gameState]);
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused && level % 3 === 0 && !activeBoss && allBosses.length > 0) {
+      const bossForLevel = allBosses.find(b => b.level_appearance === level);
+      if (bossForLevel) {
+        spawnBoss(bossForLevel);
+      }
+    }
+  }, [level, gameState, isPaused, activeBoss, allBosses]);
+
+  const spawnBoss = (bossData) => {
+    const healthMultiplier = 1 + (level - bossData.level_appearance) * 0.2;
+    const maxHp = Math.floor(bossData.base_health * healthMultiplier);
+    
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 10;
+
+    const boss = {
+      id: `boss_${Date.now()}`,
+      ...bossData,
+      health: maxHp,
+      maxHealth: maxHp,
+      position: {
+        x: Math.cos(angle) * distance,
+        y: 2,
+        z: Math.sin(angle) * distance
+      },
+      currentArmorSegments: bossData.armor_segments || 0,
+      lastSpawnTime: Date.now(),
+      lastToxicTime: Date.now()
+    };
+
+    setActiveBoss(boss);
+    setBossHealth(maxHp);
+    setBossMaxHealth(maxHp);
+    setBossArmorSegments(bossData.armor_segments || 0);
+    setActivePests([]);
+  };
 
   const getPestBehaviorType = (pestType) => {
     const behaviorMap = {
@@ -194,15 +246,52 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused) {
+    if (gameState === 'playing' && !isPaused && !activeBoss) {
       const spawnDelay = Math.max(3000 - (level * 100), 2000);
       const spawnInterval = setInterval(spawnPests, spawnDelay);
       spawnPests();
       return () => clearInterval(spawnInterval);
     }
-  }, [gameState, isPaused, level, allPests]);
+  }, [gameState, isPaused, level, allPests, activeBoss]);
+
+  const handleBossHit = (damage) => {
+    if (!activeBoss) return;
+
+    if (activeBoss.type === 'colossus' && bossArmorSegments > 0) {
+      const armorDamage = damage * 0.3;
+      setBossHealth(prev => {
+        const newHealth = prev - armorDamage;
+        if (newHealth <= activeBoss.maxHealth * (1 - (activeBoss.currentArmorSegments / activeBoss.armor_segments))) {
+          setBossArmorSegments(seg => Math.max(0, seg - 1));
+          setActiveBoss(b => ({ ...b, currentArmorSegments: Math.max(0, b.currentArmorSegments - 1) }));
+        }
+        return newHealth;
+      });
+    } else {
+      setBossHealth(prev => {
+        const newHealth = prev - damage;
+        if (newHealth <= 0) {
+          setScore(s => s + 500);
+          setActiveBoss(null);
+          setBossHealth(0);
+          setBossArmorSegments(0);
+          if (level % 3 === 0) {
+            setTimeout(() => {
+              endGame(true);
+            }, 1000);
+          }
+        }
+        return newHealth;
+      });
+    }
+  };
 
   const handlePestHit = (pestId, damage) => {
+    if (activeBoss && pestId === activeBoss.id) {
+      handleBossHit(damage);
+      return;
+    }
+
     setActivePests(prev => {
       const hitPest = prev.find(p => p.id === pestId);
       if (!hitPest) return prev;
@@ -323,11 +412,13 @@ export default function Game() {
   }, [gameState, isPaused, progress]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && activePests.length > 0 && progress) {
+    if (gameState === 'playing' && !isPaused && progress) {
       const resistanceBonus = progress.plant_stats?.resistance_bonus || 0;
       const damageReduction = 1 - (resistanceBonus / 100);
       
       const damageInterval = setInterval(() => {
+        let totalDamage = 0;
+
         const pestsNearPlant = activePests.filter(pest => {
           const distanceToCenter = Math.sqrt(
             Math.pow(pest.position.x, 2) + Math.pow(pest.position.z, 2)
@@ -336,13 +427,32 @@ export default function Game() {
         });
         
         if (pestsNearPlant.length > 0) {
-          const totalDamage = pestsNearPlant.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
+          totalDamage += pestsNearPlant.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
+        }
+
+        if (activeBoss) {
+          const bossDistToCenter = Math.sqrt(
+            Math.pow(activeBoss.position.x, 2) + Math.pow(activeBoss.position.z, 2)
+          );
+          if (bossDistToCenter < 3) {
+            totalDamage += activeBoss.damage_per_second || 2;
+          }
+        }
+
+        toxicClouds.forEach(cloud => {
+          const cloudAge = (Date.now() - cloud.timestamp) / 1000;
+          if (cloudAge < 10) {
+            totalDamage += cloud.damage;
+          }
+        });
+
+        if (totalDamage > 0) {
           setPlantHealth(prev => Math.max(0, prev - totalDamage * 0.3 * damageReduction));
         }
       }, 500);
       return () => clearInterval(damageInterval);
     }
-  }, [gameState, isPaused, activePests, progress]);
+  }, [gameState, isPaused, activePests, activeBoss, toxicClouds, progress]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress) {
@@ -444,9 +554,92 @@ export default function Game() {
     setSprayAmmo(100);
     setPestsEliminated({});
     setActivePests([]);
+    setActiveBoss(null);
+    setBossHealth(0);
+    setBossMaxHealth(0);
+    setBossArmorSegments(0);
+    setToxicClouds([]);
     setGameTime(0);
     gameStartTime.current = Date.now();
   };
+
+  useEffect(() => {
+    if (activeBoss && activeBoss.type === 'swarm' && gameState === 'playing' && !isPaused) {
+      bossSpawnTimerRef.current = setInterval(() => {
+        const now = Date.now();
+        if (now - activeBoss.lastSpawnTime > 4000 && allPests.length > 0) {
+          const minionPest = allPests[Math.floor(Math.random() * Math.allPests.length)];
+          const angle = Math.random() * Math.PI * 2;
+          const distance = 2;
+          
+          const minion = {
+            id: `minion_${Date.now()}_${Math.random()}`,
+            type: minionPest.type,
+            name: minionPest.name,
+            health: minionPest.health * 0.5,
+            maxHealth: minionPest.health * 0.5,
+            speed: minionPest.speed * 1.2,
+            damage: minionPest.damage_per_second * 0.7,
+            position: {
+              x: activeBoss.position.x + Math.cos(angle) * distance,
+              y: activeBoss.position.y,
+              z: activeBoss.position.z + Math.sin(angle) * distance
+            },
+            color: minionPest.color,
+            size: 'tiny',
+            behavior: 'swarm',
+            alarmLevel: 0,
+            pestData: minionPest
+          };
+
+          setActivePests(prev => [...prev, minion]);
+          setActiveBoss(b => ({ ...b, lastSpawnTime: now }));
+        }
+      }, 1000);
+
+      return () => {
+        if (bossSpawnTimerRef.current) {
+          clearInterval(bossSpawnTimerRef.current);
+        }
+      };
+    }
+  }, [activeBoss, gameState, isPaused, allPests]);
+
+  useEffect(() => {
+    if (activeBoss && activeBoss.type === 'toxic' && gameState === 'playing' && !isPaused) {
+      toxicCloudTimerRef.current = setInterval(() => {
+        const now = Date.now();
+        if (now - activeBoss.lastToxicTime > 6000) {
+          const cloud = {
+            id: `toxic_${Date.now()}`,
+            position: { ...activeBoss.position },
+            damage: activeBoss.toxic_cloud_damage || 1,
+            timestamp: now
+          };
+          
+          setToxicClouds(prev => [...prev, cloud]);
+          setActiveBoss(b => ({ ...b, lastToxicTime: now }));
+        }
+      }, 1000);
+
+      return () => {
+        if (toxicCloudTimerRef.current) {
+          clearInterval(toxicCloudTimerRef.current);
+        }
+      };
+    }
+  }, [activeBoss, gameState, isPaused]);
+
+  useEffect(() => {
+    if (toxicClouds.length > 0) {
+      const cleanupInterval = setInterval(() => {
+        const now = Date.now();
+        setToxicClouds(prev => prev.filter(cloud => now - cloud.timestamp < 10000));
+      }, 1000);
+
+      return () => clearInterval(cleanupInterval);
+    }
+  }, [toxicClouds]);
 
 
 
@@ -462,6 +655,8 @@ export default function Game() {
     <div className="h-screen w-full relative overflow-hidden">
       <GameScene
         pests={activePests}
+        boss={activeBoss}
+        toxicClouds={toxicClouds}
         onPestHit={handlePestHit}
         onSpray={(position) => {
           const success = handleSpray();
@@ -486,6 +681,15 @@ export default function Game() {
         plantStats={progress?.plant_stats}
         activeSprayEffects={activeSprayEffects}
       />
+
+      {activeBoss && (
+        <BossHealthBar 
+          boss={activeBoss}
+          health={bossHealth}
+          maxHealth={bossMaxHealth}
+          armorSegments={bossArmorSegments}
+        />
+      )}
       
       <GameUI
         score={score}
