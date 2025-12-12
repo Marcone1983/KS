@@ -114,7 +114,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
 
       const stemGeo = new THREE.CylinderGeometry(0.08, 0.12, 3, 8);
       const stem = new THREE.Mesh(stemGeo, stemMaterial);
-      stem.position.y = 2.3;
+      stem.position.y = 1.5;
       stem.castShadow = true;
       plantGroup.add(stem);
 
@@ -143,7 +143,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
 
       for (let i = 0; i < 6; i++) {
         const leaf = createLeaf();
-        leaf.position.y = 1.3 + i * 0.5;
+        leaf.position.y = 0.5 + i * 0.5;
         leaf.rotation.x = Math.PI / 3;
         leaf.rotation.y = i * (Math.PI * 2 / 6);
         const scale = 1.2 - i * 0.1;
@@ -162,7 +162,7 @@ export default function GameScene({ pests, onPestHit, onSpray, sprayRange, isPau
         );
         budGroup.add(bud);
       }
-      budGroup.position.y = 3.8;
+      budGroup.position.y = 3;
       plantGroup.add(budGroup);
 
       return plantGroup;
