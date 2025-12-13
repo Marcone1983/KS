@@ -61,7 +61,7 @@ export default function PlantCarePanel({ progress, onUpdate }) {
   const [processing, setProcessing] = useState(false);
 
   const handleWater = async () => {
-    if (processing) return;
+    if (processing || !progress?.plant_stats) return;
     if (progress.plant_stats.water_level >= 100) {
       toast.info('La pianta è già ben idratata');
       return;
@@ -81,7 +81,7 @@ export default function PlantCarePanel({ progress, onUpdate }) {
   };
 
   const handleLightAdjust = async (adjustment) => {
-    if (processing) return;
+    if (processing || !progress?.plant_stats) return;
     setProcessing(true);
     const newExposure = Math.max(0, Math.min(100, progress.plant_stats.light_exposure + adjustment));
     await onUpdate({
@@ -96,7 +96,7 @@ export default function PlantCarePanel({ progress, onUpdate }) {
   };
 
   const handlePrune = async () => {
-    if (processing) return;
+    if (processing || !progress?.plant_stats) return;
     if (progress.leaf_currency < 30) {
       toast.error('Servono 30 Leaf per potare');
       return;
@@ -109,8 +109,8 @@ export default function PlantCarePanel({ progress, onUpdate }) {
       leaf_currency: progress.leaf_currency - 30,
       plant_stats: {
         ...progress.plant_stats,
-        pruned_leaves: progress.plant_stats.pruned_leaves + 1,
-        resistance_bonus: progress.plant_stats.resistance_bonus + resistanceGain
+        pruned_leaves: (progress.plant_stats.pruned_leaves || 0) + 1,
+        resistance_bonus: (progress.plant_stats.resistance_bonus || 0) + resistanceGain
       }
     });
     toast.success(`Potatura effettuata! Resistenza +${resistanceGain}%`);
@@ -118,15 +118,15 @@ export default function PlantCarePanel({ progress, onUpdate }) {
   };
 
   const handleBuyNutrient = async (nutrient) => {
-    if (processing) return;
+    if (processing || !progress?.plant_stats) return;
     if (progress.leaf_currency < nutrient.cost) {
       toast.error('Leaf insufficienti!');
       return;
     }
 
     setProcessing(true);
-    const newNutrition = Math.min(100, progress.plant_stats.nutrition_level + (nutrient.nutrition || 0));
-    const newGrowth = progress.plant_stats.growth_level + (nutrient.growth || 0);
+    const newNutrition = Math.min(100, (progress.plant_stats.nutrition_level || 0) + (nutrient.nutrition || 0));
+    const newGrowth = (progress.plant_stats.growth_level || 1) + (nutrient.growth || 0);
 
     const updates = {
       ...progress,
@@ -139,7 +139,7 @@ export default function PlantCarePanel({ progress, onUpdate }) {
     };
 
     if (nutrient.type === 'permanent') {
-      updates.plant_stats.resistance_bonus = progress.plant_stats.resistance_bonus + (nutrient.resistance || 0);
+      updates.plant_stats.resistance_bonus = (progress.plant_stats.resistance_bonus || 0) + (nutrient.resistance || 0);
       toast.success(`${nutrient.name} applicato! Effetto permanente.`);
     } else if (nutrient.type === 'temporary') {
       const tempBuffs = progress.plant_stats.temporary_buffs || [];
@@ -186,14 +186,14 @@ export default function PlantCarePanel({ progress, onUpdate }) {
           <div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-300">Nutrizione</span>
-              <span className="text-white font-bold">{plantStats.nutrition_level}%</span>
+              <span className="text-white font-bold">{plantStats.nutrition_level || 0}%</span>
             </div>
             <Progress 
-              value={plantStats.nutrition_level} 
+              value={plantStats.nutrition_level || 0} 
               className="h-2 bg-gray-700"
               indicatorClassName={
-                plantStats.nutrition_level > 70 ? "bg-green-500" :
-                plantStats.nutrition_level > 30 ? "bg-yellow-500" : "bg-red-500"
+                (plantStats.nutrition_level || 0) > 70 ? "bg-green-500" :
+                (plantStats.nutrition_level || 0) > 30 ? "bg-yellow-500" : "bg-red-500"
               }
             />
           </div>
@@ -201,10 +201,10 @@ export default function PlantCarePanel({ progress, onUpdate }) {
           <div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-300">Idratazione</span>
-              <span className="text-white font-bold">{plantStats.water_level}%</span>
+              <span className="text-white font-bold">{plantStats.water_level || 0}%</span>
             </div>
             <Progress 
-              value={plantStats.water_level} 
+              value={plantStats.water_level || 0} 
               className="h-2 bg-gray-700"
               indicatorClassName="bg-blue-500"
             />
@@ -213,10 +213,10 @@ export default function PlantCarePanel({ progress, onUpdate }) {
           <div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-300">Esposizione Luce</span>
-              <span className="text-white font-bold">{plantStats.light_exposure}%</span>
+              <span className="text-white font-bold">{plantStats.light_exposure || 0}%</span>
             </div>
             <Progress 
-              value={plantStats.light_exposure} 
+              value={plantStats.light_exposure || 0} 
               className="h-2 bg-gray-700"
               indicatorClassName="bg-yellow-400"
             />
@@ -226,7 +226,7 @@ export default function PlantCarePanel({ progress, onUpdate }) {
             <div className="flex justify-between mb-2">
               <span className="text-gray-300">Resistenza Parassiti</span>
               <span className="text-white font-bold">
-                +{plantStats.resistance_bonus}%
+                +{plantStats.resistance_bonus || 0}%
                 {tempResistance > 0 && (
                   <span className="text-cyan-400 ml-2">(+{tempResistance}% temp)</span>
                 )}
@@ -249,7 +249,7 @@ export default function PlantCarePanel({ progress, onUpdate }) {
           )}
 
           <div className="text-sm text-gray-400">
-            Foglie potate: {plantStats.pruned_leaves}
+            Foglie potate: {plantStats.pruned_leaves || 0}
           </div>
         </CardContent>
       </Card>
@@ -264,7 +264,7 @@ export default function PlantCarePanel({ progress, onUpdate }) {
         <CardContent className="space-y-3">
           <Button 
             onClick={handleWater}
-            disabled={processing || plantStats.water_level >= 100}
+            disabled={processing || (plantStats.water_level || 0) >= 100}
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
             <Droplets className="h-4 w-4 mr-2" />
