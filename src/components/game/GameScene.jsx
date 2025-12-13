@@ -756,7 +756,8 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
         if (currentWeather === 'rain' && !rainParticlesRef.current) {
           const rainGeo = new THREE.BufferGeometry();
           const rainVerts = [];
-          for (let i = 0; i < 5000; i++) {
+          const rainCount = currentSeason === 'autumn' ? 7000 : currentSeason === 'spring' ? 6000 : 5000;
+          for (let i = 0; i < rainCount; i++) {
             rainVerts.push(
               (Math.random() - 0.5) * 50,
               Math.random() * 30,
@@ -765,10 +766,10 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
           }
           rainGeo.setAttribute('position', new THREE.Float32BufferAttribute(rainVerts, 3));
           const rainMat = new THREE.PointsMaterial({
-            color: 0xaaaaff,
-            size: 0.1,
+            color: currentSeason === 'winter' ? 0xeeeeff : 0xaaaaff,
+            size: currentSeason === 'winter' ? 0.15 : 0.1,
             transparent: true,
-            opacity: 0.6
+            opacity: currentSeason === 'autumn' ? 0.7 : 0.6
           });
           const rain = new THREE.Points(rainGeo, rainMat);
           scene.add(rain);
@@ -780,8 +781,9 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
 
         if (rainParticlesRef.current) {
           const positions = rainParticlesRef.current.geometry.attributes.position.array;
+          const fallSpeed = currentSeason === 'winter' ? 0.2 : 0.3;
           for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 1] -= 0.3;
+            positions[i + 1] -= fallSpeed;
             if (positions[i + 1] < 0) {
               positions[i + 1] = 30;
             }
@@ -792,7 +794,8 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
         if (currentWeather === 'wind' && !windLinesRef.current) {
           const windGeo = new THREE.BufferGeometry();
           const windVerts = [];
-          for (let i = 0; i < 1000; i++) {
+          const windIntensity = currentSeason === 'autumn' ? 1500 : currentSeason === 'winter' ? 1200 : 1000;
+          for (let i = 0; i < windIntensity; i++) {
             windVerts.push(
               (Math.random() - 0.5) * 50,
               Math.random() * 20,
@@ -801,10 +804,10 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
           }
           windGeo.setAttribute('position', new THREE.Float32BufferAttribute(windVerts, 3));
           const windMat = new THREE.PointsMaterial({
-            color: 0xcccccc,
-            size: 0.15,
+            color: currentSeason === 'winter' ? 0xddeeff : 0xcccccc,
+            size: currentSeason === 'autumn' ? 0.2 : 0.15,
             transparent: true,
-            opacity: 0.3
+            opacity: currentSeason === 'autumn' ? 0.4 : 0.3
           });
           const wind = new THREE.Points(windGeo, windMat);
           scene.add(wind);
@@ -815,10 +818,12 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
         }
 
         if (windLinesRef.current) {
-          windLinesRef.current.rotation.y += 0.01;
+          const windSpeed = currentSeason === 'autumn' ? 0.015 : currentSeason === 'winter' ? 0.012 : 0.01;
+          windLinesRef.current.rotation.y += windSpeed;
           const positions = windLinesRef.current.geometry.attributes.position.array;
+          const windPush = currentSeason === 'autumn' ? 0.3 : 0.2;
           for (let i = 0; i < positions.length; i += 3) {
-            positions[i] += 0.2;
+            positions[i] += windPush;
             if (positions[i] > 25) {
               positions[i] = -25;
             }

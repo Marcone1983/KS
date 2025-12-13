@@ -202,7 +202,16 @@ export default function Game() {
       const plantDecayInterval = setInterval(() => {
         const isDay = dayNightHour >= 6 && dayNightHour < 18;
         let waterDecay = 0.1;
-        const nutritionDecay = 0.05;
+        let nutritionDecay = 0.05;
+
+        if (currentSeason === 'summer') {
+          waterDecay += 0.05;
+        } else if (currentSeason === 'winter') {
+          waterDecay += 0.03;
+          nutritionDecay += 0.02;
+        } else if (currentSeason === 'spring') {
+          nutritionDecay -= 0.02;
+        }
 
         if (currentWeather === 'rain') {
           waterDecay = -0.5;
@@ -220,6 +229,8 @@ export default function Game() {
           return;
         } else if (currentWeather === 'heatwave') {
           waterDecay = 0.25;
+        } else if (currentWeather === 'wind') {
+          waterDecay += 0.08;
         }
         
         const updates = {
@@ -231,7 +242,11 @@ export default function Game() {
         };
 
         if (isDay && progress.plant_stats.light_exposure > 60 && progress.plant_stats.water_level > 30) {
-          const growthChance = 0.02;
+          let growthChance = 0.02;
+          if (currentSeason === 'spring') growthChance += 0.01;
+          if (currentSeason === 'summer') growthChance += 0.005;
+          if (currentSeason === 'winter') growthChance -= 0.01;
+
           if (Math.random() < growthChance) {
             updates.plant_stats.growth_level = Math.min(10, progress.plant_stats.growth_level + 0.1);
           }
@@ -246,7 +261,7 @@ export default function Game() {
 
       return () => clearInterval(plantDecayInterval);
     }
-  }, [gameState, isPaused, progress, dayNightHour]);
+  }, [gameState, isPaused, progress, dayNightHour, currentSeason, currentWeather]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
@@ -332,6 +347,36 @@ export default function Game() {
     return behaviorMap[pestType] || 'normal';
   };
 
+  const getSeasonalPestModifiers = (season, pestType) => {
+    const modifiers = { speedMult: 1.0, healthMult: 1.0, damageMult: 1.0, spawnChance: 1.0 };
+
+    if (season === 'winter') {
+      if (pestType === 'spider_mite') {
+        modifiers.spawnChance = 1.5;
+        modifiers.healthMult = 1.2;
+      } else {
+        modifiers.speedMult = 0.7;
+      }
+    } else if (season === 'summer') {
+      if (pestType === 'grasshopper' || pestType === 'whitefly') {
+        modifiers.spawnChance = 1.8;
+        modifiers.damageMult = 1.3;
+      }
+      modifiers.speedMult = 1.2;
+    } else if (season === 'spring') {
+      if (pestType === 'aphid' || pestType === 'thrip') {
+        modifiers.spawnChance = 1.6;
+      }
+    } else if (season === 'autumn') {
+      if (pestType === 'fungal_spreader') {
+        modifiers.spawnChance = 2.0;
+        modifiers.damageMult = 1.4;
+      }
+    }
+
+    return modifiers;
+  };
+
   const spawnPests = () => {
     if (!allPests || allPests.length === 0) return;
     
@@ -381,10 +426,13 @@ export default function Game() {
       const pestConfig = pestsToSpawn[i];
       const pestType = pestConfig.pestData;
       const behavior = getPestBehaviorType(pestType.type);
-      
+      const seasonalMods = getSeasonalPestModifiers(currentSeason, pestType.type);
+
+      if (Math.random() > seasonalMods.spawnChance) continue;
+
       const angle = (i / pestCount) * Math.PI * 2;
       const distance = 8 + Math.random() * 4;
-      
+
       const behaviorModifiers = {
         flying: { speedMult: 0.7, healthMult: 0.8, yOffset: 2 },
         fast: { speedMult: 1.5, healthMult: 0.7, yOffset: 0 },
@@ -392,14 +440,17 @@ export default function Game() {
         zigzag: { speedMult: 1.0, healthMult: 1.0, yOffset: 0 },
         swarm: { speedMult: 0.9, healthMult: 0.9, yOffset: 0 },
         jumper: { speedMult: 1.2, healthMult: 1.1, yOffset: 0 },
+        camouflaged: { speedMult: 0.8, healthMult: 1.3, yOffset: 0 },
+        burrowing: { speedMult: 0.7, healthMult: 1.5, yOffset: 0 },
+        spreading: { speedMult: 0.9, healthMult: 1.2, yOffset: 0 },
         normal: { speedMult: 1.0, healthMult: 1.0, yOffset: 0 }
       };
-      
+
       const mods = behaviorModifiers[behavior] || behaviorModifiers.normal;
 
-      const finalHealth = pestConfig.health || Math.floor(pestType.health * healthMultiplier * mods.healthMult);
-      const finalSpeed = (pestConfig.speed || pestType.speed * speedMultiplier) * mods.speedMult * speedBoost;
-      const finalDamage = pestConfig.damage || pestType.damage_per_second * damageMultiplier;
+      const finalHealth = pestConfig.health || Math.floor(pestType.health * healthMultiplier * mods.healthMult * seasonalMods.healthMult);
+      const finalSpeed = (pestConfig.speed || pestType.speed * speedMultiplier) * mods.speedMult * speedBoost * seasonalMods.speedMult;
+      const finalDamage = (pestConfig.damage || pestType.damage_per_second * damageMultiplier) * seasonalMods.damageMult;
 
       const pest = {
         id: `pest_${Date.now()}_${i}`,
@@ -1018,6 +1069,7 @@ export default function Game() {
           gameContext={{
             current_pests: activePests.map(p => p.type),
             current_weather: currentWeather,
+            current_season: currentSeason,
             plant_health: plantHealth,
             active_boss: activeBoss?.type,
             level: level,

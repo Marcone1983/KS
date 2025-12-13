@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Trophy, Settings, Leaf, Shield, BookOpen } from 'lucide-react';
+import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 export default function Home() {
@@ -151,6 +151,15 @@ export default function Home() {
           >
             <BookOpen className="h-8 w-8 mr-3" />
             Enciclopedia
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('ResearchTree'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-cyan-400 text-white hover:bg-cyan-500/20 text-xl px-12 py-8"
+          >
+            <FlaskConical className="h-8 w-8 mr-3" />
+            Ricerca
           </Button>
         </div>
 
