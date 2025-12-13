@@ -2,14 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 // Postprocessing
-import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
-import { FXAAPass } from "three/addons/postprocessing/FXAAPass.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 // Environment (nice reflections without external HDRI)
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 const HempSprayFPV_Realistic = () => {
   const containerRef = useRef(null);
@@ -122,9 +121,6 @@ const HempSprayFPV_Realistic = () => {
       maxblur: 0.009,
     });
     composer.addPass(bokehPass);
-
-    composer.addPass(new FXAAPass());
-    composer.addPass(new OutputPass());
 
     // -----------------------------
     // Procedural textures (lightweight)
