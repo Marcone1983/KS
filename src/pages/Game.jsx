@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import GameScene from '../components/game/GameScene';
+import HempSprayFPV_Realistic from '../components/game/HempSprayFPV_Realistic';
 import GameUI from '../components/game/GameUI';
 import GameOver from '../components/game/GameOver';
 import PauseMenu from '../components/game/PauseMenu';
@@ -976,36 +976,7 @@ export default function Game() {
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
-      <GameScene
-        pests={activePests}
-        boss={activeBoss}
-        toxicClouds={toxicClouds}
-        onPestHit={handlePestHit}
-        onSpray={(position) => {
-          const success = handleSpray();
-          if (success && position) {
-            setActiveSprayEffects(prev => [...prev, { 
-              position, 
-              timestamp: Date.now() 
-            }]);
-          }
-          return success;
-        }}
-        spraySpeed={progress?.upgrades?.spray_speed || 1}
-        sprayRadius={progress?.upgrades?.spray_radius || 1}
-        sprayPotency={progress?.upgrades?.spray_potency || 1}
-        sprayDuration={progress?.upgrades?.spray_duration || 1}
-        slowEffect={progress?.upgrades?.slow_effect || 0}
-        areaDamage={progress?.upgrades?.area_damage || 0}
-        isPaused={isPaused || gameState !== 'playing'}
-        activeSkin={progress.active_skin}
-        level={level}
-        dayNightHour={dayNightHour}
-        plantStats={progress?.plant_stats}
-        activeSprayEffects={activeSprayEffects}
-        currentWeather={currentWeather}
-        currentSeason={currentSeason}
-      />
+      <HempSprayFPV_Realistic />
 
       {activeBoss && (
         <BossHealthBar 
