@@ -7,6 +7,7 @@ import GameOver from '../components/game/GameOver';
 import PauseMenu from '../components/game/PauseMenu';
 import TutorPanel from '../components/game/TutorPanel';
 import BossHealthBar from '../components/game/BossHealthBar';
+import LevelObjectives from '../components/game/LevelObjectives';
 
 export default function Game() {
   const queryClient = useQueryClient();
@@ -28,6 +29,8 @@ export default function Game() {
   const [toxicClouds, setToxicClouds] = useState([]);
   const [currentWeather, setCurrentWeather] = useState('clear');
   const [weatherEffectStrength, setWeatherEffectStrength] = useState(0);
+  const [proceduralLevelData, setProceduralLevelData] = useState(null);
+  const [levelObjectives, setLevelObjectives] = useState([]);
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
@@ -102,11 +105,44 @@ export default function Game() {
 
   useEffect(() => {
     if (progress && gameState === 'loading') {
-      setLevel(progress.current_level);
-      setDayNightHour(progress.day_night_cycle?.current_hour || 12);
-      setCurrentWeather(progress.current_weather || 'clear');
-      setGameState('playing');
-      gameStartTime.current = Date.now();
+      const loadLevel = async () => {
+        try {
+          const response = await base44.functions.invoke('generateProceduralLevel', {
+            level: progress.current_level,
+            playerStats: {
+              high_score: progress.high_score,
+              upgrades: progress.upgrades
+            }
+          });
+
+          if (response.data.success) {
+            const levelData = response.data.level;
+            setProceduralLevelData(levelData);
+            setLevel(levelData.level_number);
+            setDayNightHour(levelData.time_of_day);
+            setCurrentWeather(levelData.weather);
+            setLevelObjectives(levelData.objectives || []);
+            
+            if (levelData.special_conditions) {
+              levelData.special_conditions.forEach(condition => {
+                if (condition.type === 'plant_stress') {
+                  setPlantHealth(100 * condition.value);
+                }
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error loading procedural level:', error);
+          setLevel(progress.current_level);
+          setDayNightHour(progress.day_night_cycle?.current_hour || 12);
+          setCurrentWeather(progress.current_weather || 'clear');
+        }
+        
+        setGameState('playing');
+        gameStartTime.current = Date.now();
+      };
+
+      loadLevel();
     }
   }, [progress, gameState]);
 
@@ -215,13 +251,27 @@ export default function Game() {
   }, [plantHealth, gameState]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && level % 3 === 0 && !activeBoss && allBosses.length > 0) {
-      const bossForLevel = allBosses.find(b => b.level_appearance === level);
-      if (bossForLevel) {
-        spawnBoss(bossForLevel);
+    if (gameState === 'playing' && !isPaused && !activeBoss && allBosses.length > 0) {
+      if (proceduralLevelData && proceduralLevelData.boss) {
+        const bossConfig = proceduralLevelData.boss;
+        const bossData = allBosses.find(b => b.id === bossConfig.boss_id);
+        if (bossData) {
+          const enhancedBoss = {
+            ...bossData,
+            base_health: Math.floor(bossData.base_health * (bossConfig.health_multiplier || 1)),
+            speed: bossData.speed * (bossConfig.speed_multiplier || 1),
+            damage_per_second: bossData.damage_per_second * (bossConfig.damage_multiplier || 1)
+          };
+          spawnBoss(enhancedBoss);
+        }
+      } else if (level % 3 === 0) {
+        const bossForLevel = allBosses.find(b => b.level_appearance === level);
+        if (bossForLevel) {
+          spawnBoss(bossForLevel);
+        }
       }
     }
-  }, [level, gameState, isPaused, activeBoss, allBosses]);
+  }, [level, gameState, isPaused, activeBoss, allBosses, proceduralLevelData]);
 
   const spawnBoss = (bossData) => {
     const healthMultiplier = 1 + (level - bossData.level_appearance) * 0.2;
@@ -272,20 +322,51 @@ export default function Game() {
   const spawnPests = () => {
     if (!allPests || allPests.length === 0) return;
     
-    const levelPests = allPests.filter(p => p.unlock_level <= level);
-    if (levelPests.length === 0) return;
+    let pestsToSpawn = [];
     
-    const baseCount = 2;
-    const levelScaling = Math.floor(level / 2);
-    const pestCount = Math.min(baseCount + levelScaling, 15);
+    if (proceduralLevelData && proceduralLevelData.pests && proceduralLevelData.pests.length > 0) {
+      pestsToSpawn = proceduralLevelData.pests.map(pestConfig => {
+        const basePest = allPests.find(p => p.id === pestConfig.pest_id || p.type === pestConfig.type);
+        return {
+          ...pestConfig,
+          pestData: basePest
+        };
+      }).filter(p => p.pestData);
+      
+      const spawnBoost = proceduralLevelData.special_conditions?.find(c => c.type === 'pest_spawn_boost')?.value || 1;
+      if (spawnBoost > 1 && Math.random() > 0.5) {
+        const extraCount = Math.floor(pestsToSpawn.length * (spawnBoost - 1));
+        for (let i = 0; i < extraCount; i++) {
+          const randomPest = pestsToSpawn[Math.floor(Math.random() * pestsToSpawn.length)];
+          pestsToSpawn.push({ ...randomPest });
+        }
+      }
+    } else {
+      const levelPests = allPests.filter(p => p.unlock_level <= level);
+      if (levelPests.length === 0) return;
+      
+      const baseCount = 2;
+      const levelScaling = Math.floor(level / 2);
+      const pestCount = Math.min(baseCount + levelScaling, 15);
+      
+      for (let i = 0; i < pestCount; i++) {
+        const pestType = levelPests[Math.floor(Math.random() * levelPests.length)];
+        pestsToSpawn.push({ pestData: pestType });
+      }
+    }
+    
+    const pestCount = pestsToSpawn.length;
     
     const healthMultiplier = 1 + (level - 1) * 0.15;
     const speedMultiplier = 1 + (level - 1) * 0.08;
     const damageMultiplier = 1 + (level - 1) * 0.1;
     
+    const speedBoost = proceduralLevelData?.special_conditions?.find(c => c.type === 'speed_boost')?.value || 1;
+    
     const newPests = [];
     for (let i = 0; i < pestCount; i++) {
-      const pestType = levelPests[Math.floor(Math.random() * levelPests.length)];
+      const pestConfig = pestsToSpawn[i];
+      const pestType = pestConfig.pestData;
       const behavior = getPestBehaviorType(pestType.type);
       
       const angle = (i / pestCount) * Math.PI * 2;
@@ -303,14 +384,18 @@ export default function Game() {
       
       const mods = behaviorModifiers[behavior] || behaviorModifiers.normal;
 
+      const finalHealth = pestConfig.health || Math.floor(pestType.health * healthMultiplier * mods.healthMult);
+      const finalSpeed = (pestConfig.speed || pestType.speed * speedMultiplier) * mods.speedMult * speedBoost;
+      const finalDamage = pestConfig.damage || pestType.damage_per_second * damageMultiplier;
+
       const pest = {
         id: `pest_${Date.now()}_${i}`,
         type: pestType.type,
         name: pestType.name,
-        health: Math.floor(pestType.health * healthMultiplier * mods.healthMult),
-        maxHealth: Math.floor(pestType.health * healthMultiplier * mods.healthMult),
-        speed: pestType.speed * speedMultiplier * mods.speedMult,
-        damage: pestType.damage_per_second * damageMultiplier,
+        health: finalHealth,
+        maxHealth: finalHealth,
+        speed: finalSpeed,
+        damage: finalDamage,
         position: {
           x: Math.cos(angle) * distance,
           y: behavior === 'burrowing' ? -1 : 1 + Math.random() * 1.5 + mods.yOffset,
@@ -613,6 +698,29 @@ export default function Game() {
     };
     
     await saveSessionMutation.mutateAsync(sessionData);
+
+    if (proceduralLevelData && completed) {
+      let bonusLeaf = proceduralLevelData.rewards.base_leaf;
+      
+      if (plantHealth >= 80) {
+        bonusLeaf += proceduralLevelData.rewards.perfect_bonus;
+      }
+      
+      const totalPestsKilled = Object.values(pestsEliminated).reduce((sum, count) => sum + count, 0);
+      if (totalPestsKilled >= (proceduralLevelData.pests?.length || 0)) {
+        bonusLeaf += proceduralLevelData.rewards.completion_bonus;
+      }
+      
+      if (progress) {
+        await updateProgressMutation.mutateAsync({
+          id: progress.id,
+          data: {
+            ...progress,
+            leaf_currency: progress.leaf_currency + bonusLeaf
+          }
+        });
+      }
+    }
     
     if (progress) {
       const nutritionDecay = 5;
@@ -789,6 +897,17 @@ export default function Game() {
           health={bossHealth}
           maxHealth={bossMaxHealth}
           armorSegments={bossArmorSegments}
+        />
+      )}
+
+      {levelObjectives.length > 0 && (
+        <LevelObjectives
+          objectives={levelObjectives}
+          currentStats={{
+            timeElapsed: gameTime,
+            pestsKilled: Object.values(pestsEliminated).reduce((sum, count) => sum + count, 0),
+            plantHealth: plantHealth
+          }}
         />
       )}
       
