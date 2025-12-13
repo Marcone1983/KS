@@ -180,67 +180,81 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
 
       const leafletGeo = createCannabisLeafletGeometry();
 
-            for(let i=1; i<20; i++) {
-              const yPos = i * 0.45;
-              const scale = 1.2 - (i * 0.025);
+            for(let i=1; i<18; i++) {
+              const yPos = i * 0.5;
+              const scale = 1.3 - (i * 0.03);
 
-              const branchesAtLevel = i < 5 ? 3 : i < 10 ? 4 : i < 15 ? 5 : 6;
+              const branchesAtLevel = i < 4 ? 2 : i < 8 ? 3 : i < 12 ? 4 : 5;
 
               for(let k=0; k<branchesAtLevel; k++) {
-                const fanGroup = new THREE.Group();
+                const branchGroup = new THREE.Group();
+                const branchAngle = (k / branchesAtLevel) * Math.PI * 2 + (i * Math.PI / 4);
+                const branchLength = 0.3 + i * 0.06;
 
-                const leafletsCount = i < 5 ? 5 : i < 10 ? 7 : i < 15 ? 9 : 11;
+                const branchPoints = [];
+                for (let b = 0; b <= 6; b++) {
+                  const t = b / 6;
+                  branchPoints.push(new THREE.Vector3(
+                    t * branchLength * Math.sin(branchAngle),
+                    0,
+                    t * branchLength * Math.cos(branchAngle)
+                  ));
+                }
+                const branchCurve = new THREE.CatmullRomCurve3(branchPoints);
+                const branchGeo = new THREE.TubeGeometry(branchCurve, 6, 0.02, 4, false);
+                const branchMesh = new THREE.Mesh(branchGeo, stemMat);
+                branchMesh.castShadow = true;
+                branchGroup.add(branchMesh);
+
+                const fanGroup = new THREE.Group();
+                const leafletsCount = i < 4 ? 5 : i < 8 ? 7 : i < 12 ? 9 : 11;
                 const angles = [];
                 const sizes = [];
 
                 for(let l = 0; l < leafletsCount; l++) {
                   const centerIdx = Math.floor(leafletsCount / 2);
                   const offset = l - centerIdx;
-                  angles.push(offset * 12);
+                  angles.push(offset * 14);
                   const distFromCenter = Math.abs(offset) / centerIdx;
-                  sizes.push(1.0 - distFromCenter * 0.4);
+                  sizes.push(1.0 - distFromCenter * 0.35);
                 }
 
                 angles.forEach((angle, idx) => {
-                  const hue = 0.28 + Math.random() * 0.05;
-                  const sat = 0.65 + Math.random() * 0.15;
-                  const light = 0.35 + Math.random() * 0.15;
+                  const hue = 0.28 + Math.random() * 0.06;
+                  const sat = 0.68 + Math.random() * 0.12;
+                  const light = 0.38 + Math.random() * 0.12;
                   const leafletColor = new THREE.Color().setHSL(hue, sat, light);
 
                   const leafletMaterial = new THREE.MeshStandardMaterial({ 
                     color: leafletColor,
-                    roughness: 0.4,
-                    metalness: 0.15,
+                    roughness: 0.35,
+                    metalness: 0.18,
                     side: THREE.DoubleSide,
                     emissive: leafletColor,
-                    emissiveIntensity: 0.2
+                    emissiveIntensity: 0.25
                   });
 
                   const leaflet = new THREE.Mesh(leafletGeo, leafletMaterial);
                   leaflet.rotation.z = angle * (Math.PI / 180);
-                  leaflet.scale.set(sizes[idx] * 1.2, sizes[idx] * 1.2, sizes[idx] * 1.2);
-                  leaflet.position.y = 0.15 * sizes[idx];
+                  leaflet.scale.set(sizes[idx] * 1.4, sizes[idx] * 1.4, sizes[idx] * 1.4);
+                  leaflet.position.y = 0.18 * sizes[idx];
                   leaflet.castShadow = true;
                   leaflet.receiveShadow = true;
                   fanGroup.add(leaflet);
                 });
 
-                const branchLength = 0.4 + i * 0.08;
-                const branchAngle = (k / branchesAtLevel) * Math.PI * 2 + (i * Math.PI / 5);
-
                 fanGroup.position.set(
-                  Math.sin(branchAngle) * branchLength, 
-                  yPos, 
-                  Math.cos(branchAngle) * branchLength
+                  branchLength * Math.sin(branchAngle),
+                  0,
+                  branchLength * Math.cos(branchAngle)
                 );
+                fanGroup.rotation.y = branchAngle;
+                fanGroup.rotation.x = Math.PI / 2.5 + (Math.random() - 0.5) * 0.3;
+                fanGroup.scale.set(scale * 1.6, scale * 1.6, scale * 1.6);
+                branchGroup.add(fanGroup);
 
-                const rotY = branchAngle;
-                fanGroup.rotation.y = rotY;
-                fanGroup.rotation.x = Math.PI / 2.8 + Math.random() * 0.2;
-                fanGroup.rotation.z = (Math.random() - 0.5) * 0.3;
-
-                fanGroup.scale.set(scale * 1.5, scale * 1.5, scale * 1.5);
-                plantGroup.add(fanGroup);
+                branchGroup.position.y = yPos;
+                plantGroup.add(branchGroup);
               }
             }
 
@@ -362,9 +376,10 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
       nozzle.castShadow = true;
       group.add(nozzle);
 
-      group.position.set(2.2, 1.2, 4);
-      group.rotation.y = -Math.PI / 6;
-      group.rotation.x = -Math.PI / 12;
+      group.position.set(-8, 2, 8);
+      group.rotation.y = Math.PI * 0.75;
+      group.rotation.x = -Math.PI / 10;
+      group.rotation.z = Math.PI / 12;
       group.scale.set(2.5, 2.5, 2.5);
 
       return group;
@@ -911,12 +926,14 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
         }
 
         if (sprayBottleRef.current) {
-          const targetX = 2.2 + mouseRef.current.x * 0.6;
-          const targetY = 1.2 + mouseRef.current.y * 0.5;
+          const targetX = -8 + mouseRef.current.x * 1.5;
+          const targetY = 2 - mouseRef.current.y * 1.2;
+          const targetZ = 8 + mouseRef.current.x * 0.8;
           sprayBottleRef.current.position.x += (targetX - sprayBottleRef.current.position.x) * 0.12;
           sprayBottleRef.current.position.y += (targetY - sprayBottleRef.current.position.y) * 0.12;
+          sprayBottleRef.current.position.z += (targetZ - sprayBottleRef.current.position.z) * 0.12;
 
-          const idleBob = Math.sin(t * 1.2) * 0.02;
+          const idleBob = Math.sin(t * 1.2) * 0.03;
           sprayBottleRef.current.position.y += idleBob;
         }
 
