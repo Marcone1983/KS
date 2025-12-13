@@ -34,6 +34,7 @@ export default function Game() {
   const [proceduralLevelData, setProceduralLevelData] = useState(null);
   const [levelObjectives, setLevelObjectives] = useState([]);
   const [discoveredLore, setDiscoveredLore] = useState(null);
+  const [currentSeason, setCurrentSeason] = useState('spring');
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
@@ -109,12 +110,15 @@ export default function Game() {
   useEffect(() => {
     if (progress && gameState === 'loading') {
       const loadLevel = async () => {
+        setCurrentSeason(progress.current_season || 'spring');
+
         try {
           const response = await base44.functions.invoke('generateProceduralLevel', {
             level: progress.current_level,
             playerStats: {
               high_score: progress.high_score,
-              upgrades: progress.upgrades
+              upgrades: progress.upgrades,
+              season: progress.current_season || 'spring'
             }
           });
 
@@ -735,7 +739,7 @@ export default function Game() {
 
   const endGame = async (completed) => {
     setGameState('gameover');
-    
+
     const sessionData = {
       level,
       score,
@@ -744,8 +748,10 @@ export default function Game() {
       plant_health_final: plantHealth,
       completed
     };
-    
+
     await saveSessionMutation.mutateAsync(sessionData);
+
+    const researchPointsEarned = completed ? Math.floor(level * 2 + score / 50) : Math.floor(score / 100);
 
     if (proceduralLevelData && completed) {
       let bonusLeaf = proceduralLevelData.rewards.base_leaf;
@@ -773,11 +779,19 @@ export default function Game() {
     if (progress) {
       const nutritionDecay = 5;
       const waterDecay = 10;
-      
+
+      const newSeasonDay = (progress.season_day || 0) + 1;
+      const seasons = ['spring', 'summer', 'autumn', 'winter'];
+      const currentSeasonIndex = seasons.indexOf(progress.current_season || 'spring');
+      const nextSeason = newSeasonDay >= 30 ? seasons[(currentSeasonIndex + 1) % 4] : progress.current_season;
+
       const updates = {
         total_score: progress.total_score + score,
         high_score: Math.max(progress.high_score, score),
         leaf_currency: progress.leaf_currency + Math.floor(score / 10),
+        research_points: (progress.research_points || 0) + researchPointsEarned,
+        current_season: nextSeason,
+        season_day: newSeasonDay >= 30 ? 0 : newSeasonDay,
         plant_stats: {
           ...progress.plant_stats,
           nutrition_level: Math.max(0, progress.plant_stats.nutrition_level - nutritionDecay),
@@ -939,6 +953,7 @@ export default function Game() {
         plantStats={progress?.plant_stats}
         activeSprayEffects={activeSprayEffects}
         currentWeather={currentWeather}
+        currentSeason={currentSeason}
       />
 
       {activeBoss && (

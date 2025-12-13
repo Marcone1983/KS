@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, sprayDuration, slowEffect, areaDamage, isPaused, onPestClick, activeSkin, level, dayNightHour, plantStats, activeSprayEffects, currentWeather }) {
+export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, sprayDuration, slowEffect, areaDamage, isPaused, onPestClick, activeSkin, level, dayNightHour, plantStats, activeSprayEffects, currentWeather, currentSeason }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
@@ -719,9 +719,17 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
         const dayProgress = isDay ? (hour - 6) / 12 : 0;
         const nightProgress = !isDay ? (hour < 6 ? (6 - hour) / 6 : (hour - 18) / 6) : 0;
 
-        const dayColor = new THREE.Color(0x3a4a3a);
-        const sunsetColor = new THREE.Color(0x4a2a2a);
-        const nightColor = new THREE.Color(0x1a2428);
+        const seasonColors = {
+          spring: { day: 0x4a6a4a, sunset: 0x5a3a3a, night: 0x2a3438 },
+          summer: { day: 0x5a7a5a, sunset: 0x7a4a2a, night: 0x2a2838 },
+          autumn: { day: 0x6a5a3a, sunset: 0x6a3a2a, night: 0x2a2428 },
+          winter: { day: 0x5a6a7a, sunset: 0x4a3a4a, night: 0x1a2438 }
+        };
+
+        const colors = seasonColors[currentSeason || 'spring'];
+        const dayColor = new THREE.Color(colors.day);
+        const sunsetColor = new THREE.Color(colors.sunset);
+        const nightColor = new THREE.Color(colors.night);
 
         let targetColor = dayColor;
         if (!isDay) {

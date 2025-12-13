@@ -57,22 +57,28 @@ CONTESTO GIOCATORE:
 - Resistenza parassiti: +${context.plant_stats?.resistance_bonus || 0}%
 - Upgrade spray: Velocità ${context.upgrades?.spray_speed || 1}, Raggio ${context.upgrades?.spray_radius || 1}, Potenza ${context.upgrades?.spray_potency || 1}
 - Upgrade speciali: Slow Effect ${context.upgrades?.slow_effect || 0}, Area Damage ${context.upgrades?.area_damage || 0}
+- Punti Ricerca: ${progress?.research_points || 0}
+- Ricerche sbloccate: ${progress?.unlocked_research?.length || 0}
+- Stagione corrente: ${progress?.current_season || 'spring'}
 - Parassiti incontrati: ${context.encountered_pests.length} tipi
 - Leaf disponibili: ${context.leaf_currency}
 - Ultime 3 sessioni: ${recentSessions.map(s => `Lvl ${s.level} - ${s.completed ? 'Vinto' : 'Perso'} - ${s.score} punti`).join(', ')}
 
-${gameContext?.current_pests ? `PARASSITI ATTIVI: ${gameContext.current_pests.join(', ')}` : ''}
-${gameContext?.current_weather ? `METEO: ${gameContext.current_weather}` : ''}
+${gameContext?.current_pests ? `PARASSITI ATTIVI: ${gameContext.current_pests.join(', ')} - Analizza comportamenti specifici` : ''}
+${gameContext?.current_weather ? `METEO: ${gameContext.current_weather} - Suggerisci adattamenti` : ''}
 ${gameContext?.plant_health ? `SALUTE PIANTA IN GIOCO: ${gameContext.plant_health}%` : ''}
 
-Fornisci consigli strategici specifici su:
-1. Upgrade prioritario da fare ADESSO
-2. Semi consigliati per il livello corrente
-3. Strategia spray ottimale
-4. Warning su vulnerabilità critiche
-5. Azioni immediate se in pericolo
+Fornisci consigli strategici DETTAGLIATI su:
+1. Upgrade prioritario spray da fare ADESSO
+2. Ricerca prioritaria nell'albero tecnologico
+3. Semi consigliati per stagione/livello corrente
+4. Strategia spray per parassiti specifici attivi
+5. Breeding combinations ottimali
+6. Adattamenti per meteo/stagione
+7. Warning su vulnerabilità critiche
+8. Azioni immediate se in pericolo
 
-Sii SPECIFICO e AZIONABILE. Non dire "migliora gli upgrade" ma "Investi in Spray Radius (livello 1→3) per gestire sciami"`,
+Sii ULTRA-SPECIFICO: "Sblocca 'Toxic Resistance' (Tier 2) per contrastare Night Crawler" non "migliora difese"`,
         response_json_schema: {
           type: "object",
           properties: {
@@ -81,8 +87,12 @@ Sii SPECIFICO e AZIONABILE. Non dire "migliora gli upgrade" ma "Investi in Spray
             main_advice: { type: "string" },
             immediate_actions: { type: "array", items: { type: "string" } },
             upgrade_recommendation: { type: "string" },
+            research_recommendation: { type: "string" },
             seed_recommendation: { type: "string" },
+            breeding_recommendation: { type: "string" },
             spray_strategy: { type: "string" },
+            seasonal_tips: { type: "string" },
+            pest_specific_tactics: { type: "array", items: { type: "string" } },
             vulnerabilities: { type: "array", items: { type: "string" } },
             encyclopedia_links: { type: "array", items: { type: "string" } }
           }
@@ -205,6 +215,16 @@ Sii SPECIFICO e AZIONABILE. Non dire "migliora gli upgrade" ma "Investi in Spray
             </div>
           )}
 
+          {advice.research_recommendation && (
+            <div className="bg-cyan-900/30 rounded-lg p-3 border border-cyan-500/30">
+              <div className="text-white font-semibold mb-1 flex items-center gap-2">
+                <Brain className="h-4 w-4 text-cyan-400" />
+                Ricerca Consigliata
+              </div>
+              <p className="text-gray-200">{advice.research_recommendation}</p>
+            </div>
+          )}
+
           {advice.seed_recommendation && (
             <div className="bg-green-900/30 rounded-lg p-3 border border-green-500/30">
               <div className="text-white font-semibold mb-1 flex items-center gap-2">
@@ -215,13 +235,50 @@ Sii SPECIFICO e AZIONABILE. Non dire "migliora gli upgrade" ma "Investi in Spray
             </div>
           )}
 
-          {advice.spray_strategy && (
-            <div className="bg-cyan-900/30 rounded-lg p-3 border border-cyan-500/30">
+          {advice.breeding_recommendation && (
+            <div className="bg-purple-900/30 rounded-lg p-3 border border-purple-500/30">
               <div className="text-white font-semibold mb-1 flex items-center gap-2">
-                <Target className="h-4 w-4 text-cyan-400" />
+                <Sprout className="h-4 w-4 text-purple-400" />
+                Breeding Consigliato
+              </div>
+              <p className="text-gray-200">{advice.breeding_recommendation}</p>
+            </div>
+          )}
+
+          {advice.spray_strategy && (
+            <div className="bg-blue-900/30 rounded-lg p-3 border border-blue-500/30">
+              <div className="text-white font-semibold mb-1 flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-400" />
                 Strategia Spray
               </div>
               <p className="text-gray-200">{advice.spray_strategy}</p>
+            </div>
+          )}
+
+          {advice.seasonal_tips && (
+            <div className="bg-amber-900/30 rounded-lg p-3 border border-amber-500/30">
+              <div className="text-white font-semibold mb-1 flex items-center gap-2">
+                <Leaf className="h-4 w-4 text-amber-400" />
+                Suggerimenti Stagionali
+              </div>
+              <p className="text-gray-200">{advice.seasonal_tips}</p>
+            </div>
+          )}
+
+          {advice.pest_specific_tactics && advice.pest_specific_tactics.length > 0 && (
+            <div>
+              <div className="text-white font-semibold mb-2 flex items-center gap-2">
+                <Target className="h-4 w-4 text-orange-400" />
+                Tattiche Anti-Parassita
+              </div>
+              <ul className="space-y-1">
+                {advice.pest_specific_tactics.map((tactic, idx) => (
+                  <li key={idx} className="text-gray-200 flex items-start gap-2 text-xs">
+                    <span className="text-orange-400 mt-0.5">→</span>
+                    <span>{tactic}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
