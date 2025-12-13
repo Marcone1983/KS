@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical } from 'lucide-react';
+import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 export default function Home() {
@@ -160,6 +160,15 @@ export default function Home() {
           >
             <FlaskConical className="h-8 w-8 mr-3" />
             Ricerca
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('PlantUpgrades'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-emerald-400 text-white hover:bg-emerald-500/20 text-xl px-12 py-8"
+          >
+            <TrendingUp className="h-8 w-8 mr-3" />
+            Potenzia Pianta
           </Button>
         </div>
 
