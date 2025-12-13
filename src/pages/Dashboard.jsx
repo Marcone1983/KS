@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Trophy, Leaf, Target, TrendingUp, Clock, Bug, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Trophy, Leaf, Target, TrendingUp, Clock, Bug, ShoppingBag, FlaskConical } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import StrategyAdvisor from '../components/advisor/StrategyAdvisor';
 
@@ -49,14 +49,14 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold text-white">Dashboard</h1>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 border-yellow-500/30">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <Trophy className="h-8 w-8 text-yellow-400" />
                 <div className="text-right">
                   <div className="text-3xl font-bold text-white">{progress?.high_score || 0}</div>
-                  <div className="text-sm text-yellow-200">Record Personale</div>
+                  <div className="text-sm text-yellow-200">Record</div>
                 </div>
               </div>
             </CardContent>
@@ -68,7 +68,19 @@ export default function Dashboard() {
                 <Leaf className="h-8 w-8 text-green-400" />
                 <div className="text-right">
                   <div className="text-3xl font-bold text-white">{progress?.leaf_currency || 0}</div>
-                  <div className="text-sm text-green-200">Leaf Token</div>
+                  <div className="text-sm text-green-200">Leaf</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border-cyan-500/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <FlaskConical className="h-8 w-8 text-cyan-400" />
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-white">{progress?.research_points || 0}</div>
+                  <div className="text-sm text-cyan-200">Ricerca</div>
                 </div>
               </div>
             </CardContent>
@@ -80,7 +92,7 @@ export default function Dashboard() {
                 <Target className="h-8 w-8 text-blue-400" />
                 <div className="text-right">
                   <div className="text-3xl font-bold text-white">{progress?.current_level || 1}</div>
-                  <div className="text-sm text-blue-200">Livello Attuale</div>
+                  <div className="text-sm text-blue-200">Livello</div>
                 </div>
               </div>
             </CardContent>
@@ -92,7 +104,7 @@ export default function Dashboard() {
                 <Bug className="h-8 w-8 text-purple-400" />
                 <div className="text-right">
                   <div className="text-3xl font-bold text-white">{totalPestsKilled}</div>
-                  <div className="text-sm text-purple-200">Parassiti Eliminati</div>
+                  <div className="text-sm text-purple-200">Eliminati</div>
                 </div>
               </div>
             </CardContent>
