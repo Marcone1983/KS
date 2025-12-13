@@ -8,6 +8,7 @@ import PauseMenu from '../components/game/PauseMenu';
 import TutorPanel from '../components/game/TutorPanel';
 import BossHealthBar from '../components/game/BossHealthBar';
 import LevelObjectives from '../components/game/LevelObjectives';
+import LoreDiscovery from '../components/game/LoreDiscovery';
 
 export default function Game() {
   const queryClient = useQueryClient();
@@ -31,6 +32,7 @@ export default function Game() {
   const [weatherEffectStrength, setWeatherEffectStrength] = useState(0);
   const [proceduralLevelData, setProceduralLevelData] = useState(null);
   const [levelObjectives, setLevelObjectives] = useState([]);
+  const [discoveredLore, setDiscoveredLore] = useState(null);
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
@@ -129,6 +131,12 @@ export default function Game() {
                   setPlantHealth(100 * condition.value);
                 }
               });
+            }
+
+            if (levelData.lore_element) {
+              setTimeout(() => {
+                setDiscoveredLore(levelData.lore_element);
+              }, 5000);
             }
           }
         } catch (error) {
@@ -908,6 +916,13 @@ export default function Game() {
             pestsKilled: Object.values(pestsEliminated).reduce((sum, count) => sum + count, 0),
             plantHealth: plantHealth
           }}
+        />
+      )}
+
+      {discoveredLore && (
+        <LoreDiscovery
+          loreElement={discoveredLore}
+          onDismiss={() => setDiscoveredLore(null)}
         />
       )}
       

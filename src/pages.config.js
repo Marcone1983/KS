@@ -3,6 +3,8 @@ import Game from './pages/Game';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Shop from './pages/Shop';
+import Encyclopedia from './pages/Encyclopedia';
+import Breeding from './pages/Breeding';
 
 
 export const PAGES = {
@@ -11,6 +13,8 @@ export const PAGES = {
     "Home": Home,
     "Dashboard": Dashboard,
     "Shop": Shop,
+    "Encyclopedia": Encyclopedia,
+    "Breeding": Breeding,
 }
 
 export const pagesConfig = {

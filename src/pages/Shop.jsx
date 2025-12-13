@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snowflake, Flame, Box, Sprout } from 'lucide-react';
+import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snowflake, Flame, Box, Sprout, Dna } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import PlantCarePanel from '../components/plant/PlantCarePanel';
@@ -319,6 +319,14 @@ export default function Shop() {
           >
             <Sprout className="h-4 w-4 mr-2" />
             Semi
+          </Button>
+          <Button
+            onClick={() => navigate(createPageUrl('Breeding'))}
+            variant="outline"
+            className="border-purple-600 text-white hover:bg-purple-600"
+          >
+            <Dna className="h-4 w-4 mr-2" />
+            Breeding
           </Button>
           <Button
             onClick={() => setSelectedTab('upgrades')}

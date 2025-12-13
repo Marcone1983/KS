@@ -85,6 +85,28 @@ Deno.serve(async (req) => {
 
     const leafReward = Math.floor(50 + level * 10 + (isBossLevel ? 200 : 0));
     
+    const allLore = await base44.asServiceRole.entities.LoreElement.list();
+    const eligibleLore = allLore.filter(l => l.discovery_level <= level);
+    
+    let loreToDiscover = null;
+    if (eligibleLore.length > 0 && Math.random() > 0.7) {
+      const rarityWeights = {
+        common: 0.5,
+        uncommon: 0.3,
+        rare: 0.15,
+        legendary: 0.05
+      };
+      
+      const weightedLore = eligibleLore.filter(l => {
+        const weight = rarityWeights[l.rarity] || 0.5;
+        return Math.random() < weight;
+      });
+      
+      if (weightedLore.length > 0) {
+        loreToDiscover = weightedLore[Math.floor(Math.random() * weightedLore.length)];
+      }
+    }
+
     const proceduralLevel = {
       level_number: level,
       difficulty_rating: Math.min(10, 1 + level * 0.3),
@@ -102,7 +124,8 @@ Deno.serve(async (req) => {
         { type: 'survive', duration: 120 + level * 5 },
         { type: 'eliminate_pests', count: Math.floor(pestCount * 0.7) },
         { type: 'maintain_health', threshold: 50 }
-      ]
+      ],
+      lore_element: loreToDiscover
     };
 
     return Response.json({
