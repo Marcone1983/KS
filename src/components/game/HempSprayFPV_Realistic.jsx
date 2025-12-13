@@ -4,9 +4,7 @@ import * as THREE from "three";
 // Postprocessing
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass";
 import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass";
-import { FXAAPass } from "three/examples/jsm/postprocessing/FXAAPass";
 
 // Environment (nice reflections without external HDRI)
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment";
@@ -122,9 +120,6 @@ const HempSprayFPV_Realistic = () => {
       maxblur: 0.009,
     });
     composer.addPass(bokehPass);
-
-    composer.addPass(new FXAAPass());
-    composer.addPass(new OutputPass());
 
     // -----------------------------
     // Procedural textures (lightweight)
