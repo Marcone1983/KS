@@ -92,10 +92,79 @@ const HempSprayFPV_Base44Safe = () => {
     scene.add(ground);
 
     // -----------------------------
+    // Procedural Textures
+    // -----------------------------
+    const makeLeafTexture = () => {
+      const size = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, size);
+      gradient.addColorStop(0, "#5fc45e");
+      gradient.addColorStop(0.5, "#4aa14e");
+      gradient.addColorStop(1, "#3d8a3d");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      ctx.strokeStyle = "rgba(50, 100, 50, 0.3)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(size / 2, 0);
+      ctx.lineTo(size / 2, size);
+      ctx.stroke();
+
+      for (let i = 0; i < 20; i++) {
+        const y = (i / 20) * size;
+        const angle = Math.PI / 3;
+        ctx.beginPath();
+        ctx.moveTo(size / 2, y);
+        ctx.lineTo(size / 2 + Math.cos(angle) * (size / 4), y + Math.sin(angle) * (size / 4));
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(size / 2, y);
+        ctx.lineTo(size / 2 - Math.cos(angle) * (size / 4), y + Math.sin(angle) * (size / 4));
+        ctx.stroke();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2, 2);
+      return texture;
+    };
+
+    const makeStemTexture = () => {
+      const size = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "#2b5a2a";
+      ctx.fillRect(0, 0, size, size);
+
+      for (let i = 0; i < 100; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const brightness = Math.random() * 30 - 15;
+        ctx.fillStyle = `rgba(${43 + brightness}, ${90 + brightness}, ${42 + brightness}, 0.4)`;
+        ctx.fillRect(x, y, 2, Math.random() * 20 + 5);
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(4, 8);
+      return texture;
+    };
+
+    const leafTexture = makeLeafTexture();
+    const stemTexture = makeStemTexture();
+
+    // -----------------------------
     // Materials
     // -----------------------------
     const leafMat = new THREE.MeshStandardMaterial({
       color: 0x4aa14e,
+      map: leafTexture,
       roughness: 0.78,
       metalness: 0.0,
       side: THREE.DoubleSide,
@@ -103,6 +172,7 @@ const HempSprayFPV_Base44Safe = () => {
 
     const stemMat = new THREE.MeshStandardMaterial({
       color: 0x2b5a2a,
+      map: stemTexture,
       roughness: 0.92,
       metalness: 0.0,
     });
@@ -583,26 +653,43 @@ const HempSprayFPV_Base44Safe = () => {
       camera.rotation.x = input.lookX;
       camera.rotation.y = input.lookY;
 
-      // wind
-      leafSets.forEach((set) => {
+      // wind - animazioni più fluide e realistiche
+      leafSets.forEach((set, idx) => {
         const off = set.userData.windOff;
-        const strength = 0.22;
-        const w1 = Math.sin(t * 2.0 + off) * strength;
-        const w2 = Math.cos(t * 1.2 + off) * strength * 0.6;
-        set.rotation.x = w1 * 0.08;
-        set.rotation.z = w2 * 0.07;
+        const heightFactor = idx / leafSets.length;
+        const strength = 0.22 + heightFactor * 0.15;
+        
+        const w1 = Math.sin(t * 1.8 + off) * strength;
+        const w2 = Math.cos(t * 1.4 + off * 1.3) * strength * 0.7;
+        const w3 = Math.sin(t * 2.5 + off * 0.7) * strength * 0.4;
+        
+        set.rotation.x = w1 * 0.12 + w3 * 0.05;
+        set.rotation.z = w2 * 0.10 + w3 * 0.03;
+        set.rotation.y = w3 * 0.08;
+        
+        set.children.forEach((leaf, leafIdx) => {
+          leaf.rotation.x += Math.sin(t * 3 + off + leafIdx) * 0.002;
+          leaf.rotation.z += Math.cos(t * 2.5 + off + leafIdx * 0.5) * 0.002;
+        });
       });
 
-      // caterpillars
+      // caterpillars - animazioni più fluide
       caterpillars.forEach((c) => {
         if (!c.userData.alive) return;
         c.userData.wiggle += dt * 6.2;
 
         if (!c.userData.dying) {
           const wig = Math.sin(c.userData.wiggle) * 0.12;
-          c.rotation.x = wig;
+          const wigSecondary = Math.cos(c.userData.wiggle * 1.5) * 0.08;
+          c.rotation.x = wig + wigSecondary * 0.5;
+          c.rotation.z = Math.sin(c.userData.wiggle * 0.8) * 0.05;
+          
           c.children.forEach((seg, i) => {
-            seg.position.y = Math.sin(c.userData.wiggle + i * 0.55) * 0.004;
+            const segWiggle = Math.sin(c.userData.wiggle + i * 0.55) * 0.004;
+            const segBounce = Math.cos(c.userData.wiggle * 1.3 + i * 0.3) * 0.002;
+            seg.position.y = segWiggle + segBounce;
+            seg.rotation.y = Math.sin(c.userData.wiggle * 2 + i * 0.4) * 0.05;
+            seg.scale.y = 1 + Math.sin(c.userData.wiggle * 1.8 + i * 0.6) * 0.05;
           });
         } else {
           c.userData.fallVel += dt * 0.8;

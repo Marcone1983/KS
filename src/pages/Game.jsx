@@ -10,6 +10,7 @@ import BossHealthBar from '../components/game/BossHealthBar';
 import LevelObjectives from '../components/game/LevelObjectives';
 import LoreDiscovery from '../components/game/LoreDiscovery';
 import StrategyAdvisor from '../components/advisor/StrategyAdvisor';
+import AudioManager from '../components/game/AudioManager';
 
 export default function Game() {
   const queryClient = useQueryClient();
@@ -39,6 +40,11 @@ export default function Game() {
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
   const weatherTimerRef = useRef(null);
+  const audioEventsRef = useRef({
+    spray: [],
+    hit: [],
+    death: []
+  });
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -976,6 +982,28 @@ export default function Game() {
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
+      <AudioManager 
+        isPlaying={gameState === 'playing' && !isPaused}
+        plantHealth={plantHealth}
+        onSpray={(callback) => {
+          audioEventsRef.current.spray.push(callback);
+          return () => {
+            audioEventsRef.current.spray = audioEventsRef.current.spray.filter(cb => cb !== callback);
+          };
+        }}
+        onHit={(callback) => {
+          audioEventsRef.current.hit.push(callback);
+          return () => {
+            audioEventsRef.current.hit = audioEventsRef.current.hit.filter(cb => cb !== callback);
+          };
+        }}
+        onDeath={(callback) => {
+          audioEventsRef.current.death.push(callback);
+          return () => {
+            audioEventsRef.current.death = audioEventsRef.current.death.filter(cb => cb !== callback);
+          };
+        }}
+      />
       <HempSprayFPV_Realistic />
 
       {activeBoss && (
