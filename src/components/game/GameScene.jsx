@@ -34,9 +34,9 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
     scene.fog = new THREE.FogExp2(bgColor, 0.03);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(-2, 1.5, 3.5);
-    camera.lookAt(0, 1.2, 0);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(-8, 6, 12);
+    camera.lookAt(0, 4, 0);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
@@ -102,63 +102,65 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
 
     const createCannabisLeafletGeometry = () => {
       const shape = new THREE.Shape();
-      const serratedEdges = 12;
+      const serratedEdges = 35;
 
       shape.moveTo(0, 0);
 
       for (let i = 0; i <= serratedEdges; i++) {
         const t = i / serratedEdges;
-        const baseWidth = 0.12;
-        const tipWidth = 0.02;
-        const width = baseWidth * (1 - t * 0.7) + tipWidth * t;
+        const baseWidth = 0.18;
+        const tipWidth = 0.01;
+        const width = baseWidth * (1 - Math.pow(t, 1.2) * 0.8) + tipWidth * t;
 
-        const x = width * Math.sin(t * Math.PI * 0.3);
-        const y = t * 1.0;
+        const curve = Math.sin(t * Math.PI * 0.4);
+        const x = width * curve;
+        const y = t * 1.3;
 
-        const serratedDepth = 0.015 * (1 - t * 0.5);
+        const serratedDepth = 0.04 * (1 - t * 0.6) * Math.sin(i * Math.PI / 2);
         const serratedX = x + (i % 2 === 0 ? serratedDepth : -serratedDepth);
 
         shape.lineTo(serratedX, y);
       }
 
-      shape.lineTo(0, 1.0);
+      shape.lineTo(0, 1.3);
 
       for (let i = serratedEdges; i >= 0; i--) {
         const t = i / serratedEdges;
-        const baseWidth = 0.12;
-        const tipWidth = 0.02;
-        const width = baseWidth * (1 - t * 0.7) + tipWidth * t;
+        const baseWidth = 0.18;
+        const tipWidth = 0.01;
+        const width = baseWidth * (1 - Math.pow(t, 1.2) * 0.8) + tipWidth * t;
 
-        const x = -width * Math.sin(t * Math.PI * 0.3);
-        const y = t * 1.0;
+        const curve = Math.sin(t * Math.PI * 0.4);
+        const x = -width * curve;
+        const y = t * 1.3;
 
-        const serratedDepth = 0.015 * (1 - t * 0.5);
+        const serratedDepth = 0.04 * (1 - t * 0.6) * Math.sin(i * Math.PI / 2);
         const serratedX = x + (i % 2 === 0 ? -serratedDepth : serratedDepth);
 
         shape.lineTo(serratedX, y);
       }
 
       shape.lineTo(0, 0);
-      return new THREE.ShapeGeometry(shape);
+
+      const geometry = new THREE.ShapeGeometry(shape);
+      const vertices = geometry.attributes.position.array;
+      for (let i = 0; i < vertices.length; i += 3) {
+        vertices[i + 2] = Math.sin(vertices[i + 1] * 2) * 0.02;
+      }
+      geometry.attributes.position.needsUpdate = true;
+      geometry.computeVertexNormals();
+
+      return geometry;
     };
 
     const createRealisticCannabisPlant = () => {
       const plantGroup = new THREE.Group();
 
       const stemMat = new THREE.MeshStandardMaterial({ 
-        color: 0x5a4c41, 
-        roughness: 0.7, 
-        flatShading: true,
-        emissive: 0x2a1c11,
-        emissiveIntensity: 0.2
-      });
-      const leafMat = new THREE.MeshStandardMaterial({ 
-        color: 0x4a8a2e,
-        roughness: 0.5,
+        color: 0x6a5c51, 
+        roughness: 0.6, 
         metalness: 0.1,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        emissive: 0x1a3a0e,
+        emissive: 0x3a2c21,
         emissiveIntensity: 0.3
       });
 
@@ -178,53 +180,69 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
 
       const leafletGeo = createCannabisLeafletGeometry();
 
-            for(let i=1; i<12; i++) {
-              const yPos = i * 0.3;
-              const scale = 1.1 - (i * 0.04);
+            for(let i=1; i<20; i++) {
+              const yPos = i * 0.45;
+              const scale = 1.2 - (i * 0.025);
 
-              for(let k=0; k<3; k++) {
+              const branchesAtLevel = i < 5 ? 3 : i < 10 ? 4 : i < 15 ? 5 : 6;
+
+              for(let k=0; k<branchesAtLevel; k++) {
                 const fanGroup = new THREE.Group();
 
-                const angles = [-60, -40, -25, -10, 0, 10, 25, 40, 60];
-                const sizes =  [0.6, 0.75, 0.9, 0.95, 1.0, 0.95, 0.9, 0.75, 0.6];
+                const leafletsCount = i < 5 ? 5 : i < 10 ? 7 : i < 15 ? 9 : 11;
+                const angles = [];
+                const sizes = [];
+
+                for(let l = 0; l < leafletsCount; l++) {
+                  const centerIdx = Math.floor(leafletsCount / 2);
+                  const offset = l - centerIdx;
+                  angles.push(offset * 12);
+                  const distFromCenter = Math.abs(offset) / centerIdx;
+                  sizes.push(1.0 - distFromCenter * 0.4);
+                }
 
                 angles.forEach((angle, idx) => {
-                  const centerColor = new THREE.Color(0x4a6741);
-                  const edgeColor = new THREE.Color(0x2d5a1e);
-                  const mixFactor = Math.abs(angle) / 50;
-                  const leafletColor = centerColor.clone().lerp(edgeColor, mixFactor);
+                  const hue = 0.28 + Math.random() * 0.05;
+                  const sat = 0.65 + Math.random() * 0.15;
+                  const light = 0.35 + Math.random() * 0.15;
+                  const leafletColor = new THREE.Color().setHSL(hue, sat, light);
 
                   const leafletMaterial = new THREE.MeshStandardMaterial({ 
                     color: leafletColor,
-                    roughness: 0.7,
-                    metalness: 0.05,
-                    flatShading: false,
-                    side: THREE.DoubleSide
+                    roughness: 0.4,
+                    metalness: 0.15,
+                    side: THREE.DoubleSide,
+                    emissive: leafletColor,
+                    emissiveIntensity: 0.2
                   });
 
                   const leaflet = new THREE.Mesh(leafletGeo, leafletMaterial);
                   leaflet.rotation.z = angle * (Math.PI / 180);
-                  leaflet.scale.set(sizes[idx], sizes[idx], sizes[idx]);
-                  leaflet.position.y = 0.1 * sizes[idx];
+                  leaflet.scale.set(sizes[idx] * 1.2, sizes[idx] * 1.2, sizes[idx] * 1.2);
+                  leaflet.position.y = 0.15 * sizes[idx];
                   leaflet.castShadow = true;
                   leaflet.receiveShadow = true;
                   fanGroup.add(leaflet);
                 });
 
-          fanGroup.position.set(
-            Math.sin(i * 0.5) * 0.1, 
-            yPos, 
-            Math.cos(i * 0.3) * 0.1
-          );
-          
-          const rotY = (k * (Math.PI * 2 / 3)) + (i * Math.PI / 3);
-          fanGroup.rotation.y = rotY;
-          fanGroup.rotation.x = Math.PI / 3.5;
+                const branchLength = 0.4 + i * 0.08;
+                const branchAngle = (k / branchesAtLevel) * Math.PI * 2 + (i * Math.PI / 5);
 
-          fanGroup.scale.set(scale * 1.3, scale * 1.3, scale * 1.3);
-          plantGroup.add(fanGroup);
-          }
-          }
+                fanGroup.position.set(
+                  Math.sin(branchAngle) * branchLength, 
+                  yPos, 
+                  Math.cos(branchAngle) * branchLength
+                );
+
+                const rotY = branchAngle;
+                fanGroup.rotation.y = rotY;
+                fanGroup.rotation.x = Math.PI / 2.8 + Math.random() * 0.2;
+                fanGroup.rotation.z = (Math.random() - 0.5) * 0.3;
+
+                fanGroup.scale.set(scale * 1.5, scale * 1.5, scale * 1.5);
+                plantGroup.add(fanGroup);
+              }
+            }
 
       const potGeo = new THREE.CylinderGeometry(0.5, 0.4, 0.6, 7);
       const potMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, flatShading: true });
@@ -238,7 +256,8 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
     };
 
     const plant = createRealisticCannabisPlant();
-    plant.scale.set(2.5, 2.5, 2.5);
+    plant.scale.set(1, 1, 1);
+    plant.position.set(0, -1, 0);
     scene.add(plant);
     plantRef.current = plant;
 
@@ -684,18 +703,18 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
         const isDay = hour >= 6 && hour < 18;
         const dayProgress = isDay ? (hour - 6) / 12 : 0;
         const nightProgress = !isDay ? (hour < 6 ? (6 - hour) / 6 : (hour - 18) / 6) : 0;
-        
-        const dayColor = new THREE.Color(0x1a2a1a);
-        const sunsetColor = new THREE.Color(0x2a1a1a);
-        const nightColor = new THREE.Color(0x0a1418);
-        
+
+        const dayColor = new THREE.Color(0x3a4a3a);
+        const sunsetColor = new THREE.Color(0x4a2a2a);
+        const nightColor = new THREE.Color(0x1a2428);
+
         let targetColor = dayColor;
         if (!isDay) {
           targetColor = nightColor.clone().lerp(sunsetColor, nightProgress);
         } else if (dayProgress < 0.1 || dayProgress > 0.9) {
           targetColor = dayColor.clone().lerp(sunsetColor, 0.5);
         }
-        
+
         sceneRef.current.background.lerp(targetColor, 0.01);
         sceneRef.current.fog.color.lerp(targetColor, 0.01);
         
@@ -860,25 +879,25 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
 
       if (!isPaused) {
         if (cameraRef.current) {
-          const slowRotation = t * 0.08;
-          const fastOscillation = Math.sin(t * 1.2) * 0.15;
-          const verticalWave = Math.sin(t * 0.5) * 0.1;
-          
-          const baseRadius = 5.0;
-          const radiusVariation = Math.sin(t * 0.3) * 0.4;
+          const slowRotation = t * 0.05;
+          const fastOscillation = Math.sin(t * 1.0) * 0.3;
+          const verticalWave = Math.sin(t * 0.4) * 0.2;
+
+          const baseRadius = 12.0;
+          const radiusVariation = Math.sin(t * 0.25) * 0.8;
           const currentRadius = baseRadius + radiusVariation;
-          
+
           cameraRef.current.position.x = Math.sin(slowRotation) * currentRadius + fastOscillation;
-          cameraRef.current.position.z = Math.cos(slowRotation) * currentRadius + Math.cos(t * 0.9) * 0.2;
-          
-          const baseHeight = 2.5;
-          const heightVariation = Math.sin(t * 0.4) * 0.15;
+          cameraRef.current.position.z = Math.cos(slowRotation) * currentRadius + Math.cos(t * 0.7) * 0.4;
+
+          const baseHeight = 6.0;
+          const heightVariation = Math.sin(t * 0.35) * 0.3;
           cameraRef.current.position.y = baseHeight + heightVariation + verticalWave;
-          
+
           const lookAtTarget = new THREE.Vector3(
-            Math.sin(t * 0.15) * 0.1,
-            1.2 + Math.sin(t * 0.6) * 0.05,
-            Math.cos(t * 0.2) * 0.1
+            Math.sin(t * 0.12) * 0.2,
+            4.0 + Math.sin(t * 0.5) * 0.1,
+            Math.cos(t * 0.18) * 0.2
           );
           cameraRef.current.lookAt(lookAtTarget);
         }
