@@ -39,7 +39,17 @@ export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSki
             </div>
           </div>
         )}
-        </div>
+
+        {currentSeason && (
+          <div className="bg-black/40 backdrop-blur-sm rounded-md px-3 py-1.5 border border-white/10">
+            <div className="text-white text-xs">
+              {currentSeason === 'spring' ? '🌸 Primavera' : 
+               currentSeason === 'summer' ? '☀️ Estate' : 
+               currentSeason === 'autumn' ? '🍂 Autunno' : '❄️ Inverno'}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="absolute top-3 right-3 pointer-events-auto">
         <Button
