@@ -26,9 +26,12 @@ export default function Game() {
   const [bossMaxHealth, setBossMaxHealth] = useState(0);
   const [bossArmorSegments, setBossArmorSegments] = useState(0);
   const [toxicClouds, setToxicClouds] = useState([]);
+  const [currentWeather, setCurrentWeather] = useState('clear');
+  const [weatherEffectStrength, setWeatherEffectStrength] = useState(0);
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
+  const weatherTimerRef = useRef(null);
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -101,10 +104,36 @@ export default function Game() {
     if (progress && gameState === 'loading') {
       setLevel(progress.current_level);
       setDayNightHour(progress.day_night_cycle?.current_hour || 12);
+      setCurrentWeather(progress.current_weather || 'clear');
       setGameState('playing');
       gameStartTime.current = Date.now();
     }
   }, [progress, gameState]);
+
+  useEffect(() => {
+    if (gameState === 'playing' && !isPaused && progress) {
+      const weatherDuration = 30000;
+      const weatherChangeInterval = setInterval(() => {
+        const now = Date.now();
+        if (now > (progress.weather_end_time || 0)) {
+          const weatherTypes = ['clear', 'clear', 'rain', 'wind', 'heatwave'];
+          const newWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
+          setCurrentWeather(newWeather);
+          
+          updateProgressMutation.mutate({
+            id: progress.id,
+            data: {
+              ...progress,
+              current_weather: newWeather,
+              weather_end_time: now + weatherDuration
+            }
+          });
+        }
+      }, 5000);
+
+      return () => clearInterval(weatherChangeInterval);
+    }
+  }, [gameState, isPaused, progress]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress) {
@@ -123,8 +152,26 @@ export default function Game() {
     if (gameState === 'playing' && !isPaused && progress) {
       const plantDecayInterval = setInterval(() => {
         const isDay = dayNightHour >= 6 && dayNightHour < 18;
-        const waterDecay = 0.1;
+        let waterDecay = 0.1;
         const nutritionDecay = 0.05;
+
+        if (currentWeather === 'rain') {
+          waterDecay = -0.5;
+          const newWaterLevel = Math.min(100, progress.plant_stats.water_level - waterDecay);
+          updateProgressMutation.mutate({
+            id: progress.id,
+            data: {
+              ...progress,
+              plant_stats: {
+                ...progress.plant_stats,
+                water_level: newWaterLevel
+              }
+            }
+          });
+          return;
+        } else if (currentWeather === 'heatwave') {
+          waterDecay = 0.25;
+        }
         
         const updates = {
           plant_stats: {
@@ -214,7 +261,10 @@ export default function Game() {
       'caterpillar': 'resistant',
       'grasshopper': 'jumper',
       'leafhopper': 'fast',
-      'fungus_gnat': 'flying'
+      'fungus_gnat': 'flying',
+      'root_borer': 'burrowing',
+      'fungal_spreader': 'spreading',
+      'leaf_mimic': 'camouflaged'
     };
     return behaviorMap[pestType] || 'normal';
   };
@@ -252,8 +302,8 @@ export default function Game() {
       };
       
       const mods = behaviorModifiers[behavior] || behaviorModifiers.normal;
-      
-      newPests.push({
+
+      const pest = {
         id: `pest_${Date.now()}_${i}`,
         type: pestType.type,
         name: pestType.name,
@@ -263,7 +313,7 @@ export default function Game() {
         damage: pestType.damage_per_second * damageMultiplier,
         position: {
           x: Math.cos(angle) * distance,
-          y: 1 + Math.random() * 1.5 + mods.yOffset,
+          y: behavior === 'burrowing' ? -1 : 1 + Math.random() * 1.5 + mods.yOffset,
           z: Math.sin(angle) * distance
         },
         color: pestType.color || '#ff0000',
@@ -272,7 +322,20 @@ export default function Game() {
         alarmLevel: 0,
         movementPattern: Math.random(),
         pestData: pestType
-      });
+      };
+
+      if (behavior === 'burrowing') {
+        pest.underground = true;
+        pest.emergeTime = Date.now() + Math.random() * 5000 + 3000;
+      } else if (behavior === 'camouflaged') {
+        pest.opacity = 0.3;
+        pest.detectionRadius = 1.5;
+      } else if (behavior === 'spreading') {
+        pest.lastSpreadTime = Date.now();
+        pest.spreadCooldown = 8000;
+      }
+
+      newPests.push(pest);
     }
     
     setActivePests(prev => [...prev, ...newPests]);
@@ -717,6 +780,7 @@ export default function Game() {
         dayNightHour={dayNightHour}
         plantStats={progress?.plant_stats}
         activeSprayEffects={activeSprayEffects}
+        currentWeather={currentWeather}
       />
 
       {activeBoss && (
@@ -737,6 +801,7 @@ export default function Game() {
         onPause={() => setIsPaused(true)}
         dayNightHour={dayNightHour}
         plantStats={progress?.plant_stats}
+        currentWeather={currentWeather}
       />
       
       {isPaused && gameState === 'playing' && (

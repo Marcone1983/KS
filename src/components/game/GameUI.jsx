@@ -1,9 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Pause, Droplets, Sun, Moon } from 'lucide-react';
+import { Pause, Droplets, Sun, Moon, Cloud, Wind, Flame } from 'lucide-react';
 
-export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSkin, onPause, dayNightHour, plantStats }) {
+export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSkin, onPause, dayNightHour, plantStats, currentWeather }) {
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
       <div className="absolute top-3 left-3 space-y-2 pointer-events-auto">
@@ -25,6 +25,17 @@ export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSki
                 <Moon className="h-4 w-4 text-blue-300" />
               )}
               <div className="text-white text-sm">{Math.floor(dayNightHour)}:00</div>
+            </div>
+          </div>
+        )}
+
+        {currentWeather && currentWeather !== 'clear' && (
+          <div className="bg-black/40 backdrop-blur-sm rounded-md px-3 py-1.5 border border-white/10">
+            <div className="flex items-center gap-2">
+              {currentWeather === 'rain' && <Cloud className="h-4 w-4 text-blue-400" />}
+              {currentWeather === 'wind' && <Wind className="h-4 w-4 text-gray-400" />}
+              {currentWeather === 'heatwave' && <Flame className="h-4 w-4 text-orange-400" />}
+              <div className="text-white text-xs capitalize">{currentWeather}</div>
             </div>
           </div>
         )}

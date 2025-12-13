@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snowflake, Flame } from 'lucide-react';
+import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snowflake, Flame, Box, Sprout } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import PlantCarePanel from '../components/plant/PlantCarePanel';
@@ -97,6 +97,18 @@ export default function Shop() {
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState('skins');
   const [upgradeFilter, setUpgradeFilter] = useState('all');
+
+  const { data: allPots } = useQuery({
+    queryKey: ['plantPots'],
+    queryFn: () => base44.entities.PlantPot.list(),
+    initialData: []
+  });
+
+  const { data: allSeeds } = useQuery({
+    queryKey: ['seeds'],
+    queryFn: () => base44.entities.Seed.list(),
+    initialData: []
+  });
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -207,6 +219,58 @@ export default function Shop() {
     return Math.floor(upgrade.baseCost * Math.pow(upgrade.costMultiplier, currentLevel - 1));
   };
 
+  const handleBuyPot = async (pot) => {
+    if (!progress) return;
+    
+    if (progress.unlocked_pots?.includes(pot.id)) {
+      const updatedData = { ...progress, active_pot: pot.id };
+      await updateProgressMutation.mutateAsync({ id: progress.id, data: updatedData });
+      toast.success(`Vaso ${pot.name} equipaggiato!`);
+      return;
+    }
+
+    if (progress.leaf_currency < pot.price) {
+      toast.error('Leaf insufficienti!');
+      return;
+    }
+
+    const updatedData = {
+      ...progress,
+      leaf_currency: progress.leaf_currency - pot.price,
+      unlocked_pots: [...(progress.unlocked_pots || ['basic']), pot.id],
+      active_pot: pot.id
+    };
+
+    await updateProgressMutation.mutateAsync({ id: progress.id, data: updatedData });
+    toast.success(`Vaso ${pot.name} acquistato!`);
+  };
+
+  const handleBuySeed = async (seed) => {
+    if (!progress) return;
+    
+    if (progress.unlocked_seeds?.includes(seed.id)) {
+      const updatedData = { ...progress, active_seed: seed.id };
+      await updateProgressMutation.mutateAsync({ id: progress.id, data: updatedData });
+      toast.success(`Seme ${seed.strain_name} selezionato!`);
+      return;
+    }
+
+    if (progress.leaf_currency < seed.price) {
+      toast.error('Leaf insufficienti!');
+      return;
+    }
+
+    const updatedData = {
+      ...progress,
+      leaf_currency: progress.leaf_currency - seed.price,
+      unlocked_seeds: [...(progress.unlocked_seeds || ['basic_strain']), seed.id],
+      active_seed: seed.id
+    };
+
+    await updateProgressMutation.mutateAsync({ id: progress.id, data: updatedData });
+    toast.success(`Seme ${seed.strain_name} acquistato!`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -232,13 +296,29 @@ export default function Shop() {
           </div>
         </div>
 
-        <div className="flex gap-3 mb-8">
+        <div className="flex gap-3 mb-8 flex-wrap">
           <Button
             onClick={() => setSelectedTab('skins')}
             variant={selectedTab === 'skins' ? 'default' : 'outline'}
             className={selectedTab === 'skins' ? 'bg-purple-600' : 'border-purple-600 text-white'}
           >
             Skin Spruzzino
+          </Button>
+          <Button
+            onClick={() => setSelectedTab('pots')}
+            variant={selectedTab === 'pots' ? 'default' : 'outline'}
+            className={selectedTab === 'pots' ? 'bg-orange-600' : 'border-orange-600 text-white'}
+          >
+            <Box className="h-4 w-4 mr-2" />
+            Vasi
+          </Button>
+          <Button
+            onClick={() => setSelectedTab('seeds')}
+            variant={selectedTab === 'seeds' ? 'default' : 'outline'}
+            className={selectedTab === 'seeds' ? 'bg-green-600' : 'border-green-600 text-white'}
+          >
+            <Sprout className="h-4 w-4 mr-2" />
+            Semi
           </Button>
           <Button
             onClick={() => setSelectedTab('upgrades')}
@@ -417,6 +497,179 @@ export default function Shop() {
           </div>
         )}
 
+        {selectedTab === 'pots' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {allPots.map(pot => {
+              const isUnlocked = progress?.unlocked_pots?.includes(pot.id);
+              const isActive = progress?.active_pot === pot.id;
+
+              return (
+                <Card key={pot.id} className="bg-black/40 backdrop-blur border-orange-500/30 hover:border-orange-500/60 transition-all">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white">{pot.name}</CardTitle>
+                      {isActive && <Badge className="bg-green-600">Equipaggiato</Badge>}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div 
+                      className="w-full h-32 rounded-lg mb-4 flex items-center justify-center"
+                      style={{ backgroundColor: pot.color || '#8B4513' }}
+                    >
+                      <Box className="h-16 w-16 text-white/30" />
+                    </div>
+                    <p className="text-gray-300 text-sm mb-3">{pot.description}</p>
+
+                    <div className="space-y-1 mb-4 text-xs">
+                      {pot.water_retention > 0 && (
+                        <div className="flex justify-between text-cyan-400">
+                          <span>Ritenzione Acqua:</span>
+                          <span>+{Math.round(pot.water_retention * 100)}%</span>
+                        </div>
+                      )}
+                      {pot.size_bonus > 0 && (
+                        <div className="flex justify-between text-green-400">
+                          <span>Bonus Crescita:</span>
+                          <span>+{Math.round(pot.size_bonus * 100)}%</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {isUnlocked ? (
+                      <Button
+                        onClick={() => handleBuyPot(pot)}
+                        className="w-full"
+                        variant={isActive ? 'outline' : 'default'}
+                        disabled={isActive}
+                      >
+                        {isActive ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            In Uso
+                          </>
+                        ) : (
+                          'Equipaggia'
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handleBuyPot(pot)}
+                        className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700"
+                        disabled={pot.price > (progress?.leaf_currency || 0)}
+                      >
+                        {pot.price > (progress?.leaf_currency || 0) ? (
+                          <>
+                            <Lock className="h-4 w-4 mr-2" />
+                            {pot.price} Leaf
+                          </>
+                        ) : (
+                          <>
+                            <Leaf className="h-4 w-4 mr-2" />
+                            Acquista ({pot.price} Leaf)
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {selectedTab === 'seeds' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {allSeeds.map(seed => {
+              const isUnlocked = progress?.unlocked_seeds?.includes(seed.id);
+              const isActive = progress?.active_seed === seed.id;
+              const rarityColors = {
+                common: 'border-gray-500/30',
+                rare: 'border-blue-500/30',
+                legendary: 'border-yellow-500/30'
+              };
+
+              return (
+                <Card key={seed.id} className={`bg-black/40 backdrop-blur ${rarityColors[seed.rarity]} hover:brightness-110 transition-all`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white">{seed.strain_name}</CardTitle>
+                      {isActive && <Badge className="bg-green-600">Attivo</Badge>}
+                    </div>
+                    <Badge variant="outline" className={`w-fit ${seed.rarity === 'legendary' ? 'text-yellow-400 border-yellow-400' : seed.rarity === 'rare' ? 'text-blue-400 border-blue-400' : 'text-gray-400'}`}>
+                      {seed.rarity.toUpperCase()}
+                    </Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-green-900/20 rounded-lg p-4 mb-4 flex items-center justify-center">
+                      <Sprout className="h-16 w-16 text-green-400" />
+                    </div>
+                    <p className="text-gray-300 text-sm mb-3">{seed.description}</p>
+
+                    <div className="space-y-1 mb-4 text-xs">
+                      <div className="flex justify-between text-green-400">
+                        <span>Velocità Crescita:</span>
+                        <span>x{seed.growth_speed}</span>
+                      </div>
+                      <div className="flex justify-between text-purple-400">
+                        <span>Resistenza Parassiti:</span>
+                        <span>+{seed.pest_resistance}%</span>
+                      </div>
+                      {seed.water_efficiency > 0 && (
+                        <div className="flex justify-between text-cyan-400">
+                          <span>Efficienza Idrica:</span>
+                          <span>+{Math.round(seed.water_efficiency * 100)}%</span>
+                        </div>
+                      )}
+                      {seed.max_health_bonus > 0 && (
+                        <div className="flex justify-between text-red-400">
+                          <span>Salute Max:</span>
+                          <span>+{seed.max_health_bonus}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {isUnlocked ? (
+                      <Button
+                        onClick={() => handleBuySeed(seed)}
+                        className="w-full"
+                        variant={isActive ? 'outline' : 'default'}
+                        disabled={isActive}
+                      >
+                        {isActive ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            Piantato
+                          </>
+                        ) : (
+                          'Seleziona'
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handleBuySeed(seed)}
+                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                        disabled={seed.price > (progress?.leaf_currency || 0)}
+                      >
+                        {seed.price > (progress?.leaf_currency || 0) ? (
+                          <>
+                            <Lock className="h-4 w-4 mr-2" />
+                            {seed.price} Leaf
+                          </>
+                        ) : (
+                          <>
+                            <Leaf className="h-4 w-4 mr-2" />
+                            Acquista ({seed.price} Leaf)
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
         {selectedTab === 'plant' && (
           <PlantCarePanel 
             progress={progress}
@@ -425,7 +678,7 @@ export default function Shop() {
             }}
           />
         )}
-      </div>
-    </div>
-  );
-}
+        </div>
+        </div>
+        );
+        }

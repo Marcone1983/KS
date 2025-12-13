@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, sprayDuration, slowEffect, areaDamage, isPaused, onPestClick, activeSkin, level, dayNightHour, plantStats, activeSprayEffects }) {
+export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray, spraySpeed, sprayRadius, sprayPotency, sprayDuration, slowEffect, areaDamage, isPaused, onPestClick, activeSkin, level, dayNightHour, plantStats, activeSprayEffects, currentWeather }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
@@ -22,6 +22,8 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
   const timeRef = useRef(0);
   const lastSprayTimeRef = useRef(0);
   const dustParticlesRef = useRef(null);
+  const rainParticlesRef = useRef(null);
+  const windLinesRef = useRef(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -669,6 +671,79 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
           }
         }
 
+        if (currentWeather === 'rain' && !rainParticlesRef.current) {
+          const rainGeo = new THREE.BufferGeometry();
+          const rainVerts = [];
+          for (let i = 0; i < 5000; i++) {
+            rainVerts.push(
+              (Math.random() - 0.5) * 50,
+              Math.random() * 30,
+              (Math.random() - 0.5) * 50
+            );
+          }
+          rainGeo.setAttribute('position', new THREE.Float32BufferAttribute(rainVerts, 3));
+          const rainMat = new THREE.PointsMaterial({
+            color: 0xaaaaff,
+            size: 0.1,
+            transparent: true,
+            opacity: 0.6
+          });
+          const rain = new THREE.Points(rainGeo, rainMat);
+          scene.add(rain);
+          rainParticlesRef.current = rain;
+        } else if (currentWeather !== 'rain' && rainParticlesRef.current) {
+          scene.remove(rainParticlesRef.current);
+          rainParticlesRef.current = null;
+        }
+
+        if (rainParticlesRef.current) {
+          const positions = rainParticlesRef.current.geometry.attributes.position.array;
+          for (let i = 0; i < positions.length; i += 3) {
+            positions[i + 1] -= 0.3;
+            if (positions[i + 1] < 0) {
+              positions[i + 1] = 30;
+            }
+          }
+          rainParticlesRef.current.geometry.attributes.position.needsUpdate = true;
+        }
+
+        if (currentWeather === 'wind' && !windLinesRef.current) {
+          const windGeo = new THREE.BufferGeometry();
+          const windVerts = [];
+          for (let i = 0; i < 1000; i++) {
+            windVerts.push(
+              (Math.random() - 0.5) * 50,
+              Math.random() * 20,
+              (Math.random() - 0.5) * 50
+            );
+          }
+          windGeo.setAttribute('position', new THREE.Float32BufferAttribute(windVerts, 3));
+          const windMat = new THREE.PointsMaterial({
+            color: 0xcccccc,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.3
+          });
+          const wind = new THREE.Points(windGeo, windMat);
+          scene.add(wind);
+          windLinesRef.current = wind;
+        } else if (currentWeather !== 'wind' && windLinesRef.current) {
+          scene.remove(windLinesRef.current);
+          windLinesRef.current = null;
+        }
+
+        if (windLinesRef.current) {
+          windLinesRef.current.rotation.y += 0.01;
+          const positions = windLinesRef.current.geometry.attributes.position.array;
+          for (let i = 0; i < positions.length; i += 3) {
+            positions[i] += 0.2;
+            if (positions[i] > 25) {
+              positions[i] = -25;
+            }
+          }
+          windLinesRef.current.geometry.attributes.position.needsUpdate = true;
+        }
+
         if (boss && bossRef.current) {
           const distanceToCenter = Math.sqrt(
             Math.pow(boss.position.x, 2) + Math.pow(boss.position.z, 2)
@@ -873,7 +948,7 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
                     const dist = mesh.position.distanceTo(other.position);
                     return dist < 2;
                   });
-                  
+
                   let swarmDir = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
                   if (nearbyPests.length > 0) {
                     const cohesion = new THREE.Vector3();
@@ -885,6 +960,38 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
                     swarmDir.lerp(toCohesion, 0.3);
                   }
                   direction.copy(swarmDir);
+                  break;
+
+                case 'burrowing':
+                  if (pestData.underground) {
+                    mesh.position.y = -1;
+                    if (Date.now() > pestData.emergeTime) {
+                      pestData.underground = false;
+                      pestData.burrowTime = Date.now() + 10000;
+                    }
+                  } else {
+                    mesh.position.y = Math.max(0.5, mesh.position.y);
+                    if (Date.now() > pestData.burrowTime) {
+                      pestData.underground = true;
+                      pestData.emergeTime = Date.now() + 5000;
+                    }
+                    const burrowDir = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
+                    direction.copy(burrowDir);
+                  }
+                  break;
+
+                case 'camouflaged':
+                  const camDir = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
+                  direction.copy(camDir);
+                  if (mesh.material) {
+                    mesh.material.opacity = 0.3 + Math.sin(t * 2) * 0.1;
+                    mesh.material.transparent = true;
+                  }
+                  break;
+
+                case 'spreading':
+                  const spreadDir = new THREE.Vector3(-mesh.position.x, 0, -mesh.position.z).normalize();
+                  direction.copy(spreadDir);
                   break;
 
                 case 'resistant':
