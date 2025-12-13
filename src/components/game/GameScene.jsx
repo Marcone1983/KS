@@ -96,26 +96,44 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const createLeafletGeometry = () => {
+    const createCannabisLeafletGeometry = () => {
       const shape = new THREE.Shape();
+      const serratedEdges = 12;
+
       shape.moveTo(0, 0);
-      shape.lineTo(0.05, 0.1); 
-      shape.lineTo(0.08, 0.15);
-      shape.lineTo(0.06, 0.2); 
-      shape.lineTo(0.09, 0.3);
-      shape.lineTo(0.07, 0.4); 
-      shape.lineTo(0.1, 0.5);
-      shape.lineTo(0.05, 0.6); 
-      shape.lineTo(0.08, 0.7);
+
+      for (let i = 0; i <= serratedEdges; i++) {
+        const t = i / serratedEdges;
+        const baseWidth = 0.12;
+        const tipWidth = 0.02;
+        const width = baseWidth * (1 - t * 0.7) + tipWidth * t;
+
+        const x = width * Math.sin(t * Math.PI * 0.3);
+        const y = t * 1.0;
+
+        const serratedDepth = 0.015 * (1 - t * 0.5);
+        const serratedX = x + (i % 2 === 0 ? serratedDepth : -serratedDepth);
+
+        shape.lineTo(serratedX, y);
+      }
+
       shape.lineTo(0, 1.0);
-      shape.lineTo(-0.08, 0.7); 
-      shape.lineTo(-0.05, 0.6);
-      shape.lineTo(-0.1, 0.5);  
-      shape.lineTo(-0.07, 0.4);
-      shape.lineTo(-0.09, 0.3); 
-      shape.lineTo(-0.06, 0.2);
-      shape.lineTo(-0.08, 0.15); 
-      shape.lineTo(-0.05, 0.1);
+
+      for (let i = serratedEdges; i >= 0; i--) {
+        const t = i / serratedEdges;
+        const baseWidth = 0.12;
+        const tipWidth = 0.02;
+        const width = baseWidth * (1 - t * 0.7) + tipWidth * t;
+
+        const x = -width * Math.sin(t * Math.PI * 0.3);
+        const y = t * 1.0;
+
+        const serratedDepth = 0.015 * (1 - t * 0.5);
+        const serratedX = x + (i % 2 === 0 ? -serratedDepth : serratedDepth);
+
+        shape.lineTo(serratedX, y);
+      }
+
       shape.lineTo(0, 0);
       return new THREE.ShapeGeometry(shape);
     };
@@ -150,27 +168,40 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
       stem.receiveShadow = true;
       plantGroup.add(stem);
 
-      const leafletGeo = createLeafletGeometry();
-      
-      for(let i=1; i<9; i++) {
-        const yPos = i * 0.35;
-        const scale = 1.0 - (i * 0.05);
-        
-        for(let k=0; k<2; k++) {
-          const fanGroup = new THREE.Group();
-          
-          const angles = [-35, -15, 0, 15, 35];
-          const sizes =  [0.6, 0.8, 1.0, 0.8, 0.6];
-          
-          angles.forEach((angle, idx) => {
-            const leaflet = new THREE.Mesh(leafletGeo, leafMat);
-            leaflet.rotation.z = angle * (Math.PI / 180);
-            leaflet.scale.set(sizes[idx], sizes[idx], sizes[idx]);
-            leaflet.position.y = 0.1 * sizes[idx];
-            leaflet.castShadow = true;
-            leaflet.receiveShadow = true;
-            fanGroup.add(leaflet);
-          });
+      const leafletGeo = createCannabisLeafletGeometry();
+
+            for(let i=1; i<9; i++) {
+              const yPos = i * 0.35;
+              const scale = 1.0 - (i * 0.05);
+
+              for(let k=0; k<2; k++) {
+                const fanGroup = new THREE.Group();
+
+                const angles = [-50, -30, -15, 0, 15, 30, 50];
+                const sizes =  [0.5, 0.7, 0.85, 1.0, 0.85, 0.7, 0.5];
+
+                angles.forEach((angle, idx) => {
+                  const centerColor = new THREE.Color(0x4a6741);
+                  const edgeColor = new THREE.Color(0x2d5a1e);
+                  const mixFactor = Math.abs(angle) / 50;
+                  const leafletColor = centerColor.clone().lerp(edgeColor, mixFactor);
+
+                  const leafletMaterial = new THREE.MeshStandardMaterial({ 
+                    color: leafletColor,
+                    roughness: 0.7,
+                    metalness: 0.05,
+                    flatShading: false,
+                    side: THREE.DoubleSide
+                  });
+
+                  const leaflet = new THREE.Mesh(leafletGeo, leafletMaterial);
+                  leaflet.rotation.z = angle * (Math.PI / 180);
+                  leaflet.scale.set(sizes[idx], sizes[idx], sizes[idx]);
+                  leaflet.position.y = 0.1 * sizes[idx];
+                  leaflet.castShadow = true;
+                  leaflet.receiveShadow = true;
+                  fanGroup.add(leaflet);
+                });
 
           fanGroup.position.set(
             Math.sin(i * 0.5) * 0.1, 
