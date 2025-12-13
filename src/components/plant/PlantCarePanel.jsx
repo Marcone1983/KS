@@ -158,9 +158,13 @@ export default function PlantCarePanel({ progress, onUpdate }) {
     setProcessing(false);
   };
 
-  const plantStats = progress.plant_stats;
+  const plantStats = progress?.plant_stats || {};
   const activeBuffs = (plantStats.temporary_buffs || []).filter(buff => buff.expiresAt > Date.now());
   const tempResistance = activeBuffs.reduce((sum, buff) => sum + (buff.type === 'resistance' ? buff.value : 0), 0);
+
+  if (!progress || !progress.plant_stats) {
+    return <div className="text-white text-center p-8">Caricamento...</div>;
+  }
 
   return (
     <div className="space-y-6">
