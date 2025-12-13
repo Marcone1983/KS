@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Shop from './pages/Shop';
 import Encyclopedia from './pages/Encyclopedia';
 import Breeding from './pages/Breeding';
+import LoreArchive from './pages/LoreArchive';
 
 
 export const PAGES = {
@@ -15,6 +16,7 @@ export const PAGES = {
     "Shop": Shop,
     "Encyclopedia": Encyclopedia,
     "Breeding": Breeding,
+    "LoreArchive": LoreArchive,
 }
 
 export const pagesConfig = {

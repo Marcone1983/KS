@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Bug, BookOpen, Shield, Flame, Search, Lock } from 'lucide-react';
+import { ArrowLeft, Bug, BookOpen, Shield, Flame, Search, Lock, BookMarked } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 export default function Encyclopedia() {
@@ -290,9 +290,19 @@ export default function Encyclopedia() {
             <BookOpen className="h-8 w-8 text-green-400" />
             <h1 className="text-4xl font-bold text-white">Enciclopedia Parassiti</h1>
           </div>
-          <Badge className="bg-green-600 text-lg px-4 py-2">
-            {discoveredPests.length} / {allPests.length} Scoperti
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => navigate(createPageUrl('LoreArchive'))}
+              variant="outline"
+              className="border-indigo-500 text-white hover:bg-indigo-500/20"
+            >
+              <BookMarked className="h-5 w-5 mr-2" />
+              Archivio Lore
+            </Button>
+            <Badge className="bg-green-600 text-lg px-4 py-2">
+              {discoveredPests.length} / {allPests.length} Scoperti
+            </Badge>
+          </div>
         </div>
 
         <div className="mb-6">

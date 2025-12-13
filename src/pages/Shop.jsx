@@ -9,6 +9,7 @@ import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snow
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import PlantCarePanel from '../components/plant/PlantCarePanel';
+import { useNavigate as useNav } from 'react-router-dom';
 
 const SKINS = [
   { id: 'default', name: 'Classico', price: 0, description: 'Spruzzino base', color: '#00BFFF' },
@@ -94,6 +95,7 @@ const UPGRADES = [
 
 export default function Shop() {
   const navigate = useNavigate();
+  const navRouter = useNav();
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState('skins');
   const [upgradeFilter, setUpgradeFilter] = useState('all');
@@ -321,7 +323,7 @@ export default function Shop() {
             Semi
           </Button>
           <Button
-            onClick={() => navigate(createPageUrl('Breeding'))}
+            onClick={() => navRouter(createPageUrl('Breeding'))}
             variant="outline"
             className="border-purple-600 text-white hover:bg-purple-600"
           >
