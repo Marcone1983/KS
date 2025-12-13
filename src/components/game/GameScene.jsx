@@ -29,9 +29,9 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
-    const bgColor = 0x0a140a;
+    const bgColor = 0x1a2a1a;
     scene.background = new THREE.Color(bgColor);
-    scene.fog = new THREE.FogExp2(bgColor, 0.08);
+    scene.fog = new THREE.FogExp2(bgColor, 0.03);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -65,29 +65,33 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
     composer.addPass(bloomPass);
     composerRef.current = composer;
 
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    const ambientLight = new THREE.AmbientLight(0x808080, 1.2);
     scene.add(ambientLight);
 
-    const spotLight = new THREE.SpotLight(0xffffee, 100);
-    spotLight.position.set(-5, 8, 5);
-    spotLight.angle = Math.PI / 6;
-    spotLight.penumbra = 0.5;
-    spotLight.decay = 2;
-    spotLight.distance = 50;
+    const spotLight = new THREE.SpotLight(0xffffee, 150);
+    spotLight.position.set(-5, 10, 5);
+    spotLight.angle = Math.PI / 4;
+    spotLight.penumbra = 0.3;
+    spotLight.decay = 1.5;
+    spotLight.distance = 60;
     spotLight.castShadow = true;
     spotLight.shadow.bias = -0.0001;
     spotLight.shadow.mapSize.width = 2048;
     spotLight.shadow.mapSize.height = 2048;
     scene.add(spotLight);
 
-    const rimLight = new THREE.DirectionalLight(0x445566, 2);
-    rimLight.position.set(0, 2, -5);
+    const rimLight = new THREE.DirectionalLight(0x6688aa, 3);
+    rimLight.position.set(0, 3, -5);
     scene.add(rimLight);
+
+    const fillLight = new THREE.DirectionalLight(0xaaffaa, 2);
+    fillLight.position.set(5, 5, 5);
+    scene.add(fillLight);
 
     const groundGeometry = new THREE.PlaneGeometry(50, 50, 1, 1);
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x0a140a,
-      roughness: 0.9,
+      color: 0x2a3a2a,
+      roughness: 0.8,
       metalness: 0.0,
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -142,16 +146,20 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
       const plantGroup = new THREE.Group();
 
       const stemMat = new THREE.MeshStandardMaterial({ 
-        color: 0x4a3c31, 
-        roughness: 0.8, 
-        flatShading: true 
+        color: 0x5a4c41, 
+        roughness: 0.7, 
+        flatShading: true,
+        emissive: 0x2a1c11,
+        emissiveIntensity: 0.2
       });
       const leafMat = new THREE.MeshStandardMaterial({ 
-        color: 0x2d5a1e,
-        roughness: 0.6,
+        color: 0x4a8a2e,
+        roughness: 0.5,
         metalness: 0.1,
         flatShading: true,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        emissive: 0x1a3a0e,
+        emissiveIntensity: 0.3
       });
 
       const stemPoints = [];
@@ -170,15 +178,15 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
 
       const leafletGeo = createCannabisLeafletGeometry();
 
-            for(let i=1; i<9; i++) {
-              const yPos = i * 0.35;
-              const scale = 1.0 - (i * 0.05);
+            for(let i=1; i<12; i++) {
+              const yPos = i * 0.3;
+              const scale = 1.1 - (i * 0.04);
 
-              for(let k=0; k<2; k++) {
+              for(let k=0; k<3; k++) {
                 const fanGroup = new THREE.Group();
 
-                const angles = [-50, -30, -15, 0, 15, 30, 50];
-                const sizes =  [0.5, 0.7, 0.85, 1.0, 0.85, 0.7, 0.5];
+                const angles = [-60, -40, -25, -10, 0, 10, 25, 40, 60];
+                const sizes =  [0.6, 0.75, 0.9, 0.95, 1.0, 0.95, 0.9, 0.75, 0.6];
 
                 angles.forEach((angle, idx) => {
                   const centerColor = new THREE.Color(0x4a6741);
@@ -209,14 +217,14 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
             Math.cos(i * 0.3) * 0.1
           );
           
-          const rotY = (k * Math.PI) + (i * Math.PI / 2);
+          const rotY = (k * (Math.PI * 2 / 3)) + (i * Math.PI / 3);
           fanGroup.rotation.y = rotY;
-          fanGroup.rotation.x = Math.PI / 3;
+          fanGroup.rotation.x = Math.PI / 3.5;
 
-          fanGroup.scale.set(scale, scale, scale);
+          fanGroup.scale.set(scale * 1.3, scale * 1.3, scale * 1.3);
           plantGroup.add(fanGroup);
-        }
-      }
+          }
+          }
 
       const potGeo = new THREE.CylinderGeometry(0.5, 0.4, 0.6, 7);
       const potMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, flatShading: true });
@@ -230,6 +238,7 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
     };
 
     const plant = createRealisticCannabisPlant();
+    plant.scale.set(2.5, 2.5, 2.5);
     scene.add(plant);
     plantRef.current = plant;
 
@@ -676,9 +685,9 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
         const dayProgress = isDay ? (hour - 6) / 12 : 0;
         const nightProgress = !isDay ? (hour < 6 ? (6 - hour) / 6 : (hour - 18) / 6) : 0;
         
-        const dayColor = new THREE.Color(0x0a140a);
-        const sunsetColor = new THREE.Color(0x1a0a0a);
-        const nightColor = new THREE.Color(0x020408);
+        const dayColor = new THREE.Color(0x1a2a1a);
+        const sunsetColor = new THREE.Color(0x2a1a1a);
+        const nightColor = new THREE.Color(0x0a1418);
         
         let targetColor = dayColor;
         if (!isDay) {
@@ -1478,58 +1487,73 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
   let baseColor = new THREE.Color(pest.color || '#9ACD32');
 
   if (pest.behavior === 'resistant') {
-    baseColor = new THREE.Color(0x8B4513);
+    baseColor = new THREE.Color(0xAA6633);
   } else if (pest.behavior === 'flying') {
     baseColor = new THREE.Color(0xFFFFFF);
   } else if (pest.behavior === 'fast') {
-    baseColor = new THREE.Color(0xFF4500);
+    baseColor = new THREE.Color(0xFF6600);
   } else if (pest.behavior === 'burrowing') {
-    baseColor = new THREE.Color(0x654321);
+    baseColor = new THREE.Color(0x886633);
   } else if (pest.behavior === 'spreading') {
-    baseColor = new THREE.Color(0x8B7355);
+    baseColor = new THREE.Color(0xAA8866);
   } else if (pest.behavior === 'camouflaged') {
-    baseColor = new THREE.Color(0x2d5a1e);
+    baseColor = new THREE.Color(0x5a8a3e);
   }
 
-    const darkColor = new THREE.Color(0x222222);
+    const darkColor = new THREE.Color(0x444444);
 
-    const sizeMap = { tiny: 0.3, small: 0.4, medium: 0.55, large: 0.75 };
-    const baseSize = sizeMap[pest.size] || 0.45;
+    const sizeMap = { tiny: 0.5, small: 0.65, medium: 0.85, large: 1.2 };
+    const baseSize = sizeMap[pest.size] || 0.7;
 
     const bodyMaterial = new THREE.MeshStandardMaterial({ 
       color: baseColor,
       flatShading: true,
-      roughness: 0.4,
-      emissive: pest.behavior === 'flying' ? new THREE.Color(0x4444FF) : new THREE.Color(0x000000),
-      emissiveIntensity: pest.behavior === 'flying' ? 0.3 : 0,
+      roughness: 0.3,
+      emissive: baseColor,
+      emissiveIntensity: pest.behavior === 'flying' ? 0.5 : 0.3,
       transparent: pest.behavior === 'camouflaged',
-      opacity: pest.behavior === 'camouflaged' ? 0.4 : 1.0
+      opacity: pest.behavior === 'camouflaged' ? 0.6 : 1.0
     });
     const stripeMaterial = new THREE.MeshStandardMaterial({ 
       color: darkColor,
       flatShading: true,
+      emissive: darkColor,
+      emissiveIntensity: 0.2
     });
 
-    const segmentCount = 4;
+    const segmentCount = 5;
     for (let i = 0; i < segmentCount; i++) {
-      const segGeo = new THREE.IcosahedronGeometry(baseSize * 0.2, 0);
+      const segGeo = new THREE.IcosahedronGeometry(baseSize * 0.25, 0);
       const segment = new THREE.Mesh(segGeo, bodyMaterial);
-      segment.position.z = i * baseSize * 0.3;
+      segment.position.z = i * baseSize * 0.35;
       segment.castShadow = true;
       caterpillarGroup.add(segment);
 
       if (i < segmentCount - 1) {
         const stripe = new THREE.Mesh(
-          new THREE.TorusGeometry(baseSize * 0.18, baseSize * 0.025, 3, 6), 
+          new THREE.TorusGeometry(baseSize * 0.22, baseSize * 0.035, 4, 8), 
           stripeMaterial
         );
-        stripe.position.z = i * baseSize * 0.3 + baseSize * 0.15;
+        stripe.position.z = i * baseSize * 0.35 + baseSize * 0.175;
         caterpillarGroup.add(stripe);
       }
     }
 
+    const eyeGeo = new THREE.SphereGeometry(baseSize * 0.08, 8, 8);
+    const eyeMat = new THREE.MeshStandardMaterial({ 
+      color: 0xff0000,
+      emissive: 0xff0000,
+      emissiveIntensity: 0.8
+    });
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.position.set(-baseSize * 0.12, baseSize * 0.15, baseSize * 0.1);
+    caterpillarGroup.add(eyeL);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeR.position.set(baseSize * 0.12, baseSize * 0.15, baseSize * 0.1);
+    caterpillarGroup.add(eyeR);
+
     caterpillarGroup.rotation.x = Math.PI / 2;
-    caterpillarGroup.scale.set(1.8, 1.8, 1.8);
+    caterpillarGroup.scale.set(2.5, 2.5, 2.5);
 
     return caterpillarGroup;
   };
