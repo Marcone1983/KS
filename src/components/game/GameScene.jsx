@@ -1474,16 +1474,22 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
   };
 
   const createRealisticPest = (pest) => {
-    const caterpillarGroup = new THREE.Group();
-    let baseColor = new THREE.Color(pest.color || '#9ACD32');
+  const caterpillarGroup = new THREE.Group();
+  let baseColor = new THREE.Color(pest.color || '#9ACD32');
 
-    if (pest.behavior === 'resistant') {
-      baseColor = new THREE.Color(0x8B4513);
-    } else if (pest.behavior === 'flying') {
-      baseColor = new THREE.Color(0xFFFFFF);
-    } else if (pest.behavior === 'fast') {
-      baseColor = new THREE.Color(0xFF4500);
-    }
+  if (pest.behavior === 'resistant') {
+    baseColor = new THREE.Color(0x8B4513);
+  } else if (pest.behavior === 'flying') {
+    baseColor = new THREE.Color(0xFFFFFF);
+  } else if (pest.behavior === 'fast') {
+    baseColor = new THREE.Color(0xFF4500);
+  } else if (pest.behavior === 'burrowing') {
+    baseColor = new THREE.Color(0x654321);
+  } else if (pest.behavior === 'spreading') {
+    baseColor = new THREE.Color(0x8B7355);
+  } else if (pest.behavior === 'camouflaged') {
+    baseColor = new THREE.Color(0x2d5a1e);
+  }
 
     const darkColor = new THREE.Color(0x222222);
 
@@ -1496,6 +1502,8 @@ export default function GameScene({ pests, boss, toxicClouds, onPestHit, onSpray
       roughness: 0.4,
       emissive: pest.behavior === 'flying' ? new THREE.Color(0x4444FF) : new THREE.Color(0x000000),
       emissiveIntensity: pest.behavior === 'flying' ? 0.3 : 0,
+      transparent: pest.behavior === 'camouflaged',
+      opacity: pest.behavior === 'camouflaged' ? 0.4 : 1.0
     });
     const stripeMaterial = new THREE.MeshStandardMaterial({ 
       color: darkColor,

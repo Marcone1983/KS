@@ -485,8 +485,47 @@ export default function Game() {
       const hitPest = prev.find(p => p.id === pestId);
       if (!hitPest) return prev;
 
+      if (hitPest.underground) {
+        return prev;
+      }
+
       const hitPosition = hitPest.position;
       const alarmRadius = 4;
+
+      if (hitPest.behavior === 'spreading' && Date.now() - hitPest.lastSpreadTime > hitPest.spreadCooldown) {
+        const spreadCount = 2;
+        const newSpores = [];
+        
+        for (let i = 0; i < spreadCount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = 1 + Math.random();
+          
+          newSpores.push({
+            id: `spore_${Date.now()}_${i}`,
+            type: hitPest.type,
+            name: hitPest.name,
+            health: hitPest.maxHealth * 0.4,
+            maxHealth: hitPest.maxHealth * 0.4,
+            speed: hitPest.speed * 0.8,
+            damage: hitPest.damage * 0.6,
+            position: {
+              x: hitPosition.x + Math.cos(angle) * distance,
+              y: hitPosition.y,
+              z: hitPosition.z + Math.sin(angle) * distance
+            },
+            color: hitPest.color,
+            size: 'tiny',
+            behavior: 'spreading',
+            alarmLevel: 0,
+            lastSpreadTime: Date.now(),
+            spreadCooldown: 8000,
+            pestData: hitPest.pestData
+          });
+        }
+        
+        hitPest.lastSpreadTime = Date.now();
+        prev.push(...newSpores);
+      }
 
       const slowEffect = progress?.upgrades?.slow_effect || 0;
       
@@ -775,6 +814,8 @@ export default function Game() {
     setBossMaxHealth(0);
     setBossArmorSegments(0);
     setToxicClouds([]);
+    setDiscoveredLore(null);
+    setProceduralLevelData(null);
     setGameTime(0);
     gameStartTime.current = Date.now();
   };
