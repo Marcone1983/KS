@@ -993,6 +993,7 @@ export default function Game() {
         dayNightHour={dayNightHour}
         plantStats={progress?.plant_stats}
         currentWeather={currentWeather}
+        currentSeason={currentSeason}
       />
       
       {isPaused && gameState === 'playing' && (

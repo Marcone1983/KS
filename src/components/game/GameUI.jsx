@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Pause, Droplets, Sun, Moon, Cloud, Wind, Flame } from 'lucide-react';
 
-export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSkin, onPause, dayNightHour, plantStats, currentWeather }) {
+export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSkin, onPause, dayNightHour, plantStats, currentWeather, currentSeason }) {
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
       <div className="absolute top-3 left-3 space-y-2 pointer-events-auto">
