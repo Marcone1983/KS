@@ -225,6 +225,13 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <StrategyAdvisor
+          gameContext={{
+            dashboard_view: true
+          }}
+          onNavigate={(page) => navigate(createPageUrl(page))}
+        />
       </div>
     </div>
   );
