@@ -9,6 +9,7 @@ import TutorPanel from '../components/game/TutorPanel';
 import BossHealthBar from '../components/game/BossHealthBar';
 import LevelObjectives from '../components/game/LevelObjectives';
 import LoreDiscovery from '../components/game/LoreDiscovery';
+import StrategyAdvisor from '../components/advisor/StrategyAdvisor';
 
 export default function Game() {
   const queryClient = useQueryClient();
@@ -993,6 +994,22 @@ export default function Game() {
           pestsEliminated={pestsEliminated}
           duration={gameTime}
           onRestart={restartGame}
+        />
+      )}
+
+      {gameState === 'playing' && !isPaused && (
+        <StrategyAdvisor
+          gameContext={{
+            current_pests: activePests.map(p => p.type),
+            current_weather: currentWeather,
+            plant_health: plantHealth,
+            active_boss: activeBoss?.type,
+            level: level,
+            score: score
+          }}
+          onNavigate={(page, param) => {
+            setIsPaused(true);
+          }}
         />
       )}
     </div>

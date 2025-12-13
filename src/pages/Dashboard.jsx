@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Trophy, Leaf, Target, TrendingUp, Clock, Bug, ShoppingBag } from 'lucide-react';
 import { createPageUrl } from '../utils';
+import StrategyAdvisor from '../components/advisor/StrategyAdvisor';
 
 export default function Dashboard() {
   const navigate = useNavigate();
