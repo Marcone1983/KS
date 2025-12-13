@@ -1,15 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
-// Postprocessing
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
-import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass";
-
-// Environment (nice reflections without external HDRI)
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment";
-
-const HempSprayFPV_Realistic = () => {
+const HempSprayFPV_Base44Safe = () => {
   const containerRef = useRef(null);
   const rafRef = useRef(0);
 
@@ -20,10 +12,10 @@ const HempSprayFPV_Realistic = () => {
     if (!container) return;
 
     // -----------------------------
-    // Utils
+    // Helpers
     // -----------------------------
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-    const getSize = () => ({
+    const size = () => ({
       w: container.clientWidth || window.innerWidth,
       h: container.clientHeight || window.innerHeight,
     });
@@ -42,53 +34,32 @@ const HempSprayFPV_Realistic = () => {
     // -----------------------------
     // Scene / Camera / Renderer
     // -----------------------------
-    let { w, h } = getSize();
+    const { w, h } = size();
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1f2f29);
-    scene.fog = new THREE.Fog(0x1f2f29, 2.2, 12.0);
+    scene.background = new THREE.Color(0x1b2a24);
+    scene.fog = new THREE.Fog(0x1b2a24, 2.2, 14);
 
-    const cameraRig = new THREE.Group();
-    scene.add(cameraRig);
-
-    const camera = new THREE.PerspectiveCamera(62, w / h, 0.02, 80);
-    camera.position.set(0.0, 1.55, 0.75);
+    const camera = new THREE.PerspectiveCamera(65, w / h, 0.02, 80);
+    camera.position.set(0, 1.55, 0.75);
     camera.rotation.order = "YXZ";
-    cameraRig.add(camera);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-    // Color / exposure
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.1;
 
-    // Modern three: prefer physical lights (compat)
-    // (se nella tua versione non esiste, non rompe)
-    try {
-      renderer.physicallyCorrectLights = true;
-    } catch {}
-    try {
-      renderer.useLegacyLights = false;
-    } catch {}
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     container.appendChild(renderer.domElement);
 
     // -----------------------------
-    // Environment reflections (no HDRI files)
+    // Lights (molto più "foto" rispetto al default)
     // -----------------------------
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const envRT = pmrem.fromScene(new RoomEnvironment(renderer), 0.04);
-    scene.environment = envRT.texture;
-
-    // -----------------------------
-    // Lights (realistic)
-    // -----------------------------
-    const hemi = new THREE.HemisphereLight(0x9bcbb6, 0x0f1a16, 0.35);
+    const hemi = new THREE.HemisphereLight(0xa7d9c2, 0x0b1411, 0.35);
     scene.add(hemi);
 
     const key = new THREE.DirectionalLight(0xffffff, 1.15);
@@ -103,137 +74,56 @@ const HempSprayFPV_Realistic = () => {
     key.shadow.camera.bottom = -12;
     scene.add(key);
 
-    // Back/rim light to fake leaf translucency a bit
-    const rim = new THREE.DirectionalLight(0x9de3c6, 0.35);
-    rim.position.set(-6, 2.5, -4);
+    const rim = new THREE.DirectionalLight(0x8eeac4, 0.28);
+    rim.position.set(-6, 2.2, -4);
     scene.add(rim);
 
     // -----------------------------
-    // Composer (DOF + AA)
+    // Ground
     // -----------------------------
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-
-    const bokehPass = new BokehPass(scene, camera, {
-      focus: 2.4,
-      aperture: 0.00022, // più piccolo = meno blur
-      maxblur: 0.009,
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x22362f,
+      roughness: 1.0,
+      metalness: 0.0,
     });
-    composer.addPass(bokehPass);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
 
     // -----------------------------
-    // Procedural textures (lightweight)
-    // - Leaf normal-ish texture (fake veins)
-    // - Spray sprite texture
-    // -----------------------------
-    const makeLeafDetailTexture = () => {
-      const size = 256;
-      const c = document.createElement("canvas");
-      c.width = c.height = size;
-      const ctx = c.getContext("2d");
-
-      // base mid-gray (normal-map-like intensity)
-      ctx.fillStyle = "rgb(128,128,255)";
-      ctx.fillRect(0, 0, size, size);
-
-      // draw veins as subtle lines (not a real normal map, but adds micro-contrast)
-      ctx.globalAlpha = 0.18;
-      ctx.strokeStyle = "rgba(60, 90, 255, 1)";
-      ctx.lineWidth = 1;
-
-      // main vein
-      ctx.beginPath();
-      ctx.moveTo(size * 0.5, size * 0.05);
-      ctx.lineTo(size * 0.5, size * 0.95);
-      ctx.stroke();
-
-      // side veins
-      for (let i = 0; i < 26; i++) {
-        const t = i / 26;
-        const y = size * (0.1 + t * 0.8);
-        const dx = (1 - t) * size * 0.22;
-
-        ctx.beginPath();
-        ctx.moveTo(size * 0.5, y);
-        ctx.lineTo(size * 0.5 + dx, y - size * 0.03);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(size * 0.5, y);
-        ctx.lineTo(size * 0.5 - dx, y - size * 0.03);
-        ctx.stroke();
-      }
-
-      const tex = new THREE.CanvasTexture(c);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(2, 2);
-      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-      return tex;
-    };
-
-    const makeSpraySprite = () => {
-      const size = 128;
-      const c = document.createElement("canvas");
-      c.width = c.height = size;
-      const ctx = c.getContext("2d");
-
-      const g = ctx.createRadialGradient(
-        size / 2,
-        size / 2,
-        0,
-        size / 2,
-        size / 2,
-        size / 2
-      );
-      g.addColorStop(0.0, "rgba(255,255,255,0.55)");
-      g.addColorStop(0.3, "rgba(255,255,255,0.22)");
-      g.addColorStop(1.0, "rgba(255,255,255,0.0)");
-
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, size, size);
-
-      const tex = new THREE.CanvasTexture(c);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      return tex;
-    };
-
-    const leafDetailTex = makeLeafDetailTexture();
-    const spraySpriteTex = makeSpraySprite();
-
-    // -----------------------------
-    // Materials (PBR)
+    // Materials
     // -----------------------------
     const leafMat = new THREE.MeshStandardMaterial({
-      color: 0x4a9b4a,
-      roughness: 0.75,
+      color: 0x4aa14e,
+      roughness: 0.78,
       metalness: 0.0,
-      // not a true normal map, but subtle detail helps (works visually)
-      normalMap: leafDetailTex,
-      normalScale: new THREE.Vector2(0.18, 0.18),
       side: THREE.DoubleSide,
     });
 
     const stemMat = new THREE.MeshStandardMaterial({
-      color: 0x2d5a2a,
-      roughness: 0.9,
+      color: 0x2b5a2a,
+      roughness: 0.92,
       metalness: 0.0,
     });
 
-    const soilMat = new THREE.MeshStandardMaterial({
-      color: 0x2a3f36,
-      roughness: 1.0,
-      metalness: 0.0,
+    const plasticDark = new THREE.MeshStandardMaterial({
+      color: 0x1f2a33,
+      roughness: 0.58,
+      metalness: 0.06,
     });
 
-    // Bottle glass-like
+    const plasticMid = new THREE.MeshStandardMaterial({
+      color: 0x334656,
+      roughness: 0.5,
+      metalness: 0.07,
+    });
+
     const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0x8fb9cf,
+      color: 0x7fb3c9,
       roughness: 0.22,
       metalness: 0.0,
-      transmission: 0.92,
+      transmission: 0.9,
       thickness: 0.8,
       ior: 1.45,
       clearcoat: 0.25,
@@ -241,24 +131,12 @@ const HempSprayFPV_Realistic = () => {
     });
 
     const liquidMat = new THREE.MeshPhysicalMaterial({
-      color: 0x6bb8e8,
-      roughness: 0.08,
+      color: 0x61b7ea,
+      roughness: 0.1,
       metalness: 0.0,
-      transmission: 0.75,
-      thickness: 0.6,
+      transmission: 0.72,
+      thickness: 0.55,
       ior: 1.33,
-    });
-
-    const plasticDark = new THREE.MeshStandardMaterial({
-      color: 0x1f2a33,
-      roughness: 0.55,
-      metalness: 0.05,
-    });
-
-    const plasticMid = new THREE.MeshStandardMaterial({
-      color: 0x334656,
-      roughness: 0.48,
-      metalness: 0.06,
     });
 
     const skinMat = new THREE.MeshStandardMaterial({
@@ -267,67 +145,58 @@ const HempSprayFPV_Realistic = () => {
       metalness: 0.0,
     });
 
-    const catMatA = new THREE.MeshStandardMaterial({
-      color: 0x56cc60,
-      roughness: 0.68,
-      metalness: 0.0,
-    });
-    const catMatB = new THREE.MeshStandardMaterial({
-      color: 0x2f6f2b,
-      roughness: 0.72,
-      metalness: 0.0,
-    });
-    const catHeadMat = new THREE.MeshStandardMaterial({
-      color: 0x101413,
-      roughness: 0.6,
-      metalness: 0.0,
-    });
+    const catMatA = new THREE.MeshStandardMaterial({ color: 0x62d86a, roughness: 0.7 });
+    const catMatB = new THREE.MeshStandardMaterial({ color: 0x2f7a2f, roughness: 0.72 });
+    const catHeadMat = new THREE.MeshStandardMaterial({ color: 0x101413, roughness: 0.6 });
 
     // -----------------------------
-    // Ground
+    // Plant (procedural ma fatta meglio)
     // -----------------------------
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), soilMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+    const plant = new THREE.Group();
+    plant.position.set(0, 0, -1.35);
+    scene.add(plant);
 
-    // -----------------------------
-    // Plant (hemp)
-    // -----------------------------
-    const plantGroup = new THREE.Group();
-    plantGroup.position.set(0, 0, -1.35);
-    scene.add(plantGroup);
-
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 2.7, 10), stemMat);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 2.7, 12), stemMat);
     stem.position.y = 1.35;
     stem.castShadow = true;
-    plantGroup.add(stem);
+    plant.add(stem);
 
-    // Leaf geometry: ShapeGeometry (thin) + slight bending
-    const makeLeafletGeo = (length, width, teeth = 9) => {
+    const makeLeafletGeo = (length, width, teeth) => {
       const shape = new THREE.Shape();
       shape.moveTo(0, 0);
 
-      // right side
+      // right edge with serration
       for (let i = 0; i <= teeth; i++) {
         const t = i / teeth;
         const y = t * length;
         const x = Math.sin(t * Math.PI) * width * (1 - t * 0.25);
-        const tooth = Math.sin(i * Math.PI) * width * 0.11;
+        const tooth = Math.sin(i * Math.PI) * width * 0.12;
         shape.lineTo(x + tooth, y);
       }
-      // left side
+
+      // left edge
       for (let i = teeth; i >= 0; i--) {
         const t = i / teeth;
         const y = t * length;
         const x = Math.sin(t * Math.PI) * width * (1 - t * 0.25);
-        const tooth = Math.sin(i * Math.PI) * width * 0.11;
+        const tooth = Math.sin(i * Math.PI) * width * 0.12;
         shape.lineTo(-x - tooth, y);
       }
-      shape.closePath();
 
+      shape.closePath();
       const geo = new THREE.ShapeGeometry(shape, 10);
+
+      // bend / curl (molto importante: addio foglia "cartone")
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const curl = (y / length) * 0.03;
+        pos.setZ(i, pos.getZ(i) + curl + x * 0.03);
+      }
+      pos.needsUpdate = true;
       geo.computeVertexNormals();
+
       return geo;
     };
 
@@ -337,35 +206,27 @@ const HempSprayFPV_Realistic = () => {
 
     const makePalmLeaf = (scale) => {
       const g = new THREE.Group();
-      const configs = [
-        { geo: geoBig, angle: 0.0, s: 1.0 },
-        { geo: geoMid, angle: -0.28, s: 0.96 },
-        { geo: geoMid, angle: 0.28, s: 0.96 },
-        { geo: geoMid, angle: -0.56, s: 0.9 },
-        { geo: geoMid, angle: 0.56, s: 0.9 },
-        { geo: geoSmall, angle: -0.82, s: 0.84 },
-        { geo: geoSmall, angle: 0.82, s: 0.84 },
+      const cfg = [
+        { geo: geoBig, a: 0.0, s: 1.0 },
+        { geo: geoMid, a: -0.28, s: 0.96 },
+        { geo: geoMid, a: 0.28, s: 0.96 },
+        { geo: geoMid, a: -0.56, s: 0.9 },
+        { geo: geoMid, a: 0.56, s: 0.9 },
+        { geo: geoSmall, a: -0.82, s: 0.84 },
+        { geo: geoSmall, a: 0.82, s: 0.84 },
       ];
 
-      configs.forEach((c, idx) => {
+      cfg.forEach((c, idx) => {
         const m = new THREE.Mesh(c.geo, leafMat);
         m.scale.setScalar(scale * c.s);
-        // orient and slight curl
         m.rotation.x = -Math.PI / 2;
-        m.rotation.z = c.angle;
-
-        // micro bend by vertices along y
-        const pos = m.geometry.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i);
-          const y = pos.getY(i);
-          const curl = (y / 0.40) * 0.03 * (idx % 2 === 0 ? 1 : -1);
-          pos.setZ(i, pos.getZ(i) + curl + x * 0.03);
-        }
-        pos.needsUpdate = true;
-        m.geometry.computeVertexNormals();
-
+        m.rotation.z = c.a;
         m.castShadow = true;
+
+        // micro random tilt per foglia (realism)
+        m.rotation.y = (Math.random() - 0.5) * 0.08;
+        m.rotation.x += (Math.random() - 0.5) * 0.03;
+
         g.add(m);
       });
 
@@ -382,24 +243,27 @@ const HempSprayFPV_Realistic = () => {
     ];
 
     const leafSets = [];
-    leafLevels.forEach((lvl, i) => {
+    leafLevels.forEach((lvl) => {
       const set = new THREE.Group();
+
       for (let k = 0; k < 2; k++) {
         const leaf = makePalmLeaf(lvl.scale);
         const a = lvl.rot + k * Math.PI;
+
         leaf.position.set(Math.cos(a) * 0.12, 0, Math.sin(a) * 0.12);
         leaf.rotation.y = a;
         leaf.rotation.x = 0.52;
         set.add(leaf);
       }
+
       set.position.y = lvl.y;
-      set.userData.wind = { off: Math.random() * Math.PI * 2, idx: i };
+      set.userData.windOff = Math.random() * Math.PI * 2;
       leafSets.push(set);
-      plantGroup.add(set);
+      plant.add(set);
     });
 
     // -----------------------------
-    // Caterpillars (real-ish)
+    // Caterpillars (più "larva")
     // -----------------------------
     const caterpillars = [];
 
@@ -430,7 +294,7 @@ const HempSprayFPV_Realistic = () => {
         fallVel: 0,
         spinVel: 0,
         wiggle: Math.random() * Math.PI * 2,
-        radius: 0.055,
+        radius: 0.06,
       };
 
       return g;
@@ -450,7 +314,7 @@ const HempSprayFPV_Realistic = () => {
         );
         c.rotation.y = a + Math.PI * 0.5;
 
-        plantGroup.add(c);
+        plant.add(c);
         caterpillars.push(c);
       }
     };
@@ -470,7 +334,6 @@ const HempSprayFPV_Realistic = () => {
     const fpv = new THREE.Group();
     camera.add(fpv);
 
-    // Hand (still simplified, but PBR makes it look better)
     const hand = new THREE.Group();
     const palm = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.155, 0.06), skinMat);
     palm.castShadow = true;
@@ -506,7 +369,6 @@ const HempSprayFPV_Realistic = () => {
     hand.rotation.set(0.32, -0.44, 0.06);
     fpv.add(hand);
 
-    // Bottle (glass + plastic)
     const bottle = new THREE.Group();
 
     const bottleBody = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.096, 0.37, 18), glassMat);
@@ -550,199 +412,94 @@ const HempSprayFPV_Realistic = () => {
     };
 
     // -----------------------------
-    // Spray particles (realistic mist)
+    // Spray particles (PointsMaterial + sprite canvas)
     // -----------------------------
-    class MistParticles {
-      constructor(scene, max = 3200) {
-        this.max = max;
-        this.count = 0;
+    const makeSprite = () => {
+      const c = document.createElement("canvas");
+      c.width = c.height = 128;
+      const ctx = c.getContext("2d");
+      const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, "rgba(255,255,255,0.55)");
+      g.addColorStop(0.3, "rgba(255,255,255,0.22)");
+      g.addColorStop(1, "rgba(255,255,255,0.0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 128, 128);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      return tex;
+    };
 
-        this.pos = new Float32Array(max * 3);
-        this.vel = new Float32Array(max * 3);
-        this.life = new Float32Array(max);
-        this.size = new Float32Array(max);
+    const sprayTex = makeSprite();
 
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3));
-        geo.setAttribute("aLife", new THREE.BufferAttribute(this.life, 1));
-        geo.setAttribute("aSize", new THREE.BufferAttribute(this.size, 1));
+    const MAXP = 2200;
+    const pGeo = new THREE.BufferGeometry();
+    const pPos = new Float32Array(MAXP * 3);
+    const pVel = new Float32Array(MAXP * 3);
+    const pLife = new Float32Array(MAXP);
+    let pHead = 0;
 
-        const mat = new THREE.ShaderMaterial({
-          transparent: true,
-          depthWrite: false,
-          blending: THREE.NormalBlending,
-          uniforms: {
-            uTex: { value: spraySpriteTex },
-          },
-          vertexShader: `
-            attribute float aLife;
-            attribute float aSize;
-            varying float vLife;
-            void main(){
-              vLife = aLife;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = aSize * (360.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-            }
-          `,
-          fragmentShader: `
-            uniform sampler2D uTex;
-            varying float vLife;
-            void main(){
-              vec4 tex = texture2D(uTex, gl_PointCoord);
-              float alpha = tex.a * vLife;
-              // slightly bluish-white mist
-              gl_FragColor = vec4(tex.rgb * vec3(0.95, 0.98, 1.0), alpha);
-            }
-          `,
-        });
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
 
-        this.points = new THREE.Points(geo, mat);
-        scene.add(this.points);
+    const pMat = new THREE.PointsMaterial({
+      map: sprayTex,
+      transparent: true,
+      depthWrite: false,
+      size: 0.03,
+      opacity: 0.75,
+      color: 0xf3f8ff,
+      blending: THREE.NormalBlending,
+    });
+
+    const sprayPoints = new THREE.Points(pGeo, pMat);
+    scene.add(sprayPoints);
+
+    const emit = (start, dir, count = 18) => {
+      for (let i = 0; i < count; i++) {
+        const id = pHead++ % MAXP;
+        const spread = 0.16;
+        const speed = 0.52;
+
+        const vx = dir.x * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread;
+        const vy = dir.y * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread * 0.55;
+        const vz = dir.z * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread;
+
+        pPos[id * 3 + 0] = start.x;
+        pPos[id * 3 + 1] = start.y;
+        pPos[id * 3 + 2] = start.z;
+
+        pVel[id * 3 + 0] = vx * speed;
+        pVel[id * 3 + 1] = vy * speed;
+        pVel[id * 3 + 2] = vz * speed;
+
+        pLife[id] = 1.0;
       }
+      pGeo.attributes.position.needsUpdate = true;
+    };
 
-      emit(start, dir, n = 26) {
-        for (let i = 0; i < n; i++) {
-          const id = this.count % this.max;
-          this.count++;
+    const updateParticles = (dt) => {
+      const drag = 0.985;
+      const gravity = -0.32;
+      for (let i = 0; i < MAXP; i++) {
+        if (pLife[i] <= 0) continue;
 
-          const spread = 0.16;
-          const speed = 0.52;
+        pVel[i * 3 + 0] *= drag;
+        pVel[i * 3 + 1] = pVel[i * 3 + 1] * drag + gravity * dt;
+        pVel[i * 3 + 2] *= drag;
 
-          const vx = dir.x * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread;
-          const vy = dir.y * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread * 0.55;
-          const vz = dir.z * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread;
+        pPos[i * 3 + 0] += pVel[i * 3 + 0] * dt;
+        pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt;
+        pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt;
 
-          this.pos[id * 3 + 0] = start.x;
-          this.pos[id * 3 + 1] = start.y;
-          this.pos[id * 3 + 2] = start.z;
-
-          this.vel[id * 3 + 0] = vx * speed;
-          this.vel[id * 3 + 1] = vy * speed;
-          this.vel[id * 3 + 2] = vz * speed;
-
-          this.life[id] = 1.0;
-          this.size[id] = 4.8 + Math.random() * 10.0;
-        }
-
-        const g = this.points.geometry;
-        g.attributes.position.needsUpdate = true;
-        g.attributes.aLife.needsUpdate = true;
-        g.attributes.aSize.needsUpdate = true;
+        pLife[i] -= dt * 1.15;
+        if (pPos[i * 3 + 1] < 0.03) pLife[i] = 0;
       }
-
-      update(dt) {
-        const gravity = -0.32;
-        const n = Math.min(this.count, this.max);
-
-        for (let i = 0; i < n; i++) {
-          if (this.life[i] <= 0) continue;
-
-          // gravity + drag
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0) * dt; // no-op placeholder (kept simple)
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          // actual gravity
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-
-          // keep it simple: just gravity + drag
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0 + 0); // no-op placeholder
-
-          // REAL lines
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          // ok stop trolling: apply gravity + drag:
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          // actual:
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-          this.vel[i * 3 + 1] += (Rosa * 0); // no-op placeholder
-
-          // (the above "Rosa" placeholders were accidental; remove them)
-        }
-
-        // --- FIX: real update (no placeholders) ---
-        for (let i = 0; i < n; i++) {
-          if (this.life[i] <= 0) continue;
-
-          // gravity
-          this.vel[i * 3 + 1] += (RosaNeverExists, 0) || (0); // safe noop
-        }
-      }
-
-      // NOTE: We'll override update properly below (clean), to keep code safe.
-      updateClean(dt) {
-        const gravity = -0.32;
-        const drag = 0.985;
-        const n = Math.min(this.count, this.max);
-
-        for (let i = 0; i < n; i++) {
-          if (this.life[i] <= 0) continue;
-
-          this.vel[i * 3 + 0] *= drag;
-          this.vel[i * 3 + 1] = this.vel[i * 3 + 1] * drag + gravity * dt;
-          this.vel[i * 3 + 2] *= drag;
-
-          this.pos[i * 3 + 0] += this.vel[i * 3 + 0] * dt;
-          this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
-          this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
-
-          this.life[i] -= dt * 1.15;
-          if (this.pos[i * 3 + 1] < 0.03) this.life[i] = 0;
-        }
-
-        const geo = this.points.geometry;
-        geo.attributes.position.needsUpdate = true;
-        geo.attributes.aLife.needsUpdate = true;
-      }
-
-      getCount() {
-        return Math.min(this.count, this.max);
-      }
-
-      dispose() {
-        this.points.geometry.dispose();
-        this.points.material.dispose();
-      }
-    }
-
-    // Create mist and use updateClean (the correct one)
-    const mist = new MistParticles(scene, 3400);
+      pGeo.attributes.position.needsUpdate = true;
+    };
 
     // -----------------------------
-    // Input + spray state
+    // Input & hit test
     // -----------------------------
     const input = {
       lookX: 0,
@@ -754,13 +511,12 @@ const HempSprayFPV_Realistic = () => {
       cooldown: 0,
     };
 
-    const onPointerMove = (e) => {
+    const onMove = (e) => {
       const rect = container.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       const nx = (e.clientX - cx) / (rect.width / 2);
       const ny = (e.clientY - cy) / (rect.height / 2);
-
       input.targetY = clamp(nx * 0.20, -0.20, 0.20);
       input.targetX = clamp(ny * 0.13, -0.13, 0.13);
     };
@@ -771,18 +527,15 @@ const HempSprayFPV_Realistic = () => {
       input.sprayT = 0;
     };
 
-    const onPointerDown = () => startSpray();
-    const onKeyDown = (e) => {
+    const onDown = () => startSpray();
+    const onKey = (e) => {
       if (e.code === "Space") startSpray();
     };
 
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
 
-    // -----------------------------
-    // Hit test helpers (ray distance)
-    // -----------------------------
     const tmpNoz = new THREE.Vector3();
     const tmpForward = new THREE.Vector3();
     const tmpTo = new THREE.Vector3();
@@ -797,13 +550,11 @@ const HempSprayFPV_Realistic = () => {
     };
 
     // -----------------------------
-    // Animate
+    // Loop
     // -----------------------------
     const clock = new THREE.Clock();
     let fpsFrames = 0;
     let fpsAcc = 0;
-
-    let orbitKick = 0;
 
     const animate = () => {
       rafRef.current = requestAnimationFrame(animate);
@@ -811,28 +562,30 @@ const HempSprayFPV_Realistic = () => {
       const dt = Math.min(0.033, clock.getDelta());
       const t = clock.getElapsedTime();
 
-      // FPS stats
+      // stats
       fpsFrames++;
       fpsAcc += dt;
       if (fpsAcc >= 0.5) {
+        let alive = 0;
+        for (const c of caterpillars) if (c.userData.alive) alive++;
         setStats({
           fps: Math.round(fpsFrames / fpsAcc),
-          particles: mist.getCount(),
-          caterpillars: caterpillars.filter((c) => c.userData.alive).length,
+          particles: Math.min(pHead, MAXP),
+          caterpillars: alive,
         });
         fpsFrames = 0;
         fpsAcc = 0;
       }
 
-      // Camera look smoothing
+      // camera look
       input.lookX += (input.targetX - input.lookX) * 0.12;
       input.lookY += (input.targetY - input.lookY) * 0.12;
       camera.rotation.x = input.lookX;
       camera.rotation.y = input.lookY;
 
-      // Leaf wind (realistic subtle)
+      // wind
       leafSets.forEach((set) => {
-        const off = set.userData.wind.off;
+        const off = set.userData.windOff;
         const strength = 0.22;
         const w1 = Math.sin(t * 2.0 + off) * strength;
         const w2 = Math.cos(t * 1.2 + off) * strength * 0.6;
@@ -840,10 +593,9 @@ const HempSprayFPV_Realistic = () => {
         set.rotation.z = w2 * 0.07;
       });
 
-      // Caterpillars
+      // caterpillars
       caterpillars.forEach((c) => {
         if (!c.userData.alive) return;
-
         c.userData.wiggle += dt * 6.2;
 
         if (!c.userData.dying) {
@@ -861,13 +613,13 @@ const HempSprayFPV_Realistic = () => {
 
           if (c.position.y < 0.03 || c.scale.x < 0.18) {
             c.userData.alive = false;
-            plantGroup.remove(c);
+            plant.remove(c);
             disposeObject(c);
           }
         }
       });
 
-      // Spray
+      // spray
       if (input.cooldown > 0) input.cooldown -= dt;
 
       if (input.spraying) {
@@ -877,26 +629,21 @@ const HempSprayFPV_Realistic = () => {
 
         animateTrigger(Math.sin(p * Math.PI));
 
-        orbitKick = Math.min(1, orbitKick + dt * 2.0);
-
         if (p > 0.12 && p < 0.92) {
           const noz = getNozzleWorldPos(tmpNoz);
-
           tmpForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
 
-          // emit mist
-          mist.emit(noz, tmpForward, 28);
+          emit(noz, tmpForward, 20);
 
-          // hit test
-          const range = 2.1;
-          caterpillars.forEach((c) => {
-            if (!c.userData.alive || c.userData.dying) return;
+          const range = 2.0;
+          for (const c of caterpillars) {
+            if (!c.userData.alive || c.userData.dying) continue;
             const worldPos = c.getWorldPosition(new THREE.Vector3());
             const { dist, proj } = rayPointDistance(noz, tmpForward, worldPos);
             if (proj > 0 && proj < range && dist < c.userData.radius) {
               killCaterpillar(c);
             }
-          });
+          }
         }
 
         if (p >= 1) {
@@ -905,67 +652,35 @@ const HempSprayFPV_Realistic = () => {
           input.sprayT = 0;
           animateTrigger(0);
         }
-      } else {
-        orbitKick = Math.max(0, orbitKick - dt * 2.5);
       }
 
-      // tiny "orbit left" while spraying (realistic, subtle)
-      cameraRig.rotation.y = -orbitKick * 0.14;
+      updateParticles(dt);
 
-      // particles update
-      mist.updateClean(dt);
-
-      // DOF focus: top of plant
-      const focusPoint = plantGroup.position.clone();
-      focusPoint.y += 1.55;
-      const camWorld = camera.getWorldPosition(new THREE.Vector3());
-      const focusDist = camWorld.distanceTo(focusPoint);
-      bokehPass.uniforms.focus.value = focusDist;
-
-      composer.render();
+      renderer.render(scene, camera);
     };
 
     animate();
 
-    // -----------------------------
-    // Resize
-    // -----------------------------
+    // resize
     const onResize = () => {
-      const s = getSize();
-      w = s.w;
-      h = s.h;
-
-      camera.aspect = w / h;
+      const s = size();
+      camera.aspect = s.w / s.h;
       camera.updateProjectionMatrix();
-
-      renderer.setSize(w, h);
-      composer.setSize(w, h);
+      renderer.setSize(s.w, s.h);
     };
     window.addEventListener("resize", onResize);
 
-    // -----------------------------
-    // Cleanup
-    // -----------------------------
+    // cleanup
     return () => {
       cancelAnimationFrame(rafRef.current);
-
       window.removeEventListener("resize", onResize);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
 
-      try {
-        mist.dispose();
-        leafDetailTex.dispose?.();
-        spraySpriteTex.dispose?.();
-        disposeObject(plantGroup);
-        disposeObject(fpv);
-        disposeObject(ground);
-        renderer.dispose();
-        composer?.dispose?.();
-        envRT?.texture?.dispose?.();
-        pmrem?.dispose?.();
-      } catch {}
+      sprayTex.dispose?.();
+      disposeObject(scene);
+      renderer.dispose();
 
       if (renderer.domElement && renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
@@ -997,4 +712,4 @@ const HempSprayFPV_Realistic = () => {
   );
 };
 
-export default HempSprayFPV_Realistic;
+export default HempSprayFPV_Base44Safe;
