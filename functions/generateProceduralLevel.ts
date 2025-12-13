@@ -13,9 +13,11 @@ Deno.serve(async (req) => {
 
     const allPests = await base44.asServiceRole.entities.Pest.list();
     const allBosses = await base44.asServiceRole.entities.Boss.list();
+    const allEnvBosses = await base44.asServiceRole.entities.EnvironmentalBoss.list();
 
     const difficultyMultiplier = 1 + (level - 1) * 0.15;
     const isBossLevel = level % 3 === 0;
+    const currentSeason = playerStats.season || 'spring';
 
     const availablePests = allPests.filter(p => p.unlock_level <= level);
     
@@ -23,11 +25,47 @@ Deno.serve(async (req) => {
     const scaledCount = Math.floor(baseCount + level * 0.5);
     const pestCount = Math.min(scaledCount, 20);
 
-    const weatherOptions = ['clear', 'clear', 'rain', 'wind', 'heatwave'];
-    const randomWeather = weatherOptions[Math.floor(Math.random() * weatherOptions.length)];
+    const weatherOptions = ['clear', 'clear', 'rain', 'wind', 'heatwave', 'acid_rain', 'fog', 'storm'];
+    const seasonalWeatherBoost = {
+      spring: ['rain', 'clear'],
+      summer: ['heatwave', 'clear'],
+      autumn: ['wind', 'rain', 'fog'],
+      winter: ['fog', 'storm', 'wind']
+    };
+
+    let randomWeather = weatherOptions[Math.floor(Math.random() * weatherOptions.length)];
+    if (Math.random() > 0.6 && seasonalWeatherBoost[currentSeason]) {
+      const seasonWeather = seasonalWeatherBoost[currentSeason];
+      randomWeather = seasonWeather[Math.floor(Math.random() * seasonWeather.length)];
+    }
 
     const timeOptions = [6, 9, 12, 15, 18, 21, 0, 3];
     const randomHour = timeOptions[Math.floor(Math.random() * timeOptions.length)];
+
+    const environmentalVariations = [
+      { type: 'dense_fog', visibility: 0.4, description: 'Nebbia densa riduce visibilità del 60%' },
+      { type: 'acid_rain_damage', damage_rate: 0.5, description: 'Pioggia acida danneggia la pianta' },
+      { type: 'strong_wind', pest_speed_mult: 0.7, spray_deviation: 1.5, description: 'Vento forte rallenta parassiti ma devia spray' },
+      { type: 'drought', water_drain_mult: 2.0, description: 'Siccità raddoppia consumo acqua' },
+      { type: 'pest_frenzy', spawn_rate_mult: 1.8, description: 'Frenesia parassiti: spawn rate +80%' }
+    ];
+
+    const activeEnvironmentalEffects = [];
+    if (randomWeather === 'fog' && Math.random() > 0.5) {
+      activeEnvironmentalEffects.push(environmentalVariations[0]);
+    }
+    if (randomWeather === 'acid_rain') {
+      activeEnvironmentalEffects.push(environmentalVariations[1]);
+    }
+    if (randomWeather === 'storm') {
+      activeEnvironmentalEffects.push(environmentalVariations[2]);
+    }
+    if (randomWeather === 'heatwave' && Math.random() > 0.6) {
+      activeEnvironmentalEffects.push(environmentalVariations[3]);
+    }
+    if (Math.random() > 0.85) {
+      activeEnvironmentalEffects.push(environmentalVariations[4]);
+    }
 
     const spawnPests = [];
     for (let i = 0; i < pestCount; i++) {
@@ -48,15 +86,34 @@ Deno.serve(async (req) => {
 
     let bossData = null;
     if (isBossLevel) {
-      const eligibleBosses = allBosses.filter(b => b.level_appearance <= level);
-      if (eligibleBosses.length > 0) {
-        const randomBoss = eligibleBosses[Math.floor(Math.random() * eligibleBosses.length)];
+      const eligibleEnvBosses = allEnvBosses.filter(b => 
+        b.spawn_level <= level && 
+        (b.required_season === currentSeason || b.required_season === 'any') &&
+        (b.required_weather === randomWeather || b.required_weather === 'any')
+      );
+
+      if (eligibleEnvBosses.length > 0 && Math.random() > 0.5) {
+        const envBoss = eligibleEnvBosses[Math.floor(Math.random() * eligibleEnvBosses.length)];
         bossData = {
-          boss_id: randomBoss.id,
-          health_multiplier: 1 + (level - randomBoss.level_appearance) * 0.25,
-          speed_multiplier: 1 + Math.random() * 0.3,
-          damage_multiplier: 1 + (level - randomBoss.level_appearance) * 0.15
+          boss_id: envBoss.id,
+          is_environmental: true,
+          health_multiplier: 1 + (level - envBoss.spawn_level) * 0.3,
+          speed_multiplier: 1 + Math.random() * 0.4,
+          damage_multiplier: 1 + (level - envBoss.spawn_level) * 0.2,
+          environmental_ability: envBoss.environmental_ability
         };
+      } else {
+        const eligibleBosses = allBosses.filter(b => b.level_appearance <= level);
+        if (eligibleBosses.length > 0) {
+          const randomBoss = eligibleBosses[Math.floor(Math.random() * eligibleBosses.length)];
+          bossData = {
+            boss_id: randomBoss.id,
+            is_environmental: false,
+            health_multiplier: 1 + (level - randomBoss.level_appearance) * 0.25,
+            speed_multiplier: 1 + Math.random() * 0.3,
+            damage_multiplier: 1 + (level - randomBoss.level_appearance) * 0.15
+          };
+        }
       }
     }
 
@@ -82,6 +139,8 @@ Deno.serve(async (req) => {
         description: 'Pianta stressata: salute iniziale ridotta del 20%'
       });
     }
+
+    specialConditions.push(...activeEnvironmentalEffects);
 
     const leafReward = Math.floor(50 + level * 10 + (isBossLevel ? 200 : 0));
     
@@ -115,6 +174,7 @@ Deno.serve(async (req) => {
       weather: randomWeather,
       time_of_day: randomHour,
       special_conditions: specialConditions,
+      environmental_effects: activeEnvironmentalEffects,
       rewards: {
         base_leaf: leafReward,
         completion_bonus: Math.floor(leafReward * 0.5),

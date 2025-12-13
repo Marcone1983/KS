@@ -7,6 +7,7 @@ import Encyclopedia from './pages/Encyclopedia';
 import Breeding from './pages/Breeding';
 import LoreArchive from './pages/LoreArchive';
 import ResearchTree from './pages/ResearchTree';
+import PlantUpgrades from './pages/PlantUpgrades';
 
 
 export const PAGES = {
@@ -19,6 +20,7 @@ export const PAGES = {
     "Breeding": Breeding,
     "LoreArchive": LoreArchive,
     "ResearchTree": ResearchTree,
+    "PlantUpgrades": PlantUpgrades,
 }
 
 export const pagesConfig = {
