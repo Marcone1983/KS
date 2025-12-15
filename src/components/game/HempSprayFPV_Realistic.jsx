@@ -37,19 +37,23 @@ const HempSprayFPV_Base44Safe = () => {
     const { w, h } = size();
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1b2a24);
-    scene.fog = new THREE.Fog(0x1b2a24, 2.2, 14);
+    scene.background = new THREE.Color(0x0a1612);
+    scene.fog = new THREE.FogExp2(0x0d1a16, 0.08);
 
     const camera = new THREE.PerspectiveCamera(65, w / h, 0.02, 80);
     camera.position.set(0, 1.55, 0.75);
     camera.rotation.order = "YXZ";
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      alpha: false,
+      powerPreference: "high-performance"
+    });
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.3;
 
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -57,167 +61,332 @@ const HempSprayFPV_Base44Safe = () => {
     container.appendChild(renderer.domElement);
 
     // -----------------------------
-    // Lights (molto più "foto" rispetto al default)
+    // Lights - Cinematic setup
     // -----------------------------
-    const hemi = new THREE.HemisphereLight(0xa7d9c2, 0x0b1411, 0.35);
+    const ambient = new THREE.AmbientLight(0x4a7a5a, 0.3);
+    scene.add(ambient);
+
+    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x2d4a36, 0.5);
     scene.add(hemi);
 
-    const key = new THREE.DirectionalLight(0xffffff, 1.15);
-    key.position.set(5, 8, 4);
+    const key = new THREE.DirectionalLight(0xffffeb, 2.5);
+    key.position.set(8, 12, 6);
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.mapSize.set(4096, 4096);
     key.shadow.camera.near = 0.5;
-    key.shadow.camera.far = 35;
-    key.shadow.camera.left = -12;
-    key.shadow.camera.right = 12;
-    key.shadow.camera.top = 12;
-    key.shadow.camera.bottom = -12;
+    key.shadow.camera.far = 50;
+    key.shadow.camera.left = -15;
+    key.shadow.camera.right = 15;
+    key.shadow.camera.top = 15;
+    key.shadow.camera.bottom = -15;
+    key.shadow.bias = -0.0001;
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0x8eeac4, 0.28);
-    rim.position.set(-6, 2.2, -4);
+    const fill = new THREE.DirectionalLight(0x6aa3d9, 0.8);
+    fill.position.set(-5, 4, -3);
+    scene.add(fill);
+
+    const rim = new THREE.DirectionalLight(0x9de8c6, 1.2);
+    rim.position.set(-8, 3, -6);
     scene.add(rim);
 
+    const backLight = new THREE.PointLight(0x5a9d7a, 1.5, 20);
+    backLight.position.set(0, 2, -3);
+    scene.add(backLight);
+
     // -----------------------------
-    // Ground
+    // Ground - Enhanced
     // -----------------------------
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x22362f,
-      roughness: 1.0,
+      color: 0x1a2b22,
+      map: groundTexture,
+      roughness: 0.95,
       metalness: 0.0,
+      aoMapIntensity: 1.5,
     });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), groundMat);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 20, 20), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
+    
+    const vertices = ground.geometry.attributes.position;
+    for (let i = 0; i < vertices.count; i++) {
+      vertices.setZ(i, Math.random() * 0.08 - 0.04);
+    }
+    vertices.needsUpdate = true;
+    ground.geometry.computeVertexNormals();
+    
     scene.add(ground);
 
     // -----------------------------
-    // Procedural Textures
+    // Advanced Procedural Textures
     // -----------------------------
     const makeLeafTexture = () => {
-      const size = 512;
+      const size = 1024;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = size;
       const ctx = canvas.getContext("2d");
 
-      const gradient = ctx.createLinearGradient(0, 0, 0, size);
-      gradient.addColorStop(0, "#5fc45e");
-      gradient.addColorStop(0.5, "#4aa14e");
-      gradient.addColorStop(1, "#3d8a3d");
+      const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+      gradient.addColorStop(0, "#6ed46e");
+      gradient.addColorStop(0.4, "#5abc59");
+      gradient.addColorStop(0.7, "#48a548");
+      gradient.addColorStop(1, "#368736");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, size, size);
 
-      ctx.strokeStyle = "rgba(50, 100, 50, 0.3)";
-      ctx.lineWidth = 2;
+      ctx.globalCompositeOperation = "overlay";
+      for (let i = 0; i < 300; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const opacity = Math.random() * 0.15;
+        ctx.fillStyle = `rgba(40, 80, 40, ${opacity})`;
+        ctx.fillRect(x, y, 1, Math.random() * 8 + 2);
+      }
+
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(30, 60, 30, 0.4)";
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(size / 2, 0);
-      ctx.lineTo(size / 2, size);
+      ctx.moveTo(size / 2, size * 0.1);
+      for (let i = 0; i < 20; i++) {
+        const t = i / 20;
+        ctx.lineTo(size / 2 + Math.sin(t * Math.PI * 4) * 8, size * 0.1 + t * size * 0.8);
+      }
       ctx.stroke();
 
-      for (let i = 0; i < 20; i++) {
-        const y = (i / 20) * size;
-        const angle = Math.PI / 3;
+      for (let i = 0; i < 30; i++) {
+        const t = i / 30;
+        const y = size * 0.15 + t * size * 0.7;
+        const length = (1 - t) * size * 0.35;
+        const angle = Math.PI / 3 + (Math.random() - 0.5) * 0.3;
+        
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(30, 60, 30, ${0.3 - t * 0.2})`;
         ctx.beginPath();
         ctx.moveTo(size / 2, y);
-        ctx.lineTo(size / 2 + Math.cos(angle) * (size / 4), y + Math.sin(angle) * (size / 4));
+        ctx.quadraticCurveTo(
+          size / 2 + Math.cos(angle) * length * 0.6, 
+          y + Math.sin(angle) * length * 0.3,
+          size / 2 + Math.cos(angle) * length, 
+          y + Math.sin(angle) * length
+        );
         ctx.stroke();
+
         ctx.beginPath();
         ctx.moveTo(size / 2, y);
-        ctx.lineTo(size / 2 - Math.cos(angle) * (size / 4), y + Math.sin(angle) * (size / 4));
+        ctx.quadraticCurveTo(
+          size / 2 - Math.cos(angle) * length * 0.6, 
+          y + Math.sin(angle) * length * 0.3,
+          size / 2 - Math.cos(angle) * length, 
+          y + Math.sin(angle) * length
+        );
         ctx.stroke();
       }
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(2, 2);
+      texture.anisotropy = 16;
+      return texture;
+    };
+
+    const makeLeafNormalMap = () => {
+      const size = 1024;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "rgb(128, 128, 255)";
+      ctx.fillRect(0, 0, size, size);
+
+      for (let i = 0; i < 50; i++) {
+        const t = i / 50;
+        const y = size * 0.15 + t * size * 0.7;
+        
+        ctx.strokeStyle = "rgb(100, 140, 255)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(size / 2, y);
+        ctx.lineTo(size / 2 + (1-t) * size * 0.3, y + size * 0.02);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(size / 2, y);
+        ctx.lineTo(size / 2 - (1-t) * size * 0.3, y + size * 0.02);
+        ctx.stroke();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       return texture;
     };
 
     const makeStemTexture = () => {
-      const size = 512;
+      const size = 1024;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = size;
       const ctx = canvas.getContext("2d");
 
-      ctx.fillStyle = "#2b5a2a";
+      const gradient = ctx.createLinearGradient(0, 0, size, 0);
+      gradient.addColorStop(0, "#2d5c2b");
+      gradient.addColorStop(0.5, "#3a6e38");
+      gradient.addColorStop(1, "#2d5c2b");
+      ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, size, size);
 
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 200; i++) {
         const x = Math.random() * size;
         const y = Math.random() * size;
-        const brightness = Math.random() * 30 - 15;
-        ctx.fillStyle = `rgba(${43 + brightness}, ${90 + brightness}, ${42 + brightness}, 0.4)`;
-        ctx.fillRect(x, y, 2, Math.random() * 20 + 5);
+        const length = Math.random() * 40 + 10;
+        const brightness = Math.random() * 40 - 20;
+        
+        ctx.strokeStyle = `rgba(${45 + brightness}, ${90 + brightness}, ${43 + brightness}, ${0.3 + Math.random() * 0.3})`;
+        ctx.lineWidth = Math.random() * 2 + 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + length);
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < 80; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const width = Math.random() * 8 + 2;
+        const height = Math.random() * 15 + 5;
+        
+        ctx.fillStyle = `rgba(35, 50, 35, ${0.2 + Math.random() * 0.3})`;
+        ctx.fillRect(x, y, width, height);
       }
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(4, 8);
+      texture.repeat.set(3, 6);
+      texture.anisotropy = 16;
+      return texture;
+    };
+
+    const makeGroundTexture = () => {
+      const size = 1024;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "#1a2b22";
+      ctx.fillRect(0, 0, size, size);
+
+      for (let i = 0; i < 2000; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const radius = Math.random() * 3 + 1;
+        const brightness = Math.random() * 30 - 15;
+        
+        ctx.fillStyle = `rgba(${26 + brightness}, ${43 + brightness}, ${34 + brightness}, ${0.4 + Math.random() * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(8, 8);
+      texture.anisotropy = 16;
       return texture;
     };
 
     const leafTexture = makeLeafTexture();
+    const leafNormalMap = makeLeafNormalMap();
     const stemTexture = makeStemTexture();
+    const groundTexture = makeGroundTexture();
 
     // -----------------------------
-    // Materials
+    // Materials - PBR Enhanced
     // -----------------------------
     const leafMat = new THREE.MeshStandardMaterial({
-      color: 0x4aa14e,
+      color: 0x5abc59,
       map: leafTexture,
-      roughness: 0.78,
+      normalMap: leafNormalMap,
+      normalScale: new THREE.Vector2(0.5, 0.5),
+      roughness: 0.6,
       metalness: 0.0,
+      emissive: 0x1a3a1a,
+      emissiveIntensity: 0.15,
       side: THREE.DoubleSide,
     });
 
     const stemMat = new THREE.MeshStandardMaterial({
-      color: 0x2b5a2a,
+      color: 0x3a6e38,
       map: stemTexture,
-      roughness: 0.92,
+      roughness: 0.85,
       metalness: 0.0,
+      emissive: 0x0d1a0d,
+      emissiveIntensity: 0.1,
     });
 
     const plasticDark = new THREE.MeshStandardMaterial({
       color: 0x1f2a33,
-      roughness: 0.58,
-      metalness: 0.06,
+      roughness: 0.4,
+      metalness: 0.15,
+      envMapIntensity: 0.8,
     });
 
     const plasticMid = new THREE.MeshStandardMaterial({
-      color: 0x334656,
-      roughness: 0.5,
-      metalness: 0.07,
+      color: 0x3d4f61,
+      roughness: 0.35,
+      metalness: 0.2,
+      envMapIntensity: 0.9,
     });
 
     const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0x7fb3c9,
-      roughness: 0.22,
+      color: 0x9fd4e6,
+      roughness: 0.05,
       metalness: 0.0,
-      transmission: 0.9,
-      thickness: 0.8,
-      ior: 1.45,
-      clearcoat: 0.25,
-      clearcoatRoughness: 0.12,
+      transmission: 0.95,
+      thickness: 1.2,
+      ior: 1.5,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.05,
+      reflectivity: 0.9,
     });
 
     const liquidMat = new THREE.MeshPhysicalMaterial({
-      color: 0x61b7ea,
-      roughness: 0.1,
+      color: 0x7dd4ff,
+      roughness: 0.0,
       metalness: 0.0,
-      transmission: 0.72,
-      thickness: 0.55,
+      transmission: 0.85,
+      thickness: 0.8,
       ior: 1.33,
+      clearcoat: 0.5,
+      reflectivity: 0.8,
     });
 
     const skinMat = new THREE.MeshStandardMaterial({
-      color: 0xcfa07a,
-      roughness: 0.65,
+      color: 0xd4a589,
+      roughness: 0.55,
       metalness: 0.0,
+      emissive: 0x5a3a2a,
+      emissiveIntensity: 0.08,
     });
 
-    const catMatA = new THREE.MeshStandardMaterial({ color: 0x62d86a, roughness: 0.7 });
-    const catMatB = new THREE.MeshStandardMaterial({ color: 0x2f7a2f, roughness: 0.72 });
-    const catHeadMat = new THREE.MeshStandardMaterial({ color: 0x101413, roughness: 0.6 });
+    const catMatA = new THREE.MeshStandardMaterial({ 
+      color: 0x6ee876, 
+      roughness: 0.6,
+      metalness: 0.0,
+      emissive: 0x2a5a2a,
+      emissiveIntensity: 0.2
+    });
+    const catMatB = new THREE.MeshStandardMaterial({ 
+      color: 0x3d8c3d, 
+      roughness: 0.65,
+      metalness: 0.0,
+      emissive: 0x1a3a1a,
+      emissiveIntensity: 0.15
+    });
+    const catHeadMat = new THREE.MeshStandardMaterial({ 
+      color: 0x1a1f1d, 
+      roughness: 0.5,
+      metalness: 0.1,
+      emissive: 0x0a0f0d,
+      emissiveIntensity: 0.3
+    });
 
     // -----------------------------
     // Plant (procedural ma fatta meglio)
@@ -485,16 +654,28 @@ const HempSprayFPV_Base44Safe = () => {
     // Spray particles (PointsMaterial + sprite canvas)
     // -----------------------------
     const makeSprite = () => {
-      const c = document.createElement("canvas");
-      c.width = c.height = 128;
-      const ctx = c.getContext("2d");
-      const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-      g.addColorStop(0, "rgba(255,255,255,0.55)");
-      g.addColorStop(0.3, "rgba(255,255,255,0.22)");
-      g.addColorStop(1, "rgba(255,255,255,0.0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, 128, 128);
-      const tex = new THREE.CanvasTexture(c);
+      const size = 256;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      
+      const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+      gradient.addColorStop(0, "rgba(180, 230, 255, 0.9)");
+      gradient.addColorStop(0.2, "rgba(160, 220, 250, 0.6)");
+      gradient.addColorStop(0.5, "rgba(140, 200, 240, 0.3)");
+      gradient.addColorStop(0.8, "rgba(120, 180, 220, 0.1)");
+      gradient.addColorStop(1, "rgba(100, 160, 200, 0.0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      
+      ctx.globalCompositeOperation = "lighter";
+      const innerGlow = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/4);
+      innerGlow.addColorStop(0, "rgba(255, 255, 255, 0.6)");
+      innerGlow.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+      ctx.fillStyle = innerGlow;
+      ctx.fillRect(0, 0, size, size);
+      
+      const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
@@ -516,10 +697,11 @@ const HempSprayFPV_Base44Safe = () => {
       map: sprayTex,
       transparent: true,
       depthWrite: false,
-      size: 0.03,
-      opacity: 0.75,
-      color: 0xf3f8ff,
-      blending: THREE.NormalBlending,
+      size: 0.08,
+      opacity: 0.85,
+      color: 0xc8e8ff,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
     });
 
     const sprayPoints = new THREE.Points(pGeo, pMat);
