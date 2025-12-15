@@ -8,6 +8,7 @@ import Breeding from './pages/Breeding';
 import LoreArchive from './pages/LoreArchive';
 import ResearchTree from './pages/ResearchTree';
 import PlantUpgrades from './pages/PlantUpgrades';
+import Crafting from './pages/Crafting';
 
 
 export const PAGES = {
@@ -21,6 +22,7 @@ export const PAGES = {
     "LoreArchive": LoreArchive,
     "ResearchTree": ResearchTree,
     "PlantUpgrades": PlantUpgrades,
+    "Crafting": Crafting,
 }
 
 export const pagesConfig = {
