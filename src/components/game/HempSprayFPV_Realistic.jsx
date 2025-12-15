@@ -4,7 +4,7 @@ import * as THREE from "three";
 export default function HempSprayFPV_Realistic({ 
   activePests = [], 
   plantHealth = 100, 
-  currentWeather = 'clear', 
+  currentWeather = 'clear',
   dayNightHour = 12,
   windStrength = 0.2,
   rainIntensity = 0,
@@ -36,7 +36,8 @@ export default function HempSprayFPV_Realistic({
 
     const colors = getTimeColors(dayNightHour);
     scene.background = new THREE.Color(colors.bg);
-    scene.fog = new THREE.Fog(colors.bg, 5, 30);
+    const fogDensity = currentWeather === 'fog' ? 15 : currentWeather === 'rain' ? 20 : 30;
+    scene.fog = new THREE.Fog(colors.bg, 5, fogDensity);
 
     const camera = new THREE.PerspectiveCamera(75, w / h, 0.01, 100);
     camera.position.set(0, 1.4, 2.2);
@@ -74,7 +75,12 @@ export default function HempSprayFPV_Realistic({
     scene.add(sun);
 
     const groundGeo = new THREE.PlaneGeometry(40, 40, 20, 20);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 0.9 });
+    const groundMat = new THREE.MeshStandardMaterial({ 
+      color: 0x2a3a2a, 
+      roughness: 0.9,
+      metalness: 0.0
+    });
+    groundMat.userData.wetness = 0.0;
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
@@ -86,21 +92,53 @@ export default function HempSprayFPV_Realistic({
     ground.geometry.computeVertexNormals();
     scene.add(ground);
 
+    const rainCount = 800;
     const rainGeo = new THREE.BufferGeometry();
-    const rainCount = 300;
     const rainPos = new Float32Array(rainCount * 3);
     const rainVel = [];
+    const rainLife = [];
     for (let i = 0; i < rainCount; i++) {
-      rainPos[i * 3] = (Math.random() - 0.5) * 25;
-      rainPos[i * 3 + 1] = Math.random() * 12;
-      rainPos[i * 3 + 2] = (Math.random() - 0.5) * 25;
-      rainVel.push(-4 - Math.random() * 2);
+      rainPos[i * 3] = (Math.random() - 0.5) * 30;
+      rainPos[i * 3 + 1] = Math.random() * 15;
+      rainPos[i * 3 + 2] = (Math.random() - 0.5) * 30;
+      rainVel.push(-6 - Math.random() * 3);
+      rainLife.push(Math.random());
     }
     rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-    const rainMat = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.04, transparent: true, opacity: 0.5 });
+    const rainMat = new THREE.PointsMaterial({ 
+      color: currentWeather === 'acid_rain' ? 0x88ff44 : 0xaaffff,
+      size: 0.06, 
+      transparent: true, 
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending
+    });
     const rain = new THREE.Points(rainGeo, rainMat);
     rain.visible = false;
     scene.add(rain);
+
+    const splashGeo = new THREE.BufferGeometry();
+    const splashCount = 200;
+    const splashPos = new Float32Array(splashCount * 3);
+    const splashVel = [];
+    const splashLife = new Float32Array(splashCount);
+    for (let i = 0; i < splashCount; i++) {
+      splashPos[i * 3] = 0;
+      splashPos[i * 3 + 1] = -10;
+      splashPos[i * 3 + 2] = 0;
+      splashVel.push({ x: 0, y: 0, z: 0 });
+      splashLife[i] = 0;
+    }
+    splashGeo.setAttribute('position', new THREE.BufferAttribute(splashPos, 3));
+    const splashMat = new THREE.PointsMaterial({
+      color: 0xccffff,
+      size: 0.04,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending
+    });
+    const splashPts = new THREE.Points(splashGeo, splashMat);
+    scene.add(splashPts);
+    let splashHead = 0;
 
     const potMat = new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.8 });
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.25, 0.4, 16), potMat);
@@ -118,8 +156,10 @@ export default function HempSprayFPV_Realistic({
     const leafMat = new THREE.MeshStandardMaterial({
       color: 0x4a9d4a,
       roughness: 0.7,
+      metalness: 0.0,
       side: THREE.DoubleSide
     });
+    leafMat.userData.wetness = 0.0;
 
     const stemMat = new THREE.MeshStandardMaterial({ color: 0x5a7d4a, roughness: 0.85 });
 
@@ -528,22 +568,88 @@ export default function HempSprayFPV_Realistic({
 
       if (rainIntensity > 0) {
         rain.visible = true;
-        rainMat.opacity = rainIntensity * 0.5;
+        rainMat.opacity = rainIntensity * 0.7;
+        rainMat.color.setHex(currentWeather === 'acid_rain' ? 0x88ff44 : 0xaaffff);
+        
         const rp = rainGeo.attributes.position;
         for (let i = 0; i < rainCount; i++) {
-          rp.setY(i, rp.getY(i) + rainVel[i] * dt);
-          if (rp.getY(i) < 0) rp.setY(i, 12);
+          rp.setY(i, rp.getY(i) + rainVel[i] * dt * rainIntensity);
+          rp.setX(i, rp.getX(i) + Math.sin(t * 0.8 + i) * windStrength * dt * 2);
+          
+          if (rp.getY(i) < 0.1) {
+            const posY = rp.getY(i);
+            const posX = rp.getX(i);
+            const posZ = rp.getZ(i);
+            
+            if (Math.random() < 0.15) {
+              for (let s = 0; s < 3; s++) {
+                const sid = (splashHead + s) % splashCount;
+                const sp = splashGeo.attributes.position;
+                sp.setX(sid, posX);
+                sp.setY(sid, posY + 0.05);
+                sp.setZ(sid, posZ);
+                const ang = (s / 3) * Math.PI * 2;
+                splashVel[sid] = {
+                  x: Math.cos(ang) * 0.3,
+                  y: 0.4 + Math.random() * 0.3,
+                  z: Math.sin(ang) * 0.3
+                };
+                splashLife[sid] = 1.0;
+              }
+              splashHead = (splashHead + 3) % splashCount;
+            }
+            
+            rp.setY(i, 15);
+            rp.setX(i, (Math.random() - 0.5) * 30);
+            rp.setZ(i, (Math.random() - 0.5) * 30);
+          }
         }
         rp.needsUpdate = true;
+
+        const sp = splashGeo.attributes.position;
+        for (let i = 0; i < splashCount; i++) {
+          if (splashLife[i] <= 0) continue;
+          splashVel[i].y -= 1.5 * dt;
+          sp.setX(i, sp.getX(i) + splashVel[i].x * dt);
+          sp.setY(i, sp.getY(i) + splashVel[i].y * dt);
+          sp.setZ(i, sp.getZ(i) + splashVel[i].z * dt);
+          splashLife[i] -= dt * 2;
+          if (sp.getY(i) < 0) splashLife[i] = 0;
+        }
+        sp.needsUpdate = true;
+
+        leafMat.userData.wetness = Math.min(1, leafMat.userData.wetness + dt * 0.3);
+        groundMat.userData.wetness = Math.min(1, groundMat.userData.wetness + dt * 0.2);
+        leafMat.roughness = 0.7 * (1 - leafMat.userData.wetness * 0.6);
+        groundMat.roughness = 0.9 * (1 - groundMat.userData.wetness * 0.5);
+        
+        if (currentWeather === 'acid_rain') {
+          leafMat.color.lerp(new THREE.Color(0x3a7d3a), dt * 0.05);
+        }
       } else {
         rain.visible = false;
+        leafMat.userData.wetness = Math.max(0, leafMat.userData.wetness - dt * 0.1);
+        groundMat.userData.wetness = Math.max(0, groundMat.userData.wetness - dt * 0.08);
+        leafMat.roughness = 0.7 * (1 - leafMat.userData.wetness * 0.6);
+        groundMat.roughness = 0.9 * (1 - groundMat.userData.wetness * 0.5);
+        
+        if (currentWeather !== 'acid_rain') {
+          leafMat.color.lerp(new THREE.Color(0x4a9d4a), dt * 0.1);
+        }
       }
 
       const tc = getTimeColors(dayNightHour);
       scene.background.lerp(new THREE.Color(tc.bg), 0.02);
       ambient.color.lerp(new THREE.Color(tc.ambient), 0.02);
       sun.color.lerp(new THREE.Color(tc.sun), 0.02);
-      sun.intensity = dayNightHour >= 6 && dayNightHour < 18 ? 1.5 : 0.2;
+      
+      let sunIntensity = dayNightHour >= 6 && dayNightHour < 18 ? 1.5 : 0.2;
+      if (currentWeather === 'fog') sunIntensity *= 0.4;
+      if (currentWeather === 'rain') sunIntensity *= 0.6;
+      sun.intensity = sunIntensity;
+
+      const targetFog = currentWeather === 'fog' ? 12 : currentWeather === 'rain' ? 18 : 30;
+      scene.fog.far += (targetFog - scene.fog.far) * 0.05;
 
       inp.lx += (inp.tx - inp.lx) * 0.12;
       inp.ly += (inp.ty - inp.ly) * 0.12;
@@ -612,6 +718,24 @@ export default function HempSprayFPV_Realistic({
           nozzleTip.getWorldPosition(tmpN);
           tmpF.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
           emit(tmpN, tmpF, 20);
+
+          if (Math.random() < 0.3) {
+            for (let s = 0; s < 2; s++) {
+              const sid = (splashHead + s) % splashCount;
+              const sp = splashGeo.attributes.position;
+              const spread = 0.15;
+              sp.setX(sid, tmpN.x + (Math.random() - 0.5) * spread);
+              sp.setY(sid, tmpN.y + (Math.random() - 0.5) * spread);
+              sp.setZ(sid, tmpN.z + (Math.random() - 0.5) * spread);
+              splashVel[sid] = {
+                x: tmpF.x * 0.5 + (Math.random() - 0.5) * 0.4,
+                y: tmpF.y * 0.5 + (Math.random() - 0.5) * 0.4,
+                z: tmpF.z * 0.5 + (Math.random() - 0.5) * 0.4
+              };
+              splashLife[sid] = 0.8;
+            }
+            splashHead = (splashHead + 2) % splashCount;
+          }
 
           const rng = 3.0;
           const hits = [];
