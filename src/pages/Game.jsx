@@ -203,6 +203,8 @@ export default function Game() {
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress) {
       const plantDecayInterval = setInterval(() => {
+        if (!progress?.plant_stats) return;
+
         const isDay = dayNightHour >= 6 && dayNightHour < 18;
         let waterDecay = 0.1;
         let nutritionDecay = 0.05;
@@ -235,7 +237,7 @@ export default function Game() {
         } else if (currentWeather === 'wind') {
           waterDecay += 0.08;
         }
-        
+
         const updates = {
           plant_stats: {
             ...progress.plant_stats,
@@ -699,8 +701,8 @@ export default function Game() {
   }, [gameState, isPaused, progress]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && progress) {
-      let resistanceBonus = progress.plant_stats?.resistance_bonus || 0;
+    if (gameState === 'playing' && !isPaused && progress?.plant_stats) {
+      let resistanceBonus = progress.plant_stats.resistance_bonus || 0;
       const activeBuffs = (progress.plant_stats?.temporary_buffs || []).filter(buff => buff.expiresAt > Date.now());
       const tempResistance = activeBuffs.reduce((sum, buff) => sum + (buff.type === 'resistance' ? buff.value : 0), 0);
       resistanceBonus += tempResistance;
