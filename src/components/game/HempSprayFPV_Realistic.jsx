@@ -372,18 +372,18 @@ export default function HempSprayFPV_Realistic({
     liq.position.y = -0.05;
     bottleGrp.add(liq);
 
-    const pMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.2 });
-    const triggerMesh = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.09, 0.07), pMat);
+    const plasticMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.2 });
+    const triggerMesh = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.09, 0.07), plasticMat);
     triggerMesh.position.set(0.095, 0.12, 0);
     triggerMesh.castShadow = true;
     bottleGrp.add(triggerMesh);
 
-    const capMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.085, 0.06, 12), pMat);
+    const capMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.085, 0.06, 12), plasticMat);
     capMesh.position.y = 0.23;
     capMesh.castShadow = true;
     bottleGrp.add(capMesh);
 
-    const nozzleMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 0.03), pMat);
+    const nozzleMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 0.03), plasticMat);
     nozzleMesh.position.set(0.055, 0.23, 0);
     nozzleMesh.castShadow = true;
     bottleGrp.add(nozzleMesh);
@@ -415,7 +415,7 @@ export default function HempSprayFPV_Realistic({
     let pHead = 0;
     pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
 
-    const pMat = new THREE.PointsMaterial({
+    const sprayMat = new THREE.PointsMaterial({
       map: spriteTex,
       transparent: true,
       depthWrite: false,
@@ -426,7 +426,7 @@ export default function HempSprayFPV_Realistic({
       sizeAttenuation: true
     });
 
-    const sprayPts = new THREE.Points(pGeo, pMat);
+    const sprayPts = new THREE.Points(pGeo, sprayMat);
     scene.add(sprayPts);
 
     const emit = (start, dir, cnt = 15) => {
