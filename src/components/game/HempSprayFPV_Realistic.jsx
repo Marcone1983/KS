@@ -31,12 +31,13 @@ const HempSprayFPV_Base44Safe = () => {
     const { w, h } = size();
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a1612);
-    scene.fog = new THREE.FogExp2(0x0d1a16, 0.08);
+    scene.background = new THREE.Color(0x1a2820);
+    scene.fog = new THREE.FogExp2(0x1a2820, 0.05);
 
-    const camera = new THREE.PerspectiveCamera(65, w / h, 0.02, 80);
-    camera.position.set(0, 1.55, 0.75);
+    const camera = new THREE.PerspectiveCamera(70, w / h, 0.01, 100);
+    camera.position.set(0, 1.2, 1.8);
     camera.rotation.order = "YXZ";
+    scene.add(camera);
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true, 
@@ -47,453 +48,254 @@ const HempSprayFPV_Base44Safe = () => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    renderer.toneMappingExposure = 1.2;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     container.appendChild(renderer.domElement);
 
-    const makeLeafTexture = () => {
-      const size = 1024;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = size;
-      const ctx = canvas.getContext("2d");
-
-      const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-      gradient.addColorStop(0, "#6ed46e");
-      gradient.addColorStop(0.4, "#5abc59");
-      gradient.addColorStop(0.7, "#48a548");
-      gradient.addColorStop(1, "#368736");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, size, size);
-
-      ctx.globalCompositeOperation = "overlay";
-      for (let i = 0; i < 300; i++) {
-        const x = Math.random() * size;
-        const y = Math.random() * size;
-        const opacity = Math.random() * 0.15;
-        ctx.fillStyle = `rgba(40, 80, 40, ${opacity})`;
-        ctx.fillRect(x, y, 1, Math.random() * 8 + 2);
-      }
-
-      ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = "rgba(30, 60, 30, 0.4)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(size / 2, size * 0.1);
-      for (let i = 0; i < 20; i++) {
-        const t = i / 20;
-        ctx.lineTo(size / 2 + Math.sin(t * Math.PI * 4) * 8, size * 0.1 + t * size * 0.8);
-      }
-      ctx.stroke();
-
-      for (let i = 0; i < 30; i++) {
-        const t = i / 30;
-        const y = size * 0.15 + t * size * 0.7;
-        const length = (1 - t) * size * 0.35;
-        const angle = Math.PI / 3 + (Math.random() - 0.5) * 0.3;
-        
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = `rgba(30, 60, 30, ${0.3 - t * 0.2})`;
-        ctx.beginPath();
-        ctx.moveTo(size / 2, y);
-        ctx.quadraticCurveTo(
-          size / 2 + Math.cos(angle) * length * 0.6, 
-          y + Math.sin(angle) * length * 0.3,
-          size / 2 + Math.cos(angle) * length, 
-          y + Math.sin(angle) * length
-        );
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(size / 2, y);
-        ctx.quadraticCurveTo(
-          size / 2 - Math.cos(angle) * length * 0.6, 
-          y + Math.sin(angle) * length * 0.3,
-          size / 2 - Math.cos(angle) * length, 
-          y + Math.sin(angle) * length
-        );
-        ctx.stroke();
-      }
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.anisotropy = 16;
-      return texture;
-    };
-
-    const makeLeafNormalMap = () => {
-      const size = 1024;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = size;
-      const ctx = canvas.getContext("2d");
-
-      ctx.fillStyle = "rgb(128, 128, 255)";
-      ctx.fillRect(0, 0, size, size);
-
-      for (let i = 0; i < 50; i++) {
-        const t = i / 50;
-        const y = size * 0.15 + t * size * 0.7;
-        
-        ctx.strokeStyle = "rgb(100, 140, 255)";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(size / 2, y);
-        ctx.lineTo(size / 2 + (1-t) * size * 0.3, y + size * 0.02);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(size / 2, y);
-        ctx.lineTo(size / 2 - (1-t) * size * 0.3, y + size * 0.02);
-        ctx.stroke();
-      }
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      return texture;
-    };
-
-    const makeStemTexture = () => {
-      const size = 1024;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = size;
-      const ctx = canvas.getContext("2d");
-
-      const gradient = ctx.createLinearGradient(0, 0, size, 0);
-      gradient.addColorStop(0, "#2d5c2b");
-      gradient.addColorStop(0.5, "#3a6e38");
-      gradient.addColorStop(1, "#2d5c2b");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, size, size);
-
-      for (let i = 0; i < 200; i++) {
-        const x = Math.random() * size;
-        const y = Math.random() * size;
-        const length = Math.random() * 40 + 10;
-        const brightness = Math.random() * 40 - 20;
-        
-        ctx.strokeStyle = `rgba(${45 + brightness}, ${90 + brightness}, ${43 + brightness}, ${0.3 + Math.random() * 0.3})`;
-        ctx.lineWidth = Math.random() * 2 + 1;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + length);
-        ctx.stroke();
-      }
-
-      for (let i = 0; i < 80; i++) {
-        const x = Math.random() * size;
-        const y = Math.random() * size;
-        const width = Math.random() * 8 + 2;
-        const height = Math.random() * 15 + 5;
-        
-        ctx.fillStyle = `rgba(35, 50, 35, ${0.2 + Math.random() * 0.3})`;
-        ctx.fillRect(x, y, width, height);
-      }
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(3, 6);
-      texture.anisotropy = 16;
-      return texture;
-    };
-
-    const makeGroundTexture = () => {
-      const size = 1024;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = size;
-      const ctx = canvas.getContext("2d");
-
-      ctx.fillStyle = "#1a2b22";
-      ctx.fillRect(0, 0, size, size);
-
-      for (let i = 0; i < 2000; i++) {
-        const x = Math.random() * size;
-        const y = Math.random() * size;
-        const radius = Math.random() * 3 + 1;
-        const brightness = Math.random() * 30 - 15;
-        
-        ctx.fillStyle = `rgba(${26 + brightness}, ${43 + brightness}, ${34 + brightness}, ${0.4 + Math.random() * 0.4})`;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(8, 8);
-      texture.anisotropy = 16;
-      return texture;
-    };
-
-    const leafTexture = makeLeafTexture();
-    const leafNormalMap = makeLeafNormalMap();
-    const stemTexture = makeStemTexture();
-    const groundTexture = makeGroundTexture();
-
-    const ambient = new THREE.AmbientLight(0x4a7a5a, 0.3);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambient);
 
-    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x2d4a36, 0.5);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x8d9f87, 0.6);
     scene.add(hemi);
 
-    const key = new THREE.DirectionalLight(0xffffeb, 2.5);
-    key.position.set(8, 12, 6);
-    key.castShadow = true;
-    key.shadow.mapSize.set(4096, 4096);
-    key.shadow.camera.near = 0.5;
-    key.shadow.camera.far = 50;
-    key.shadow.camera.left = -15;
-    key.shadow.camera.right = 15;
-    key.shadow.camera.top = 15;
-    key.shadow.camera.bottom = -15;
-    key.shadow.bias = -0.0001;
-    scene.add(key);
+    const sun = new THREE.DirectionalLight(0xfff8dc, 1.8);
+    sun.position.set(5, 8, 3);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 30;
+    sun.shadow.camera.left = -10;
+    sun.shadow.camera.right = 10;
+    sun.shadow.camera.top = 10;
+    sun.shadow.camera.bottom = -10;
+    sun.shadow.bias = -0.0005;
+    scene.add(sun);
 
-    const fill = new THREE.DirectionalLight(0x6aa3d9, 0.8);
-    fill.position.set(-5, 4, -3);
+    const fill = new THREE.DirectionalLight(0x9fd4e6, 0.5);
+    fill.position.set(-3, 2, -2);
     scene.add(fill);
 
-    const rim = new THREE.DirectionalLight(0x9de8c6, 1.2);
-    rim.position.set(-8, 3, -6);
-    scene.add(rim);
-
-    const backLight = new THREE.PointLight(0x5a9d7a, 1.5, 20);
-    backLight.position.set(0, 2, -3);
-    scene.add(backLight);
-
+    const groundGeo = new THREE.PlaneGeometry(50, 50, 30, 30);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x1a2b22,
-      map: groundTexture,
+      color: 0x3d5a3d,
       roughness: 0.95,
-      metalness: 0.0,
-      aoMapIntensity: 1.5,
+      metalness: 0.0
     });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 20, 20), groundMat);
+    const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     
-    const gndVertices = ground.geometry.attributes.position;
-    for (let i = 0; i < gndVertices.count; i++) {
-      gndVertices.setZ(i, Math.random() * 0.08 - 0.04);
+    const pos = ground.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setZ(i, pos.getZ(i) + (Math.random() - 0.5) * 0.15);
     }
-    gndVertices.needsUpdate = true;
+    pos.needsUpdate = true;
     ground.geometry.computeVertexNormals();
     scene.add(ground);
 
-    const leafMat = new THREE.MeshStandardMaterial({
-      color: 0x5abc59,
-      map: leafTexture,
-      normalMap: leafNormalMap,
-      normalScale: new THREE.Vector2(0.5, 0.5),
-      roughness: 0.6,
+    const leafletMat = new THREE.MeshStandardMaterial({
+      color: 0x5cb85c,
+      roughness: 0.7,
       metalness: 0.0,
-      emissive: 0x1a3a1a,
-      emissiveIntensity: 0.15,
       side: THREE.DoubleSide,
+      emissive: 0x1a3d1a,
+      emissiveIntensity: 0.08
     });
 
     const stemMat = new THREE.MeshStandardMaterial({
-      color: 0x3a6e38,
-      map: stemTexture,
+      color: 0x4a6e3d,
       roughness: 0.85,
-      metalness: 0.0,
-      emissive: 0x0d1a0d,
-      emissiveIntensity: 0.1,
+      metalness: 0.0
     });
 
-    const plasticDark = new THREE.MeshStandardMaterial({
-      color: 0x1f2a33,
-      roughness: 0.4,
-      metalness: 0.15,
-      envMapIntensity: 0.8,
+    const branchMat = new THREE.MeshStandardMaterial({
+      color: 0x5a7d4a,
+      roughness: 0.8,
+      metalness: 0.0
     });
 
-    const plasticMid = new THREE.MeshStandardMaterial({
-      color: 0x3d4f61,
-      roughness: 0.35,
-      metalness: 0.2,
-      envMapIntensity: 0.9,
-    });
-
-    const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0x9fd4e6,
-      roughness: 0.05,
-      metalness: 0.0,
-      transmission: 0.95,
-      thickness: 1.2,
-      ior: 1.5,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.05,
-      reflectivity: 0.9,
-    });
-
-    const liquidMat = new THREE.MeshPhysicalMaterial({
-      color: 0x7dd4ff,
-      roughness: 0.0,
-      metalness: 0.0,
-      transmission: 0.85,
-      thickness: 0.8,
-      ior: 1.33,
-      clearcoat: 0.5,
-      reflectivity: 0.8,
-    });
-
-    const skinMat = new THREE.MeshStandardMaterial({
-      color: 0xd4a589,
-      roughness: 0.55,
-      metalness: 0.0,
-      emissive: 0x5a3a2a,
-      emissiveIntensity: 0.08,
-    });
-
-    const catMatA = new THREE.MeshStandardMaterial({ 
-      color: 0x6ee876, 
-      roughness: 0.6,
-      metalness: 0.0,
-      emissive: 0x2a5a2a,
-      emissiveIntensity: 0.2
-    });
-    const catMatB = new THREE.MeshStandardMaterial({ 
-      color: 0x3d8c3d, 
-      roughness: 0.65,
-      metalness: 0.0,
-      emissive: 0x1a3a1a,
-      emissiveIntensity: 0.15
-    });
-    const catHeadMat = new THREE.MeshStandardMaterial({ 
-      color: 0x1a1f1d, 
-      roughness: 0.5,
-      metalness: 0.1,
-      emissive: 0x0a0f0d,
-      emissiveIntensity: 0.3
-    });
-
-    const plant = new THREE.Group();
-    plant.position.set(0, 0, -1.35);
-    scene.add(plant);
-
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 2.7, 12), stemMat);
-    stem.position.y = 1.35;
-    stem.castShadow = true;
-    plant.add(stem);
-
-    const makeLeafletGeo = (length, width, teeth) => {
+    const makeLeaflet = (length, width) => {
       const shape = new THREE.Shape();
+      const serrationsPerSide = 12;
+      
       shape.moveTo(0, 0);
-
-      for (let i = 0; i <= teeth; i++) {
-        const t = i / teeth;
+      
+      for (let i = 0; i <= serrationsPerSide; i++) {
+        const t = i / serrationsPerSide;
         const y = t * length;
-        const x = Math.sin(t * Math.PI) * width * (1 - t * 0.25);
-        const tooth = Math.sin(i * Math.PI) * width * 0.12;
-        shape.lineTo(x + tooth, y);
+        const baseWidth = Math.sin(t * Math.PI) * width * (1 - t * 0.2);
+        const serration = (i % 2 === 0) ? baseWidth * 0.08 : 0;
+        shape.lineTo(baseWidth + serration, y);
       }
-
-      for (let i = teeth; i >= 0; i--) {
-        const t = i / teeth;
+      
+      for (let i = serrationsPerSide; i >= 0; i--) {
+        const t = i / serrationsPerSide;
         const y = t * length;
-        const x = Math.sin(t * Math.PI) * width * (1 - t * 0.25);
-        const tooth = Math.sin(i * Math.PI) * width * 0.12;
-        shape.lineTo(-x - tooth, y);
+        const baseWidth = Math.sin(t * Math.PI) * width * (1 - t * 0.2);
+        const serration = (i % 2 === 0) ? baseWidth * 0.08 : 0;
+        shape.lineTo(-baseWidth - serration, y);
       }
-
+      
       shape.closePath();
-      const geo = new THREE.ShapeGeometry(shape, 10);
-
-      const pos = geo.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        const curl = (y / length) * 0.03;
-        pos.setZ(i, pos.getZ(i) + curl + x * 0.03);
+      
+      const geo = new THREE.ShapeGeometry(shape, 8);
+      const posAttr = geo.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        const curl = (y / length) * 0.02 + Math.abs(x) * 0.015;
+        posAttr.setZ(i, curl);
       }
-      pos.needsUpdate = true;
+      posAttr.needsUpdate = true;
       geo.computeVertexNormals();
-
+      
       return geo;
     };
 
-    const geoBig = makeLeafletGeo(0.40, 0.09, 10);
-    const geoMid = makeLeafletGeo(0.33, 0.078, 9);
-    const geoSmall = makeLeafletGeo(0.26, 0.062, 8);
-
-    const makePalmLeaf = (scale) => {
-      const g = new THREE.Group();
-      const cfg = [
-        { geo: geoBig, a: 0.0, s: 1.0 },
-        { geo: geoMid, a: -0.28, s: 0.96 },
-        { geo: geoMid, a: 0.28, s: 0.96 },
-        { geo: geoMid, a: -0.56, s: 0.9 },
-        { geo: geoMid, a: 0.56, s: 0.9 },
-        { geo: geoSmall, a: -0.82, s: 0.84 },
-        { geo: geoSmall, a: 0.82, s: 0.84 },
+    const makeCannabisLeaf = (scale = 1.0, leafletCount = 7) => {
+      const group = new THREE.Group();
+      
+      const mainLength = 0.45 * scale;
+      const mainWidth = 0.09 * scale;
+      const mainGeo = makeLeaflet(mainLength, mainWidth);
+      const mainLeaf = new THREE.Mesh(mainGeo, leafletMat);
+      mainLeaf.rotation.x = -Math.PI / 2;
+      mainLeaf.castShadow = true;
+      group.add(mainLeaf);
+      
+      const sideConfigs = [
+        { angle: -0.35, length: 0.42, width: 0.085, offsetY: 0.08 },
+        { angle: 0.35, length: 0.42, width: 0.085, offsetY: 0.08 },
+        { angle: -0.65, length: 0.38, width: 0.078, offsetY: 0.15 },
+        { angle: 0.65, length: 0.38, width: 0.078, offsetY: 0.15 },
+        { angle: -0.95, length: 0.32, width: 0.068, offsetY: 0.22 },
+        { angle: 0.95, length: 0.32, width: 0.068, offsetY: 0.22 }
       ];
-
-      cfg.forEach((c, idx) => {
-        const m = new THREE.Mesh(c.geo, leafMat);
-        m.scale.setScalar(scale * c.s);
-        m.rotation.x = -Math.PI / 2;
-        m.rotation.z = c.a;
-        m.castShadow = true;
-        m.rotation.y = (Math.random() - 0.5) * 0.08;
-        m.rotation.x += (Math.random() - 0.5) * 0.03;
-        g.add(m);
-      });
-
-      return g;
+      
+      for (let i = 0; i < Math.min(leafletCount - 1, sideConfigs.length); i++) {
+        const cfg = sideConfigs[i];
+        const geo = makeLeaflet(cfg.length * scale, cfg.width * scale);
+        const mesh = new THREE.Mesh(geo, leafletMat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.rotation.z = cfg.angle;
+        mesh.position.y = cfg.offsetY * scale;
+        mesh.castShadow = true;
+        group.add(mesh);
+      }
+      
+      return group;
     };
 
-    const leafLevels = [
-      { y: 0.58, rot: 0.2, scale: 0.78 },
-      { y: 0.98, rot: 1.33, scale: 0.9 },
-      { y: 1.38, rot: 2.48, scale: 1.0 },
-      { y: 1.78, rot: 3.68, scale: 0.96 },
-      { y: 2.18, rot: 5.06, scale: 0.84 },
-      { y: 2.45, rot: 6.18, scale: 0.64 },
+    const plant = new THREE.Group();
+    plant.position.set(0, 0, -1.5);
+    scene.add(plant);
+
+    const trunkHeight = 2.2;
+    const trunkRadius = 0.04;
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(trunkRadius * 0.8, trunkRadius, trunkHeight, 12),
+      stemMat
+    );
+    trunk.position.y = trunkHeight / 2;
+    trunk.castShadow = true;
+    plant.add(trunk);
+
+    const branchLevels = [
+      { height: 0.5, rotation: 0, branchLength: 0.35, leafScale: 0.8 },
+      { height: 0.85, rotation: Math.PI / 2, branchLength: 0.40, leafScale: 0.9 },
+      { height: 1.2, rotation: 0, branchLength: 0.42, leafScale: 1.0 },
+      { height: 1.5, rotation: Math.PI / 2, branchLength: 0.38, leafScale: 0.95 },
+      { height: 1.75, rotation: 0, branchLength: 0.32, leafScale: 0.85 },
+      { height: 1.95, rotation: Math.PI / 2, branchLength: 0.25, leafScale: 0.7 }
     ];
 
-    const leafSets = [];
-    leafLevels.forEach((lvl) => {
-      const set = new THREE.Group();
-
-      for (let k = 0; k < 2; k++) {
-        const leaf = makePalmLeaf(lvl.scale);
-        const a = lvl.rot + k * Math.PI;
-
-        leaf.position.set(Math.cos(a) * 0.12, 0, Math.sin(a) * 0.12);
-        leaf.rotation.y = a;
-        leaf.rotation.x = 0.52;
-        set.add(leaf);
+    const branches = [];
+    
+    branchLevels.forEach((level, idx) => {
+      const branchGroup = new THREE.Group();
+      branchGroup.position.y = level.height;
+      branchGroup.rotation.y = level.rotation;
+      
+      for (let side = 0; side < 2; side++) {
+        const direction = side === 0 ? 1 : -1;
+        
+        const branchGeo = new THREE.CylinderGeometry(0.018, 0.025, level.branchLength, 8);
+        const branch = new THREE.Mesh(branchGeo, branchMat);
+        branch.position.x = direction * level.branchLength / 2;
+        branch.rotation.z = direction * Math.PI / 2;
+        branch.castShadow = true;
+        branchGroup.add(branch);
+        
+        for (let i = 0; i < 3; i++) {
+          const leaf = makeCannabisLeaf(level.leafScale, 7);
+          const t = (i + 1) / 4;
+          leaf.position.x = direction * level.branchLength * t;
+          leaf.position.y = Math.random() * 0.05;
+          leaf.rotation.y = direction * (Math.PI / 2 + (Math.random() - 0.5) * 0.4);
+          leaf.rotation.x = (Math.random() - 0.5) * 0.3;
+          leaf.rotation.z = (Math.random() - 0.5) * 0.2;
+          leaf.userData.windOffset = Math.random() * Math.PI * 2;
+          branchGroup.add(leaf);
+        }
       }
-
-      set.position.y = lvl.y;
-      set.userData.windOff = Math.random() * Math.PI * 2;
-      leafSets.push(set);
-      plant.add(set);
+      
+      branchGroup.userData.windOffset = Math.random() * Math.PI * 2;
+      branches.push(branchGroup);
+      plant.add(branchGroup);
     });
 
+    const topLeaf = makeCannabisLeaf(0.85, 7);
+    topLeaf.position.y = trunkHeight;
+    topLeaf.rotation.x = Math.PI / 6;
+    topLeaf.userData.windOffset = Math.random() * Math.PI * 2;
+    plant.add(topLeaf);
+
     const caterpillars = [];
+
+    const catMatA = new THREE.MeshStandardMaterial({ 
+      color: 0x88dd77, 
+      roughness: 0.6,
+      metalness: 0.0,
+      emissive: 0x2d5a2d,
+      emissiveIntensity: 0.15
+    });
+    const catMatB = new THREE.MeshStandardMaterial({ 
+      color: 0x5a9d5a, 
+      roughness: 0.65,
+      metalness: 0.0,
+      emissive: 0x1d3a1d,
+      emissiveIntensity: 0.12
+    });
+    const catHeadMat = new THREE.MeshStandardMaterial({ 
+      color: 0x2d3a2d, 
+      roughness: 0.5,
+      metalness: 0.1,
+      emissive: 0x1a1f1a,
+      emissiveIntensity: 0.25
+    });
 
     const makeCaterpillar = () => {
       const g = new THREE.Group();
       const segCount = 9;
 
       for (let i = 0; i < segCount; i++) {
-        const r = 0.02 * (1 - i * 0.05);
-        const geo = new THREE.SphereGeometry(r, 14, 10);
+        const r = 0.022 * (1 - i * 0.04);
+        const geo = new THREE.SphereGeometry(r, 12, 10);
         const mat = i % 2 === 0 ? catMatA : catMatB;
         const s = new THREE.Mesh(geo, mat);
-        s.position.x = i * 0.026;
+        s.position.x = i * 0.028;
         s.castShadow = true;
         g.add(s);
       }
 
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.023, 14, 10), catHeadMat);
-      head.position.x = segCount * 0.026;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 10), catHeadMat);
+      head.position.x = segCount * 0.028;
       head.castShadow = true;
       g.add(head);
 
-      g.scale.setScalar(1.05);
+      g.scale.setScalar(1.1);
 
       g.userData = {
         alive: true,
@@ -501,152 +303,182 @@ const HempSprayFPV_Base44Safe = () => {
         fallVel: 0,
         spinVel: 0,
         wiggle: Math.random() * Math.PI * 2,
-        radius: 0.06,
+        radius: 0.08,
       };
 
       return g;
     };
 
-    const spawnCaterpillars = (n = 8) => {
-      for (let i = 0; i < n; i++) {
-        const c = makeCaterpillar();
-        const level = Math.floor(Math.random() * 5) + 1;
-        const a = Math.random() * Math.PI * 2;
-        const r = 0.05 + Math.random() * 0.085;
-
-        c.position.set(
-          Math.cos(a) * r,
-          0.58 + level * 0.4 + (Math.random() - 0.5) * 0.12,
-          Math.sin(a) * r
-        );
-        c.rotation.y = a + Math.PI * 0.5;
-
-        plant.add(c);
-        caterpillars.push(c);
-      }
+    const spawnCaterpillars = (n = 10) => {
+      branchLevels.forEach((level, levelIdx) => {
+        const numOnLevel = Math.floor(n / branchLevels.length) + (levelIdx < (n % branchLevels.length) ? 1 : 0);
+        
+        for (let i = 0; i < numOnLevel; i++) {
+          const c = makeCaterpillar();
+          const side = Math.random() > 0.5 ? 1 : -1;
+          const branchT = 0.3 + Math.random() * 0.6;
+          
+          const branchLength = level.branchLength;
+          const localX = side * branchLength * branchT;
+          const localY = (Math.random() - 0.5) * 0.1;
+          
+          const angle = level.rotation;
+          const worldX = Math.cos(angle) * localX;
+          const worldZ = Math.sin(angle) * localX;
+          
+          c.position.set(worldX, level.height + localY, worldZ);
+          c.rotation.y = angle + side * Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+          
+          plant.add(c);
+          caterpillars.push(c);
+        }
+      });
     };
 
     const killCaterpillar = (c) => {
       if (!c?.userData?.alive || c.userData.dying) return;
       c.userData.dying = true;
-      c.userData.fallVel = 0.12 + Math.random() * 0.12;
-      c.userData.spinVel = (Math.random() > 0.5 ? 1 : -1) * (1.8 + Math.random() * 2.2);
+      c.userData.fallVel = 0.1 + Math.random() * 0.1;
+      c.userData.spinVel = (Math.random() > 0.5 ? 1 : -1) * (2 + Math.random() * 2);
     };
 
-    spawnCaterpillars(8);
+    spawnCaterpillars(12);
 
-    const fpv = new THREE.Group();
-    camera.add(fpv);
+    const fpvHand = new THREE.Group();
+    fpvHand.position.set(0.4, -0.45, -0.5);
+    fpvHand.rotation.set(0.15, -0.3, 0.05);
+    camera.add(fpvHand);
 
-    const hand = new THREE.Group();
-    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.155, 0.06), skinMat);
-    palm.castShadow = true;
-    hand.add(palm);
-
-    const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.085, 0.032), skinMat);
-    thumb.position.set(-0.052, 0.042, 0.02);
-    thumb.rotation.z = -0.5;
-    thumb.castShadow = true;
-    hand.add(thumb);
-
-    const fingerGeo = new THREE.BoxGeometry(0.027, 0.105, 0.027);
-    [
-      { x: 0.036, y: 0.104 },
-      { x: 0.015, y: 0.123 },
-      { x: -0.012, y: 0.112 },
-      { x: -0.032, y: 0.092 },
-    ].forEach((p) => {
-      const f = new THREE.Mesh(fingerGeo, skinMat);
-      f.position.set(p.x, p.y, 0);
-      f.rotation.x = -0.25;
-      f.castShadow = true;
-      hand.add(f);
+    const skinMat = new THREE.MeshStandardMaterial({
+      color: 0xd4a076,
+      roughness: 0.6,
+      metalness: 0.0
     });
 
-    const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.085, 12), skinMat);
-    wrist.position.y = -0.105;
-    wrist.rotation.x = Math.PI / 2;
-    wrist.castShadow = true;
-    hand.add(wrist);
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.05), skinMat);
+    palm.castShadow = true;
+    fpvHand.add(palm);
 
-    hand.position.set(0.145, -0.275, -0.19);
-    hand.rotation.set(0.32, -0.44, 0.06);
-    fpv.add(hand);
+    const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.03), skinMat);
+    thumb.position.set(-0.05, 0.04, 0.02);
+    thumb.rotation.z = -0.5;
+    thumb.castShadow = true;
+    fpvHand.add(thumb);
 
-    const bottle = new THREE.Group();
+    const fingerPositions = [
+      { x: 0.035, y: 0.1 },
+      { x: 0.015, y: 0.12 },
+      { x: -0.01, y: 0.11 },
+      { x: -0.03, y: 0.09 }
+    ];
 
-    const bottleBody = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.096, 0.37, 18), glassMat);
+    fingerPositions.forEach(p => {
+      const finger = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.1, 0.025), skinMat);
+      finger.position.set(p.x, p.y, 0);
+      finger.rotation.x = -0.2;
+      finger.castShadow = true;
+      fpvHand.add(finger);
+    });
+
+    const bottleGroup = new THREE.Group();
+    bottleGroup.position.set(0, -0.05, 0);
+    fpvHand.add(bottleGroup);
+
+    const bottleMat = new THREE.MeshPhysicalMaterial({
+      color: 0xd4f0ff,
+      roughness: 0.05,
+      metalness: 0.0,
+      transmission: 0.92,
+      thickness: 0.8,
+      ior: 1.45,
+      clearcoat: 1.0,
+      reflectivity: 0.9
+    });
+
+    const bottleBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.09, 0.35, 16),
+      bottleMat
+    );
     bottleBody.castShadow = true;
-    bottle.add(bottleBody);
+    bottleGroup.add(bottleBody);
 
-    const liquid = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.088, 0.28, 18), liquidMat);
-    liquid.position.y = -0.06;
-    bottle.add(liquid);
+    const liquidMat = new THREE.MeshPhysicalMaterial({
+      color: 0x7dd4ff,
+      roughness: 0.0,
+      metalness: 0.0,
+      transmission: 0.8,
+      thickness: 0.5,
+      ior: 1.33
+    });
 
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.084, 0.058, 16), plasticDark);
-    cap.position.y = 0.208;
-    cap.castShadow = true;
-    bottle.add(cap);
+    const liquid = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.075, 0.085, 0.27, 16),
+      liquidMat
+    );
+    liquid.position.y = -0.05;
+    bottleGroup.add(liquid);
 
-    const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.088, 0.064), plasticMid);
-    trigger.position.set(0.088, 0.12, 0);
+    const plasticDark = new THREE.MeshStandardMaterial({
+      color: 0x2a2a2a,
+      roughness: 0.4,
+      metalness: 0.2
+    });
+
+    const trigger = new THREE.Mesh(
+      new THREE.BoxGeometry(0.035, 0.08, 0.06),
+      plasticDark
+    );
+    trigger.position.set(0.085, 0.1, 0);
     trigger.castShadow = true;
-    bottle.add(trigger);
+    bottleGroup.add(trigger);
 
-    const nozzle = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 0.03), plasticDark);
-    nozzle.position.set(0.056, 0.208, 0);
+    const cap = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.065, 0.08, 0.055, 16),
+      plasticDark
+    );
+    cap.position.y = 0.2;
+    cap.castShadow = true;
+    bottleGroup.add(cap);
+
+    const nozzle = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.025, 0.025),
+      plasticDark
+    );
+    nozzle.position.set(0.05, 0.2, 0);
     nozzle.castShadow = true;
-    bottle.add(nozzle);
+    bottleGroup.add(nozzle);
 
     const nozzleTip = new THREE.Object3D();
-    nozzleTip.position.set(0.115, 0.208, 0);
-    bottle.add(nozzleTip);
-
-    bottle.position.set(0.165, -0.205, -0.145);
-    bottle.rotation.set(0.18, -0.36, 0.1);
-    fpv.add(bottle);
+    nozzleTip.position.set(0.1, 0.2, 0);
+    bottleGroup.add(nozzleTip);
 
     const getNozzleWorldPos = (out = new THREE.Vector3()) => {
       nozzleTip.getWorldPosition(out);
       return out;
     };
 
-    const animateTrigger = (p) => {
-      trigger.rotation.x = -p * 0.45;
-    };
-
-    const makeSprite = () => {
+    const makeSprayTexture = () => {
       const size = 256;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = size;
       const ctx = canvas.getContext("2d");
       
       const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-      gradient.addColorStop(0, "rgba(180, 230, 255, 0.9)");
-      gradient.addColorStop(0.2, "rgba(160, 220, 250, 0.6)");
-      gradient.addColorStop(0.5, "rgba(140, 200, 240, 0.3)");
-      gradient.addColorStop(0.8, "rgba(120, 180, 220, 0.1)");
-      gradient.addColorStop(1, "rgba(100, 160, 200, 0.0)");
+      gradient.addColorStop(0, "rgba(200, 235, 255, 1.0)");
+      gradient.addColorStop(0.3, "rgba(180, 225, 250, 0.7)");
+      gradient.addColorStop(0.6, "rgba(150, 210, 240, 0.4)");
+      gradient.addColorStop(1, "rgba(120, 190, 220, 0.0)");
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, size, size);
-      
-      ctx.globalCompositeOperation = "lighter";
-      const innerGlow = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/4);
-      innerGlow.addColorStop(0, "rgba(255, 255, 255, 0.6)");
-      innerGlow.addColorStop(1, "rgba(255, 255, 255, 0.0)");
-      ctx.fillStyle = innerGlow;
       ctx.fillRect(0, 0, size, size);
       
       const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
       return tex;
     };
 
-    const sprayTex = makeSprite();
+    const sprayTex = makeSprayTexture();
 
-    const MAXP = 2200;
+    const MAXP = 2500;
     const pGeo = new THREE.BufferGeometry();
     const pPos = new Float32Array(MAXP * 3);
     const pVel = new Float32Array(MAXP * 3);
@@ -659,25 +491,25 @@ const HempSprayFPV_Base44Safe = () => {
       map: sprayTex,
       transparent: true,
       depthWrite: false,
-      size: 0.08,
-      opacity: 0.85,
+      size: 0.1,
+      opacity: 0.9,
       color: 0xc8e8ff,
       blending: THREE.AdditiveBlending,
-      sizeAttenuation: true,
+      sizeAttenuation: true
     });
 
     const sprayPoints = new THREE.Points(pGeo, pMat);
     scene.add(sprayPoints);
 
-    const emit = (start, dir, count = 18) => {
+    const emit = (start, dir, count = 22) => {
       for (let i = 0; i < count; i++) {
         const id = pHead++ % MAXP;
-        const spread = 0.16;
-        const speed = 0.52;
+        const spread = 0.18;
+        const speed = 0.6;
 
-        const vx = dir.x * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread;
-        const vy = dir.y * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread * 0.55;
-        const vz = dir.z * (0.9 + Math.random() * 0.6) + (Math.random() - 0.5) * spread;
+        const vx = dir.x * (0.85 + Math.random() * 0.7) + (Math.random() - 0.5) * spread;
+        const vy = dir.y * (0.85 + Math.random() * 0.7) + (Math.random() - 0.5) * spread * 0.5;
+        const vz = dir.z * (0.85 + Math.random() * 0.7) + (Math.random() - 0.5) * spread;
 
         pPos[id * 3 + 0] = start.x;
         pPos[id * 3 + 1] = start.y;
@@ -693,8 +525,8 @@ const HempSprayFPV_Base44Safe = () => {
     };
 
     const updateParticles = (dt) => {
-      const drag = 0.985;
-      const gravity = -0.32;
+      const drag = 0.98;
+      const gravity = -0.4;
       for (let i = 0; i < MAXP; i++) {
         if (pLife[i] <= 0) continue;
 
@@ -706,8 +538,8 @@ const HempSprayFPV_Base44Safe = () => {
         pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt;
         pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt;
 
-        pLife[i] -= dt * 1.15;
-        if (pPos[i * 3 + 1] < 0.03) pLife[i] = 0;
+        pLife[i] -= dt * 1.2;
+        if (pPos[i * 3 + 1] < 0.02) pLife[i] = 0;
       }
       pGeo.attributes.position.needsUpdate = true;
     };
@@ -719,7 +551,7 @@ const HempSprayFPV_Base44Safe = () => {
       targetY: 0,
       spraying: false,
       sprayT: 0,
-      cooldown: 0,
+      cooldown: 0
     };
 
     const onMove = (e) => {
@@ -728,8 +560,8 @@ const HempSprayFPV_Base44Safe = () => {
       const cy = rect.top + rect.height / 2;
       const nx = (e.clientX - cx) / (rect.width / 2);
       const ny = (e.clientY - cy) / (rect.height / 2);
-      input.targetY = clamp(nx * 0.20, -0.20, 0.20);
-      input.targetX = clamp(ny * 0.13, -0.13, 0.13);
+      input.targetY = clamp(nx * 0.25, -0.25, 0.25);
+      input.targetX = clamp(ny * 0.18, -0.18, 0.18);
     };
 
     const startSpray = () => {
@@ -778,61 +610,52 @@ const HempSprayFPV_Base44Safe = () => {
         setStats({
           fps: Math.round(fpsFrames / fpsAcc),
           particles: Math.min(pHead, MAXP),
-          caterpillars: alive,
+          caterpillars: alive
         });
         fpsFrames = 0;
         fpsAcc = 0;
       }
 
-      input.lookX += (input.targetX - input.lookX) * 0.12;
-      input.lookY += (input.targetY - input.lookY) * 0.12;
+      input.lookX += (input.targetX - input.lookX) * 0.1;
+      input.lookY += (input.targetY - input.lookY) * 0.1;
       camera.rotation.x = input.lookX;
       camera.rotation.y = input.lookY;
 
-      leafSets.forEach((set, idx) => {
-        const off = set.userData.windOff;
-        const heightFactor = idx / leafSets.length;
-        const strength = 0.22 + heightFactor * 0.15;
+      branches.forEach((branch, idx) => {
+        const offset = branch.userData.windOffset;
+        const heightFactor = idx / branches.length;
+        const strength = 0.15 + heightFactor * 0.1;
         
-        const w1 = Math.sin(t * 1.8 + off) * strength;
-        const w2 = Math.cos(t * 1.4 + off * 1.3) * strength * 0.7;
-        const w3 = Math.sin(t * 2.5 + off * 0.7) * strength * 0.4;
+        const wind = Math.sin(t * 1.5 + offset) * strength;
+        branch.rotation.z = wind * 0.08;
         
-        set.rotation.x = w1 * 0.12 + w3 * 0.05;
-        set.rotation.z = w2 * 0.10 + w3 * 0.03;
-        set.rotation.y = w3 * 0.08;
-        
-        set.children.forEach((leaf, leafIdx) => {
-          leaf.rotation.x += Math.sin(t * 3 + off + leafIdx) * 0.002;
-          leaf.rotation.z += Math.cos(t * 2.5 + off + leafIdx * 0.5) * 0.002;
+        branch.children.forEach(child => {
+          if (child.userData.windOffset !== undefined) {
+            const leafWind = Math.sin(t * 2.2 + child.userData.windOffset) * 0.05;
+            child.rotation.z += leafWind;
+          }
         });
       });
 
       caterpillars.forEach((c) => {
         if (!c.userData.alive) return;
-        c.userData.wiggle += dt * 6.2;
+        c.userData.wiggle += dt * 5.5;
 
         if (!c.userData.dying) {
-          const wig = Math.sin(c.userData.wiggle) * 0.12;
-          const wigSecondary = Math.cos(c.userData.wiggle * 1.5) * 0.08;
-          c.rotation.x = wig + wigSecondary * 0.5;
-          c.rotation.z = Math.sin(c.userData.wiggle * 0.8) * 0.05;
+          const wig = Math.sin(c.userData.wiggle) * 0.1;
+          c.rotation.x = wig;
           
           c.children.forEach((seg, i) => {
-            const segWiggle = Math.sin(c.userData.wiggle + i * 0.55) * 0.004;
-            const segBounce = Math.cos(c.userData.wiggle * 1.3 + i * 0.3) * 0.002;
-            seg.position.y = segWiggle + segBounce;
-            seg.rotation.y = Math.sin(c.userData.wiggle * 2 + i * 0.4) * 0.05;
-            seg.scale.y = 1 + Math.sin(c.userData.wiggle * 1.8 + i * 0.6) * 0.05;
+            const segWig = Math.sin(c.userData.wiggle + i * 0.5) * 0.003;
+            seg.position.y = segWig;
           });
         } else {
-          c.userData.fallVel += dt * 0.8;
-          c.position.y -= c.userData.fallVel * dt * 2.1;
-          c.rotation.x += c.userData.spinVel * dt * 0.75;
-          c.rotation.z += c.userData.spinVel * dt * 0.5;
-          c.scale.multiplyScalar(1 - dt * 0.6);
+          c.userData.fallVel += dt * 0.9;
+          c.position.y -= c.userData.fallVel * dt * 2.5;
+          c.rotation.x += c.userData.spinVel * dt;
+          c.scale.multiplyScalar(1 - dt * 0.7);
 
-          if (c.position.y < 0.03 || c.scale.x < 0.18) {
+          if (c.position.y < 0.02 || c.scale.x < 0.15) {
             c.userData.alive = false;
             plant.remove(c);
             disposeObject(c);
@@ -844,18 +667,18 @@ const HempSprayFPV_Base44Safe = () => {
 
       if (input.spraying) {
         input.sprayT += dt;
-        const dur = 1.15;
+        const dur = 1.0;
         const p = clamp(input.sprayT / dur, 0, 1);
 
-        animateTrigger(Math.sin(p * Math.PI));
+        trigger.rotation.x = -Math.sin(p * Math.PI) * 0.4;
 
-        if (p > 0.12 && p < 0.92) {
+        if (p > 0.1 && p < 0.9) {
           const noz = getNozzleWorldPos(tmpNoz);
           tmpForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
 
-          emit(noz, tmpForward, 20);
+          emit(noz, tmpForward, 25);
 
-          const range = 2.0;
+          const range = 2.5;
           for (const c of caterpillars) {
             if (!c.userData.alive || c.userData.dying) continue;
             const worldPos = c.getWorldPosition(new THREE.Vector3());
@@ -868,9 +691,9 @@ const HempSprayFPV_Base44Safe = () => {
 
         if (p >= 1) {
           input.spraying = false;
-          input.cooldown = 0.55;
+          input.cooldown = 0.5;
           input.sprayT = 0;
-          animateTrigger(0);
+          trigger.rotation.x = 0;
         }
       }
 
@@ -897,10 +720,6 @@ const HempSprayFPV_Base44Safe = () => {
       window.removeEventListener("keydown", onKey);
 
       sprayTex.dispose?.();
-      leafTexture.dispose?.();
-      leafNormalMap.dispose?.();
-      stemTexture.dispose?.();
-      groundTexture.dispose?.();
       disposeObject(scene);
       renderer.dispose();
 
@@ -914,20 +733,20 @@ const HempSprayFPV_Base44Safe = () => {
     <div className="w-full h-screen bg-black relative overflow-hidden">
       <div ref={containerRef} className="w-full h-full" />
 
-      <div className="absolute top-4 left-4 bg-black/65 text-white p-3 rounded-lg font-mono text-xs select-none">
-        <div className="font-bold mb-1 text-emerald-300">Stats</div>
+      <div className="absolute top-4 left-4 bg-black/70 text-white p-3 rounded-lg font-mono text-xs select-none backdrop-blur-sm">
+        <div className="font-bold mb-1 text-green-400">Stats</div>
         <div>FPS: {stats.fps}</div>
         <div>Particles: {stats.particles}</div>
         <div>Caterpillars: {stats.caterpillars}</div>
       </div>
 
-      <div className="absolute top-4 right-4 bg-black/65 text-white p-3 rounded-lg text-xs select-none">
-        <div className="font-bold mb-2 text-emerald-300">Controls</div>
+      <div className="absolute top-4 right-4 bg-black/70 text-white p-3 rounded-lg text-xs select-none backdrop-blur-sm">
+        <div className="font-bold mb-2 text-green-400">Controls</div>
         <div>
-          <span className="text-yellow-200">CLICK / SPACE</span> — Spray
+          <span className="text-yellow-300">CLICK / SPACE</span> — Spray
         </div>
         <div>
-          <span className="text-yellow-200">MOUSE</span> — Look
+          <span className="text-yellow-300">MOUSE</span> — Look Around
         </div>
       </div>
     </div>
