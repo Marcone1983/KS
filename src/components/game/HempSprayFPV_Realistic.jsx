@@ -1,10 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
-const HempSprayFPV_Base44Safe = () => {
+export default function HempSprayFPV_Realistic({ 
+  activePests = [], 
+  plantHealth = 100, 
+  currentWeather = 'clear', 
+  dayNightHour = 12,
+  windStrength = 0.2,
+  rainIntensity = 0,
+  onPestKilled 
+}) {
   const containerRef = useRef(null);
   const rafRef = useRef(0);
-
   const [stats, setStats] = useState({ fps: 0, particles: 0, caterpillars: 0 });
 
   useEffect(() => {
@@ -29,10 +36,43 @@ const HempSprayFPV_Base44Safe = () => {
     };
 
     const { w, h } = size();
-
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a2820);
-    scene.fog = new THREE.FogExp2(0x1a2820, 0.05);
+    
+    const getTimeBasedColors = (hour) => {
+      if (hour >= 5 && hour < 7) {
+        return { 
+          bg: new THREE.Color(0xff9966), 
+          ambient: 0xffaa77, 
+          sun: 0xffcc88,
+          fog: 0xff9955
+        };
+      } else if (hour >= 7 && hour < 17) {
+        return { 
+          bg: new THREE.Color(0x87ceeb), 
+          ambient: 0xffffff, 
+          sun: 0xfffacd,
+          fog: 0xb0d4e8
+        };
+      } else if (hour >= 17 && hour < 19) {
+        return { 
+          bg: new THREE.Color(0xff7733), 
+          ambient: 0xff9955, 
+          sun: 0xffaa66,
+          fog: 0xdd6633
+        };
+      } else {
+        return { 
+          bg: new THREE.Color(0x1a1a2e), 
+          ambient: 0x4a4a6a, 
+          sun: 0x6a6aaa,
+          fog: 0x0f0f1a
+        };
+      }
+    };
+
+    const colors = getTimeBasedColors(dayNightHour);
+    scene.background = colors.bg;
+    scene.fog = new THREE.FogExp2(colors.fog, 0.05);
 
     const camera = new THREE.PerspectiveCamera(70, w / h, 0.01, 100);
     camera.position.set(0, 1.2, 1.8);
@@ -54,13 +94,13 @@ const HempSprayFPV_Base44Safe = () => {
 
     container.appendChild(renderer.domElement);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambient = new THREE.AmbientLight(colors.ambient, 0.4);
     scene.add(ambient);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x8d9f87, 0.6);
     scene.add(hemi);
 
-    const sun = new THREE.DirectionalLight(0xfff8dc, 1.8);
+    const sun = new THREE.DirectionalLight(colors.sun, dayNightHour >= 6 && dayNightHour < 18 ? 1.8 : 0.3);
     sun.position.set(5, 8, 3);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -94,6 +134,29 @@ const HempSprayFPV_Base44Safe = () => {
     pos.needsUpdate = true;
     ground.geometry.computeVertexNormals();
     scene.add(ground);
+
+    const rainParticlesGeo = new THREE.BufferGeometry();
+    const rainCount = 500;
+    const rainPositions = new Float32Array(rainCount * 3);
+    const rainVelocities = [];
+    
+    for (let i = 0; i < rainCount; i++) {
+      rainPositions[i * 3] = (Math.random() - 0.5) * 30;
+      rainPositions[i * 3 + 1] = Math.random() * 15;
+      rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+      rainVelocities.push(-3 - Math.random() * 2);
+    }
+    
+    rainParticlesGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+    const rainMat = new THREE.PointsMaterial({
+      color: 0xaaaaaa,
+      size: 0.05,
+      transparent: true,
+      opacity: 0.6
+    });
+    const rainParticles = new THREE.Points(rainParticlesGeo, rainMat);
+    rainParticles.visible = false;
+    scene.add(rainParticles);
 
     const leafletMat = new THREE.MeshStandardMaterial({
       color: 0x5cb85c,
@@ -139,7 +202,6 @@ const HempSprayFPV_Base44Safe = () => {
       }
       
       shape.closePath();
-      
       const geo = new THREE.ShapeGeometry(shape, 8);
       const posAttr = geo.attributes.position;
       for (let i = 0; i < posAttr.count; i++) {
@@ -282,7 +344,7 @@ const HempSprayFPV_Base44Safe = () => {
 
       for (let i = 0; i < segCount; i++) {
         const r = 0.022 * (1 - i * 0.04);
-        const geo = new THREE.SphereGeometry(r, 12, 10);
+        const geo = new THREE.SphereGeometry(r, 10, 8);
         const mat = i % 2 === 0 ? catMatA : catMatB;
         const s = new THREE.Mesh(geo, mat);
         s.position.x = i * 0.028;
@@ -290,7 +352,7 @@ const HempSprayFPV_Base44Safe = () => {
         g.add(s);
       }
 
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 10), catHeadMat);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.025, 10, 8), catHeadMat);
       head.position.x = segCount * 0.028;
       head.castShadow = true;
       g.add(head);
@@ -300,6 +362,8 @@ const HempSprayFPV_Base44Safe = () => {
       g.userData = {
         alive: true,
         dying: false,
+        fleeing: false,
+        fleeDirection: new THREE.Vector3(),
         fallVel: 0,
         spinVel: 0,
         wiggle: Math.random() * Math.PI * 2,
@@ -340,6 +404,19 @@ const HempSprayFPV_Base44Safe = () => {
       c.userData.dying = true;
       c.userData.fallVel = 0.1 + Math.random() * 0.1;
       c.userData.spinVel = (Math.random() > 0.5 ? 1 : -1) * (2 + Math.random() * 2);
+    };
+
+    const makeFleeingCaterpillar = (c, awayFrom) => {
+      if (c.userData.fleeing || c.userData.dying || !c.userData.alive) return;
+      c.userData.fleeing = true;
+      
+      const currentWorldPos = c.getWorldPosition(new THREE.Vector3());
+      const fleeDir = new THREE.Vector3()
+        .subVectors(currentWorldPos, awayFrom)
+        .normalize();
+      
+      c.userData.fleeDirection.copy(fleeDir);
+      c.userData.fleeStartTime = Date.now();
     };
 
     spawnCaterpillars(12);
@@ -458,7 +535,7 @@ const HempSprayFPV_Base44Safe = () => {
     };
 
     const makeSprayTexture = () => {
-      const size = 256;
+      const size = 128;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = size;
       const ctx = canvas.getContext("2d");
@@ -478,7 +555,7 @@ const HempSprayFPV_Base44Safe = () => {
 
     const sprayTex = makeSprayTexture();
 
-    const MAXP = 2500;
+    const MAXP = 1500;
     const pGeo = new THREE.BufferGeometry();
     const pPos = new Float32Array(MAXP * 3);
     const pVel = new Float32Array(MAXP * 3);
@@ -501,7 +578,7 @@ const HempSprayFPV_Base44Safe = () => {
     const sprayPoints = new THREE.Points(pGeo, pMat);
     scene.add(sprayPoints);
 
-    const emit = (start, dir, count = 22) => {
+    const emit = (start, dir, count = 18) => {
       for (let i = 0; i < count; i++) {
         const id = pHead++ % MAXP;
         const spread = 0.18;
@@ -616,32 +693,71 @@ const HempSprayFPV_Base44Safe = () => {
         fpsAcc = 0;
       }
 
+      if (rainIntensity > 0) {
+        rainParticles.visible = true;
+        rainMat.opacity = rainIntensity * 0.6;
+        const rainPos = rainParticlesGeo.attributes.position;
+        for (let i = 0; i < rainCount; i++) {
+          rainPos.setY(i, rainPos.getY(i) + rainVelocities[i] * dt);
+          if (rainPos.getY(i) < 0) {
+            rainPos.setY(i, 15);
+          }
+        }
+        rainPos.needsUpdate = true;
+      } else {
+        rainParticles.visible = false;
+      }
+
+      const timeColors = getTimeBasedColors(dayNightHour);
+      scene.background.lerp(timeColors.bg, 0.01);
+      ambient.color.lerp(new THREE.Color(timeColors.ambient), 0.01);
+      sun.color.lerp(new THREE.Color(timeColors.sun), 0.01);
+      sun.intensity = dayNightHour >= 6 && dayNightHour < 18 ? 1.8 : 0.3;
+
       input.lookX += (input.targetX - input.lookX) * 0.1;
       input.lookY += (input.targetY - input.lookY) * 0.1;
       camera.rotation.x = input.lookX;
       camera.rotation.y = input.lookY;
 
+      const effectiveWind = windStrength * (1 + Math.sin(t * 0.5) * 0.3);
+
       branches.forEach((branch, idx) => {
         const offset = branch.userData.windOffset;
         const heightFactor = idx / branches.length;
-        const strength = 0.15 + heightFactor * 0.1;
+        const strength = effectiveWind * (0.15 + heightFactor * 0.1);
         
         const wind = Math.sin(t * 1.5 + offset) * strength;
-        branch.rotation.z = wind * 0.08;
+        const windY = Math.cos(t * 1.2 + offset) * strength * 0.5;
+        branch.rotation.z = wind * 0.15;
+        branch.rotation.x = windY * 0.08;
         
         branch.children.forEach(child => {
           if (child.userData.windOffset !== undefined) {
-            const leafWind = Math.sin(t * 2.2 + child.userData.windOffset) * 0.05;
-            child.rotation.z += leafWind;
+            const leafWind = Math.sin(t * 2.2 + child.userData.windOffset) * effectiveWind;
+            child.rotation.z += leafWind * 0.08;
+            child.rotation.x += Math.cos(t * 1.8 + child.userData.windOffset) * effectiveWind * 0.05;
           }
         });
       });
 
-      caterpillars.forEach((c) => {
+      caterpillars.forEach((c, idx) => {
         if (!c.userData.alive) return;
         c.userData.wiggle += dt * 5.5;
 
-        if (!c.userData.dying) {
+        if (c.userData.fleeing) {
+          const fleeAge = Date.now() - c.userData.fleeStartTime;
+          if (fleeAge > 2000) {
+            c.userData.fleeing = false;
+          } else {
+            const fleeSpeed = 0.3 * dt;
+            c.position.x += c.userData.fleeDirection.x * fleeSpeed;
+            c.position.z += c.userData.fleeDirection.z * fleeSpeed;
+            
+            c.rotation.x = Math.sin(c.userData.wiggle * 2) * 0.2;
+            c.scale.x = 0.9;
+            c.scale.z = 1.1;
+          }
+        } else if (!c.userData.dying) {
           const wig = Math.sin(c.userData.wiggle) * 0.1;
           c.rotation.x = wig;
           
@@ -676,16 +792,34 @@ const HempSprayFPV_Base44Safe = () => {
           const noz = getNozzleWorldPos(tmpNoz);
           tmpForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
 
-          emit(noz, tmpForward, 25);
+          emit(noz, tmpForward, 18);
 
           const range = 2.5;
+          const hitAny = [];
+          
           for (const c of caterpillars) {
             if (!c.userData.alive || c.userData.dying) continue;
             const worldPos = c.getWorldPosition(new THREE.Vector3());
             const { dist, proj } = rayPointDistance(noz, tmpForward, worldPos);
             if (proj > 0 && proj < range && dist < c.userData.radius) {
               killCaterpillar(c);
+              if (onPestKilled) onPestKilled(`cat_${caterpillars.indexOf(c)}`);
+              hitAny.push(worldPos);
             }
+          }
+
+          if (hitAny.length > 0) {
+            caterpillars.forEach(c => {
+              if (c.userData.alive && !c.userData.dying) {
+                const worldPos = c.getWorldPosition(new THREE.Vector3());
+                hitAny.forEach(hitPos => {
+                  const dist = worldPos.distanceTo(hitPos);
+                  if (dist < 0.8 && dist > 0.05) {
+                    makeFleeingCaterpillar(c, hitPos);
+                  }
+                });
+              }
+            });
           }
         }
 
@@ -727,7 +861,7 @@ const HempSprayFPV_Base44Safe = () => {
         container.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [activePests, plantHealth, currentWeather, dayNightHour, windStrength, rainIntensity, onPestKilled]);
 
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden">
@@ -751,6 +885,4 @@ const HempSprayFPV_Base44Safe = () => {
       </div>
     </div>
   );
-};
-
-export default HempSprayFPV_Base44Safe;
+}
