@@ -11,9 +11,6 @@ const HempSprayFPV_Base44Safe = () => {
     const container = containerRef.current;
     if (!container) return;
 
-    // -----------------------------
-    // Helpers
-    // -----------------------------
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const size = () => ({
       w: container.clientWidth || window.innerWidth,
@@ -31,9 +28,6 @@ const HempSprayFPV_Base44Safe = () => {
       });
     };
 
-    // -----------------------------
-    // Scene / Camera / Renderer
-    // -----------------------------
     const { w, h } = size();
 
     const scene = new THREE.Scene();
@@ -54,72 +48,11 @@ const HempSprayFPV_Base44Safe = () => {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.3;
-
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     container.appendChild(renderer.domElement);
 
-    // -----------------------------
-    // Lights - Cinematic setup
-    // -----------------------------
-    const ambient = new THREE.AmbientLight(0x4a7a5a, 0.3);
-    scene.add(ambient);
-
-    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x2d4a36, 0.5);
-    scene.add(hemi);
-
-    const key = new THREE.DirectionalLight(0xffffeb, 2.5);
-    key.position.set(8, 12, 6);
-    key.castShadow = true;
-    key.shadow.mapSize.set(4096, 4096);
-    key.shadow.camera.near = 0.5;
-    key.shadow.camera.far = 50;
-    key.shadow.camera.left = -15;
-    key.shadow.camera.right = 15;
-    key.shadow.camera.top = 15;
-    key.shadow.camera.bottom = -15;
-    key.shadow.bias = -0.0001;
-    scene.add(key);
-
-    const fill = new THREE.DirectionalLight(0x6aa3d9, 0.8);
-    fill.position.set(-5, 4, -3);
-    scene.add(fill);
-
-    const rim = new THREE.DirectionalLight(0x9de8c6, 1.2);
-    rim.position.set(-8, 3, -6);
-    scene.add(rim);
-
-    const backLight = new THREE.PointLight(0x5a9d7a, 1.5, 20);
-    backLight.position.set(0, 2, -3);
-    scene.add(backLight);
-
-    // -----------------------------
-    // Ground - Enhanced
-    // -----------------------------
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x1a2b22,
-      map: groundTexture,
-      roughness: 0.95,
-      metalness: 0.0,
-      aoMapIntensity: 1.5,
-    });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 20, 20), groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    
-    const vertices = ground.geometry.attributes.position;
-    for (let i = 0; i < vertices.count; i++) {
-      vertices.setZ(i, Math.random() * 0.08 - 0.04);
-    }
-    vertices.needsUpdate = true;
-    ground.geometry.computeVertexNormals();
-    
-    scene.add(ground);
-
-    // -----------------------------
-    // Advanced Procedural Textures
-    // -----------------------------
     const makeLeafTexture = () => {
       const size = 1024;
       const canvas = document.createElement("canvas");
@@ -297,9 +230,56 @@ const HempSprayFPV_Base44Safe = () => {
     const stemTexture = makeStemTexture();
     const groundTexture = makeGroundTexture();
 
-    // -----------------------------
-    // Materials - PBR Enhanced
-    // -----------------------------
+    const ambient = new THREE.AmbientLight(0x4a7a5a, 0.3);
+    scene.add(ambient);
+
+    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x2d4a36, 0.5);
+    scene.add(hemi);
+
+    const key = new THREE.DirectionalLight(0xffffeb, 2.5);
+    key.position.set(8, 12, 6);
+    key.castShadow = true;
+    key.shadow.mapSize.set(4096, 4096);
+    key.shadow.camera.near = 0.5;
+    key.shadow.camera.far = 50;
+    key.shadow.camera.left = -15;
+    key.shadow.camera.right = 15;
+    key.shadow.camera.top = 15;
+    key.shadow.camera.bottom = -15;
+    key.shadow.bias = -0.0001;
+    scene.add(key);
+
+    const fill = new THREE.DirectionalLight(0x6aa3d9, 0.8);
+    fill.position.set(-5, 4, -3);
+    scene.add(fill);
+
+    const rim = new THREE.DirectionalLight(0x9de8c6, 1.2);
+    rim.position.set(-8, 3, -6);
+    scene.add(rim);
+
+    const backLight = new THREE.PointLight(0x5a9d7a, 1.5, 20);
+    backLight.position.set(0, 2, -3);
+    scene.add(backLight);
+
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x1a2b22,
+      map: groundTexture,
+      roughness: 0.95,
+      metalness: 0.0,
+      aoMapIntensity: 1.5,
+    });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 20, 20), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    
+    const gndVertices = ground.geometry.attributes.position;
+    for (let i = 0; i < gndVertices.count; i++) {
+      gndVertices.setZ(i, Math.random() * 0.08 - 0.04);
+    }
+    gndVertices.needsUpdate = true;
+    ground.geometry.computeVertexNormals();
+    scene.add(ground);
+
     const leafMat = new THREE.MeshStandardMaterial({
       color: 0x5abc59,
       map: leafTexture,
@@ -388,9 +368,6 @@ const HempSprayFPV_Base44Safe = () => {
       emissiveIntensity: 0.3
     });
 
-    // -----------------------------
-    // Plant (procedural ma fatta meglio)
-    // -----------------------------
     const plant = new THREE.Group();
     plant.position.set(0, 0, -1.35);
     scene.add(plant);
@@ -404,7 +381,6 @@ const HempSprayFPV_Base44Safe = () => {
       const shape = new THREE.Shape();
       shape.moveTo(0, 0);
 
-      // right edge with serration
       for (let i = 0; i <= teeth; i++) {
         const t = i / teeth;
         const y = t * length;
@@ -413,7 +389,6 @@ const HempSprayFPV_Base44Safe = () => {
         shape.lineTo(x + tooth, y);
       }
 
-      // left edge
       for (let i = teeth; i >= 0; i--) {
         const t = i / teeth;
         const y = t * length;
@@ -425,7 +400,6 @@ const HempSprayFPV_Base44Safe = () => {
       shape.closePath();
       const geo = new THREE.ShapeGeometry(shape, 10);
 
-      // bend / curl (molto importante: addio foglia "cartone")
       const pos = geo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i);
@@ -461,11 +435,8 @@ const HempSprayFPV_Base44Safe = () => {
         m.rotation.x = -Math.PI / 2;
         m.rotation.z = c.a;
         m.castShadow = true;
-
-        // micro random tilt per foglia (realism)
         m.rotation.y = (Math.random() - 0.5) * 0.08;
         m.rotation.x += (Math.random() - 0.5) * 0.03;
-
         g.add(m);
       });
 
@@ -501,9 +472,6 @@ const HempSprayFPV_Base44Safe = () => {
       plant.add(set);
     });
 
-    // -----------------------------
-    // Caterpillars (più "larva")
-    // -----------------------------
     const caterpillars = [];
 
     const makeCaterpillar = () => {
@@ -567,9 +535,6 @@ const HempSprayFPV_Base44Safe = () => {
 
     spawnCaterpillars(8);
 
-    // -----------------------------
-    // FPV hand + bottle
-    // -----------------------------
     const fpv = new THREE.Group();
     camera.add(fpv);
 
@@ -650,9 +615,6 @@ const HempSprayFPV_Base44Safe = () => {
       trigger.rotation.x = -p * 0.45;
     };
 
-    // -----------------------------
-    // Spray particles (PointsMaterial + sprite canvas)
-    // -----------------------------
     const makeSprite = () => {
       const size = 256;
       const canvas = document.createElement("canvas");
@@ -750,9 +712,6 @@ const HempSprayFPV_Base44Safe = () => {
       pGeo.attributes.position.needsUpdate = true;
     };
 
-    // -----------------------------
-    // Input & hit test
-    // -----------------------------
     const input = {
       lookX: 0,
       lookY: 0,
@@ -801,9 +760,6 @@ const HempSprayFPV_Base44Safe = () => {
       return { dist: perp.length(), proj };
     };
 
-    // -----------------------------
-    // Loop
-    // -----------------------------
     const clock = new THREE.Clock();
     let fpsFrames = 0;
     let fpsAcc = 0;
@@ -814,7 +770,6 @@ const HempSprayFPV_Base44Safe = () => {
       const dt = Math.min(0.033, clock.getDelta());
       const t = clock.getElapsedTime();
 
-      // stats
       fpsFrames++;
       fpsAcc += dt;
       if (fpsAcc >= 0.5) {
@@ -829,13 +784,11 @@ const HempSprayFPV_Base44Safe = () => {
         fpsAcc = 0;
       }
 
-      // camera look
       input.lookX += (input.targetX - input.lookX) * 0.12;
       input.lookY += (input.targetY - input.lookY) * 0.12;
       camera.rotation.x = input.lookX;
       camera.rotation.y = input.lookY;
 
-      // wind - animazioni più fluide e realistiche
       leafSets.forEach((set, idx) => {
         const off = set.userData.windOff;
         const heightFactor = idx / leafSets.length;
@@ -855,7 +808,6 @@ const HempSprayFPV_Base44Safe = () => {
         });
       });
 
-      // caterpillars - animazioni più fluide
       caterpillars.forEach((c) => {
         if (!c.userData.alive) return;
         c.userData.wiggle += dt * 6.2;
@@ -888,7 +840,6 @@ const HempSprayFPV_Base44Safe = () => {
         }
       });
 
-      // spray
       if (input.cooldown > 0) input.cooldown -= dt;
 
       if (input.spraying) {
@@ -930,7 +881,6 @@ const HempSprayFPV_Base44Safe = () => {
 
     animate();
 
-    // resize
     const onResize = () => {
       const s = size();
       camera.aspect = s.w / s.h;
@@ -939,7 +889,6 @@ const HempSprayFPV_Base44Safe = () => {
     };
     window.addEventListener("resize", onResize);
 
-    // cleanup
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener("resize", onResize);
@@ -948,6 +897,10 @@ const HempSprayFPV_Base44Safe = () => {
       window.removeEventListener("keydown", onKey);
 
       sprayTex.dispose?.();
+      leafTexture.dispose?.();
+      leafNormalMap.dispose?.();
+      stemTexture.dispose?.();
+      groundTexture.dispose?.();
       disposeObject(scene);
       renderer.dispose();
 
