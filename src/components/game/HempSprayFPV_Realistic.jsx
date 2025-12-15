@@ -165,29 +165,29 @@ export default function HempSprayFPV_Realistic({
 
     const makeSerrated = (len, wid) => {
       const sh = new THREE.Shape();
-      const teeth = 14;
+      const teeth = 8;
       sh.moveTo(0, 0);
       for (let i = 0; i <= teeth; i++) {
         const t = i / teeth;
         const y = t * len;
         const w = Math.sin(t * Math.PI) * wid * (1 - t * 0.15);
-        const tooth = (i % 2 === 0) ? w * 0.1 : 0;
+        const tooth = (i % 2 === 0) ? w * 0.08 : 0;
         sh.lineTo(w + tooth, y);
       }
       for (let i = teeth; i >= 0; i--) {
         const t = i / teeth;
         const y = t * len;
         const w = Math.sin(t * Math.PI) * wid * (1 - t * 0.15);
-        const tooth = (i % 2 === 0) ? w * 0.1 : 0;
+        const tooth = (i % 2 === 0) ? w * 0.08 : 0;
         sh.lineTo(-w - tooth, y);
       }
       sh.closePath();
-      const geo = new THREE.ShapeGeometry(sh, 6);
+      const geo = new THREE.ShapeGeometry(sh, 4);
       const p = geo.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const x = p.getX(i);
         const y = p.getY(i);
-        p.setZ(i, (y / len) * 0.015 + Math.abs(x) * 0.01);
+        p.setZ(i, (y / len) * 0.012 + Math.abs(x) * 0.008);
       }
       p.needsUpdate = true;
       geo.computeVertexNormals();
@@ -229,7 +229,7 @@ export default function HempSprayFPV_Realistic({
     scene.add(plantGroup);
 
     const mainStem = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.035, 0.045, 2.5, 10),
+      new THREE.CylinderGeometry(0.035, 0.045, 2.5, 8),
       stemMat
     );
     mainStem.position.y = 1.25;
@@ -254,7 +254,7 @@ export default function HempSprayFPV_Realistic({
       
       [-1, 1].forEach(dir => {
         const branchStem = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.015, 0.02, node.len, 8),
+          new THREE.CylinderGeometry(0.015, 0.02, node.len, 6),
           stemMat
         );
         branchStem.position.x = dir * node.len / 2;
@@ -270,6 +270,7 @@ export default function HempSprayFPV_Realistic({
           lf.rotation.y = dir * (Math.PI / 2 + (Math.random() - 0.5) * 0.3);
           lf.rotation.x = (Math.random() - 0.5) * 0.25;
           lf.userData.windOff = Math.random() * Math.PI * 2;
+          lf.userData.windBase = { x: 0, z: 0 };
           nodeGrp.add(lf);
         }
       });
@@ -294,8 +295,7 @@ export default function HempSprayFPV_Realistic({
     allBranches.push(topLeaves);
     plantGroup.add(topLeaves);
 
-    const pests = [];
-    const pestMeshes = new Map();
+    const pestsMap = new Map();
 
     const pestMatsA = new THREE.MeshStandardMaterial({ 
       color: 0x88dd66, 
@@ -309,50 +309,31 @@ export default function HempSprayFPV_Realistic({
       emissive: 0x1a3a1a,
       emissiveIntensity: 0.12
     });
-    const pestHead = new THREE.MeshStandardMaterial({ 
+    const pestHeadMat = new THREE.MeshStandardMaterial({ 
       color: 0x2a2a2a, 
       roughness: 0.5,
       emissive: 0x1a1a1a,
       emissiveIntensity: 0.2
     });
 
-    const makePest = () => {
+    const makePestMesh = () => {
       const g = new THREE.Group();
-      const segs = 8;
+      const segs = 6;
       for (let i = 0; i < segs; i++) {
-        const r = 0.02 * (1 - i * 0.05);
-        const geo = new THREE.SphereGeometry(r, 8, 6);
+        const r = 0.025 * (1 - i * 0.06);
+        const geo = new THREE.SphereGeometry(r, 6, 5);
         const mat = i % 2 === 0 ? pestMatsA : pestMatsB;
         const s = new THREE.Mesh(geo, mat);
-        s.position.x = i * 0.025;
+        s.position.x = i * 0.03;
         s.castShadow = true;
         g.add(s);
       }
-      const hd = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), pestHead);
-      hd.position.x = segs * 0.025;
+      const hd = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 5), pestHeadMat);
+      hd.position.x = segs * 0.03;
       hd.castShadow = true;
       g.add(hd);
-      g.userData = { alive: true, dying: false, fleeing: false, wiggle: Math.random() * Math.PI * 2 };
       return g;
     };
-
-    nodeLevels.forEach((node, idx) => {
-      if (idx > 1) {
-        for (let i = 0; i < 2; i++) {
-          const p = makePest();
-          const side = i === 0 ? 1 : -1;
-          const t = 0.4 + Math.random() * 0.4;
-          const ang = node.rot;
-          const localX = side * node.len * t;
-          const wx = Math.cos(ang) * localX;
-          const wz = Math.sin(ang) * localX;
-          p.position.set(wx, node.y, wz);
-          p.rotation.y = ang + side * Math.PI / 2;
-          pests.push(p);
-          plantGroup.add(p);
-        }
-      }
-    });
 
     const handGrp = new THREE.Group();
     handGrp.position.set(0.55, -0.6, -0.7);
@@ -560,7 +541,7 @@ export default function HempSprayFPV_Realistic({
         setStats({
           fps: Math.round(fpsFr / fpsAc),
           particles: Math.min(pHead, MAXP),
-          pests: pests.filter(p => p.userData.alive).length
+          pests: pestsMap.size
         });
         fpsFr = 0;
         fpsAc = 0;
@@ -660,51 +641,83 @@ export default function HempSprayFPV_Realistic({
       allBranches.forEach((br, idx) => {
         const off = br.userData.windOff;
         const hf = idx / allBranches.length;
-        const str = wStr * (0.12 + hf * 0.08);
-        const w1 = Math.sin(t * 1.6 + off) * str;
-        const w2 = Math.cos(t * 1.3 + off * 1.2) * str * 0.6;
-        br.rotation.z = w1 * 0.18;
-        br.rotation.x = w2 * 0.1;
+        const str = wStr * (0.1 + hf * 0.06);
+        const w1 = Math.sin(t * 1.4 + off) * str;
+        const w2 = Math.cos(t * 1.1 + off * 1.2) * str * 0.5;
+        
+        if (!br.userData.windBase) {
+          br.userData.windBase = { z: br.rotation.z, x: br.rotation.x };
+        }
+        
+        br.rotation.z = br.userData.windBase.z + w1 * 0.15;
+        br.rotation.x = br.userData.windBase.x + w2 * 0.08;
         
         br.children.forEach(ch => {
-          if (ch.userData.windOff !== undefined) {
-            const lw = Math.sin(t * 2.5 + ch.userData.windOff) * wStr * 0.08;
-            ch.rotation.z += lw;
+          if (ch.userData.windOff !== undefined && ch.userData.windBase) {
+            const lw = Math.sin(t * 2.2 + ch.userData.windOff) * wStr * 0.06;
+            ch.rotation.z = ch.userData.windBase.z + lw;
           }
         });
       });
 
-      pests.forEach(p => {
-        if (!p.userData.alive) return;
-        p.userData.wiggle += dt * 6;
+      activePests.forEach(pestData => {
+        let pestMesh = pestsMap.get(pestData.id);
+        
+        if (!pestMesh && pestData.position) {
+          pestMesh = makePestMesh();
+          pestMesh.position.set(pestData.position.x, pestData.position.y, pestData.position.z);
+          pestMesh.userData = { 
+            id: pestData.id,
+            wiggle: Math.random() * Math.PI * 2,
+            dying: false,
+            fleeing: false
+          };
+          scene.add(pestMesh);
+          pestsMap.set(pestData.id, pestMesh);
+        }
 
-        if (p.userData.fleeing) {
-          const age = Date.now() - p.userData.fleeStart;
-          if (age > 1500) {
-            p.userData.fleeing = false;
-          } else {
-            const spd = 0.4 * dt;
-            p.position.x += p.userData.fleeDir.x * spd;
-            p.position.z += p.userData.fleeDir.z * spd;
-            p.rotation.x = Math.sin(p.userData.wiggle * 3) * 0.25;
+        if (pestMesh) {
+          pestMesh.userData.wiggle += dt * 6;
+
+          if (pestData.health <= 0 && !pestMesh.userData.dying) {
+            pestMesh.userData.dying = true;
+            pestMesh.userData.fallVel = 0.15;
+            pestMesh.userData.spinVel = (Math.random() > 0.5 ? 1 : -1) * 2.5;
           }
-        } else if (!p.userData.dying) {
-          const w = Math.sin(p.userData.wiggle) * 0.12;
-          p.rotation.x = w;
-          p.children.forEach((s, i) => {
-            s.position.y = Math.sin(p.userData.wiggle + i * 0.6) * 0.004;
-          });
-        } else {
-          p.userData.fallVel = (p.userData.fallVel || 0) + dt * 1.2;
-          p.position.y -= p.userData.fallVel * dt * 3;
-          p.rotation.x += (p.userData.spinVel || 2) * dt;
-          p.scale.multiplyScalar(1 - dt * 0.8);
-          if (p.position.y < 0 || p.scale.x < 0.12) {
-            p.userData.alive = false;
-            plantGroup.remove(p);
+
+          if (pestMesh.userData.dying) {
+            pestMesh.userData.fallVel = (pestMesh.userData.fallVel || 0) + dt * 1.2;
+            pestMesh.position.y -= pestMesh.userData.fallVel * dt * 3;
+            pestMesh.rotation.x += (pestMesh.userData.spinVel || 2) * dt;
+            pestMesh.scale.multiplyScalar(1 - dt * 0.8);
+            if (pestMesh.position.y < 0 || pestMesh.scale.x < 0.12) {
+              scene.remove(pestMesh);
+              pestsMap.delete(pestData.id);
+            }
+          } else {
+            if (pestData.position) {
+              pestMesh.position.lerp(
+                new THREE.Vector3(pestData.position.x, pestData.position.y, pestData.position.z),
+                0.1
+              );
+            }
+
+            const w = Math.sin(pestMesh.userData.wiggle) * 0.12;
+            pestMesh.rotation.x = w;
+            pestMesh.children.forEach((s, i) => {
+              s.position.y = Math.sin(pestMesh.userData.wiggle + i * 0.6) * 0.004;
+            });
           }
         }
       });
+
+      const activePestIds = new Set(activePests.map(p => p.id));
+      for (const [id, mesh] of pestsMap.entries()) {
+        if (!activePestIds.has(id) && !mesh.userData.dying) {
+          scene.remove(mesh);
+          pestsMap.delete(id);
+        }
+      }
 
       if (inp.cd > 0) inp.cd -= dt;
 
@@ -737,36 +750,21 @@ export default function HempSprayFPV_Realistic({
             splashHead = (splashHead + 2) % splashCount;
           }
 
-          const rng = 3.0;
-          const hits = [];
+          const rng = 4.0;
+          const radius = 0.35;
           
-          pests.forEach(p => {
-            if (!p.userData.alive || p.userData.dying) return;
-            const wp = p.getWorldPosition(new THREE.Vector3());
-            const { dist, prj } = rayDist(tmpN, tmpF, wp);
-            if (prj > 0 && prj < rng && dist < 0.1) {
-              p.userData.dying = true;
-              p.userData.fallVel = 0.15;
-              p.userData.spinVel = (Math.random() > 0.5 ? 1 : -1) * 2.5;
-              if (onPestKilled) onPestKilled(pests.indexOf(p));
-              hits.push(wp);
+          activePests.forEach(pestData => {
+            if (!pestData.position || pestData.health <= 0) return;
+            
+            const pestPos = new THREE.Vector3(pestData.position.x, pestData.position.y, pestData.position.z);
+            const { dist, prj } = rayDist(tmpN, tmpF, pestPos);
+            
+            if (prj > 0 && prj < rng && dist < radius) {
+              if (onPestKilled) {
+                onPestKilled(pestData.id, 35);
+              }
             }
           });
-
-          if (hits.length > 0) {
-            pests.forEach(p => {
-              if (!p.userData.alive || p.userData.dying || p.userData.fleeing) return;
-              const wp = p.getWorldPosition(new THREE.Vector3());
-              hits.forEach(h => {
-                const d = wp.distanceTo(h);
-                if (d < 1.2 && d > 0.05) {
-                  p.userData.fleeing = true;
-                  p.userData.fleeStart = Date.now();
-                  p.userData.fleeDir = new THREE.Vector3().subVectors(wp, h).normalize();
-                }
-              });
-            });
-          }
         }
 
         if (pr >= 1) {
