@@ -10,8 +10,11 @@ import BossHealthBar from '../components/game/BossHealthBar';
 import LevelObjectives from '../components/game/LevelObjectives';
 import LoreDiscovery from '../components/game/LoreDiscovery';
 import StrategyAdvisor from '../components/advisor/StrategyAdvisor';
+import InGameUpgradePanel from '../components/game/InGameUpgradePanel';
+import { toast } from 'sonner';
 
 export default function Game() {
+  const [showUpgradePanel, setShowUpgradePanel] = useState(false);
   const queryClient = useQueryClient();
   const [gameState, setGameState] = useState('loading');
   const [level, setLevel] = useState(1);
@@ -868,6 +871,34 @@ export default function Game() {
     }
   };
 
+  const handleQuickUpgrade = async (category, upgradeId, cost) => {
+    if (!progress || progress.leaf_currency < cost) {
+      toast.error('Leaf insufficienti!');
+      return;
+    }
+
+    let updates = { ...progress };
+    
+    if (category === 'spray') {
+      const currentLevel = progress.upgrades[upgradeId] || 1;
+      updates.upgrades = {
+        ...progress.upgrades,
+        [upgradeId]: currentLevel + 1
+      };
+    } else if (category === 'plant') {
+      const currentValue = progress.plant_stats[upgradeId] || 0;
+      updates.plant_stats = {
+        ...progress.plant_stats,
+        [upgradeId]: currentValue + 10
+      };
+    }
+    
+    updates.leaf_currency = progress.leaf_currency - cost;
+    
+    await updateProgressMutation.mutateAsync({ id: progress.id, data: updates });
+    toast.success('Potenziamento acquistato!');
+  };
+
   const restartGame = () => {
     setGameState('playing');
     setScore(0);
@@ -976,7 +1007,15 @@ export default function Game() {
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
-      <HempSprayFPV_Realistic />
+      <HempSprayFPV_Realistic 
+        activePests={activePests}
+        plantHealth={plantHealth}
+        currentWeather={currentWeather}
+        dayNightHour={dayNightHour}
+        windStrength={currentWeather === 'wind' ? 0.5 : 0.2}
+        rainIntensity={currentWeather === 'rain' ? 0.8 : 0}
+        onPestKilled={(pestId) => handlePestHit(pestId, 100)}
+      />
 
       {activeBoss && (
         <BossHealthBar 
@@ -1012,6 +1051,7 @@ export default function Game() {
         sprayAmmo={sprayAmmo}
         activeSkin={progress.active_skin}
         onPause={() => setIsPaused(true)}
+        onOpenUpgrades={() => setShowUpgradePanel(true)}
         dayNightHour={dayNightHour}
         plantStats={progress?.plant_stats}
         currentWeather={currentWeather}
@@ -1032,6 +1072,14 @@ export default function Game() {
           pestsEliminated={pestsEliminated}
           duration={gameTime}
           onRestart={restartGame}
+        />
+      )}
+
+      {showUpgradePanel && (
+        <InGameUpgradePanel
+          progress={progress}
+          onUpgrade={handleQuickUpgrade}
+          onClose={() => setShowUpgradePanel(false)}
         />
       )}
 

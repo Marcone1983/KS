@@ -1,9 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Pause, Droplets, Sun, Moon, Cloud, Wind, Flame } from 'lucide-react';
+import { Pause, Droplets, Sun, Moon, Cloud, Wind, Flame, Zap } from 'lucide-react';
 
-export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSkin, onPause, dayNightHour, plantStats, currentWeather, currentSeason }) {
+export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSkin, onPause, onOpenUpgrades, dayNightHour, plantStats, currentWeather, currentSeason }) {
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
       <div className="absolute top-3 left-3 space-y-2 pointer-events-auto">
@@ -51,7 +51,17 @@ export default function GameUI({ score, level, plantHealth, sprayAmmo, activeSki
         )}
       </div>
 
-      <div className="absolute top-3 right-3 pointer-events-auto">
+      <div className="absolute top-3 right-3 pointer-events-auto flex gap-2">
+        {onOpenUpgrades && (
+          <Button
+            onClick={onOpenUpgrades}
+            variant="ghost"
+            size="icon"
+            className="bg-purple-600/80 backdrop-blur-sm hover:bg-purple-700 text-white border border-purple-400/30 h-9 w-9"
+          >
+            <Zap className="h-4 w-4" />
+          </Button>
+        )}
         <Button
           onClick={onPause}
           variant="ghost"
