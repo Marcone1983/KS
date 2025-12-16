@@ -4,10 +4,11 @@ import { base44 } from '@/api/base44Client';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Dna, Beaker, Sparkles, TrendingUp, Leaf, Award, Lock } from 'lucide-react';
+import { ArrowLeft, Dna, Beaker, Sparkles, TrendingUp, Leaf, Award, Lock, Loader2 } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import AdvancedGeneticsSystem, { GeneticTraitBadge, GENETIC_TRAITS } from '../components/genetics/AdvancedGeneticsSystem';
+import { motion } from 'framer-motion';
 
 export default function BreedingLab() {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ export default function BreedingLab() {
   const [parent1, setParent1] = useState(null);
   const [parent2, setParent2] = useState(null);
   const [selectedTab, setSelectedTab] = useState('breeding');
+  const [breeding, setBreeding] = useState(false);
+  const [predictedOffspring, setPredictedOffspring] = useState(null);
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -57,30 +60,58 @@ export default function BreedingLab() {
     }
   });
 
-  const handleBreedingComplete = async (offspring) => {
-    if (!progress || !parent1 || !parent2 || !offspring) return;
+  const handleBreedPlants = async () => {
+    if (!parent1 || !parent2 || !progress) return;
+
+    setBreeding(true);
+
+    try {
+      const response = await base44.functions.invoke('breedPlants', {
+        parent1,
+        parent2,
+        playerLevel: progression?.player_level || 1,
+        researchBonuses: progress?.research_bonuses || {}
+      });
+
+      if (response.data?.success) {
+        setPredictedOffspring(response.data.offspring);
+        toast.success('Breeding complete! Review your new plant.');
+      } else {
+        toast.error('Breeding failed');
+      }
+    } catch (error) {
+      toast.error('Breeding error: ' + error.message);
+    } finally {
+      setBreeding(false);
+    }
+  };
+
+  const handleConfirmBreeding = async () => {
+    if (!progress || !predictedOffspring) return;
     
     const breedingCost = 150;
     
-    if (progress.leaf_currency < breedingCost) {
+    if ((progress.leaf_currency || 0) < breedingCost) {
       toast.error('Not enough Leaf for breeding!');
       return;
     }
 
     try {
+      const offspring = predictedOffspring;
+
       const newSeed = await createSeedMutation.mutateAsync({
-      strain_name: offspring.strain_name,
-      price: offspring.rarity === 'mythic' ? 1000 : 
-             offspring.rarity === 'legendary' ? 500 : 
-             offspring.rarity === 'rare' ? 250 : 100,
-      growth_speed: offspring.genes.growth_speed || 1.0,
-      pest_resistance: offspring.genes.pest_resistance || 0,
-      water_efficiency: offspring.genes.water_efficiency || 1.0,
-      max_health_bonus: offspring.genes.yield_potential ? offspring.genes.yield_potential * 0.2 : 0,
-      rarity: offspring.rarity,
-      description: `Hybrid strain with ${offspring.rarity} genetics`,
-      genetics: offspring.genes
-    });
+        strain_name: offspring.strain_name,
+        price: offspring.rarity === 'mythic' ? 1000 : 
+               offspring.rarity === 'legendary' ? 500 : 
+               offspring.rarity === 'rare' ? 250 : 100,
+        growth_speed: offspring.genes.growth_speed || 1.0,
+        pest_resistance: offspring.genes.pest_resistance || 0,
+        water_efficiency: offspring.genes.water_efficiency || 1.0,
+        max_health_bonus: offspring.genes.yield_potential ? offspring.genes.yield_potential * 0.2 : 0,
+        rarity: offspring.rarity,
+        description: `Hybrid strain with ${offspring.rarity} genetics`,
+        genetics: offspring.genes
+      });
 
     await createBreedingRecordMutation.mutateAsync({
       parent_seed_1: parent1.id,
@@ -111,6 +142,7 @@ export default function BreedingLab() {
       toast.success(`🧬 New strain "${offspring.strain_name}" added to your collection!`);
       setParent1(null);
       setParent2(null);
+      setPredictedOffspring(null);
     } catch (error) {
       console.error('Breeding error:', error);
       toast.error('Failed to complete breeding');
@@ -256,14 +288,133 @@ export default function BreedingLab() {
               </Card>
             </div>
 
-            {parent1 && parent2 && (
-              <div className="h-[600px]">
-                <AdvancedGeneticsSystem
-                  parent1={parent1}
-                  parent2={parent2}
-                  onBreedingComplete={handleBreedingComplete}
-                />
-              </div>
+            {parent1 && parent2 && !predictedOffspring && (
+              <Card className="bg-black/40 backdrop-blur border-green-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Beaker className="w-6 h-6 text-purple-400" />
+                    Ready to Breed
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gray-800/50 p-4 rounded-lg">
+                        <div className="text-sm text-gray-400 mb-1">Parent 1</div>
+                        <div className="text-white font-bold">{parent1.strain_name}</div>
+                        <div className="text-xs text-purple-400">{parent1.rarity}</div>
+                      </div>
+                      <div className="bg-gray-800/50 p-4 rounded-lg">
+                        <div className="text-sm text-gray-400 mb-1">Parent 2</div>
+                        <div className="text-white font-bold">{parent2.strain_name}</div>
+                        <div className="text-xs text-pink-400">{parent2.rarity}</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                      <div className="text-sm text-yellow-200">
+                        <div className="font-bold mb-2">Breeding Cost: 150 Leaf</div>
+                        <div className="text-xs">The AI will analyze both parents and generate a unique offspring with combined traits.</div>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleBreedPlants}
+                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                      disabled={breeding || (progress?.leaf_currency || 0) < 150}
+                    >
+                      {breeding ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Breeding in Progress...
+                        </>
+                      ) : (
+                        <>
+                          <Dna className="w-4 h-4 mr-2" />
+                          Start AI Breeding
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {predictedOffspring && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <Card className="bg-gradient-to-br from-purple-900 to-pink-900 border-purple-500">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Sparkles className="w-6 h-6 text-yellow-400" />
+                      New Strain Discovered!
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-white mb-2">{predictedOffspring.strain_name}</div>
+                      <Badge className={`${
+                        predictedOffspring.rarity === 'mythic' ? 'bg-purple-600' :
+                        predictedOffspring.rarity === 'legendary' ? 'bg-yellow-600' :
+                        predictedOffspring.rarity === 'rare' ? 'bg-blue-600' :
+                        'bg-gray-600'
+                      } text-lg px-4 py-1`}>
+                        {predictedOffspring.rarity?.toUpperCase()}
+                      </Badge>
+                    </div>
+
+                    <div className="bg-black/30 rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-300">Growth Speed:</span>
+                        <span className="text-green-400 font-bold">×{predictedOffspring.genes.growth_speed?.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-300">Pest Resistance:</span>
+                        <span className="text-purple-400 font-bold">+{predictedOffspring.genes.pest_resistance?.toFixed(0)}%</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-300">Water Efficiency:</span>
+                        <span className="text-cyan-400 font-bold">×{predictedOffspring.genes.water_efficiency?.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-300">Yield Potential:</span>
+                        <span className="text-yellow-400 font-bold">+{predictedOffspring.genes.yield_potential?.toFixed(0)}</span>
+                      </div>
+                      {predictedOffspring.genes.special_trait && (
+                        <div className="pt-2 border-t border-white/10">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Sparkles className="w-4 h-4 text-yellow-400" />
+                            <span className="text-yellow-400 font-bold">Special Trait: {predictedOffspring.genes.special_trait}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        onClick={() => {
+                          setPredictedOffspring(null);
+                          setParent1(null);
+                          setParent2(null);
+                        }}
+                        variant="outline"
+                        className="border-gray-500"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleConfirmBreeding}
+                        className="bg-gradient-to-r from-green-600 to-emerald-600"
+                      >
+                        <Leaf className="w-4 h-4 mr-2" />
+                        Confirm (150 Leaf)
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             )}
           </div>
         )}

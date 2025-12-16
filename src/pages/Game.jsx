@@ -19,11 +19,15 @@ import PlantTypeSelector from '../components/game/PlantTypeSelector';
 import { useDynamicDifficulty } from '../components/game/DynamicDifficultyScaler';
 import { useAIPlantGrowth, useAIPestBehaviorPredictor } from '../components/ai/AIPlantGrowthEngine';
 import { toast } from 'sonner';
+import InteractiveTutorial from '../components/tutorial/InteractiveTutorial';
+import ContextualHints from '../components/tutorial/ContextualHints';
 
 export default function Game() {
   const [showUpgradePanel, setShowUpgradePanel] = useState(false);
   const [showPlantSelector, setShowPlantSelector] = useState(false);
   const [selectedPlantType, setSelectedPlantType] = useState(null);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialCompleted, setTutorialCompleted] = useState(false);
   const queryClient = useQueryClient();
   const [gameState, setGameState] = useState('plant_selection');
   const [level, setLevel] = useState(1);
@@ -1297,16 +1301,42 @@ export default function Game() {
 
 
 
+  useEffect(() => {
+    if (progress?.id && !progress?.tutorial_completed) {
+      setShowTutorial(true);
+    }
+  }, [progress?.id]);
+
   if (gameState === 'plant_selection') {
     return (
-      <PlantTypeSelector
-        onSelectPlant={(plant) => {
-          setSelectedPlantType(plant);
-          setPlantHealth(plant.stats.baseHealth);
-          setGameState('loading');
-        }}
-        onClose={() => {}}
-      />
+      <>
+        {showTutorial && !tutorialCompleted && (
+          <InteractiveTutorial
+            onComplete={async () => {
+              setTutorialCompleted(true);
+              setShowTutorial(false);
+              if (progress?.id) {
+                await updateProgressMutation.mutateAsync({
+                  id: progress.id,
+                  data: { ...progress, tutorial_completed: true }
+                });
+              }
+            }}
+            onSkip={() => {
+              setTutorialCompleted(true);
+              setShowTutorial(false);
+            }}
+          />
+        )}
+        <PlantTypeSelector
+          onSelectPlant={(plant) => {
+            setSelectedPlantType(plant);
+            setPlantHealth(plant.stats.baseHealth);
+            setGameState('loading');
+          }}
+          onClose={() => {}}
+        />
+      </>
     );
   }
 
@@ -1318,8 +1348,22 @@ export default function Game() {
     );
   }
 
+  const hintState = {
+    plantHealth,
+    sprayAmmo,
+    activePests: activePests.length,
+    powerUpNearby: spawnedPowerUps.length > 0,
+    bossActive: !!activeBoss,
+    accuracyLow: (accuracyStats.shots > 10 && (accuracyStats.hits / accuracyStats.shots) < 0.5),
+    waveNumber: currentWave,
+    plantGrowthStage: progress?.plant_stats?.growth_level / 10 || 0,
+    gameTime
+  };
+
   return (
     <div className="h-screen w-full relative overflow-hidden">
+      <ContextualHints gameState={hintState} />
+
       <DynamicWeatherSystem
         currentSeason={currentSeason}
         onWeatherChange={handleWeatherChange}
