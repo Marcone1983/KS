@@ -986,7 +986,7 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (activeBoss?.type === 'swarm' && gameState === 'playing' && !isPaused && allPests.length > 0) {
+    if (activeBoss?.type === 'swarm' && gameState === 'playing' && !isPaused && allPests?.length > 0) {
       bossSpawnTimerRef.current = setInterval(() => {
         const now = Date.now();
         if (now - activeBoss.lastSpawnTime > 4000 && allPests.length > 0) {
