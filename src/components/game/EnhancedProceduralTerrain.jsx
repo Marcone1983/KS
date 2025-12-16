@@ -1,7 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ScatteredPlants } from './PlantModel3D';
+import { EnhancedScatteredPlants } from './EnhancedPlantShaders';
 
 export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDay = 'day', weather = 'clear' }) {
   const grassInstancesRef = useRef([]);
@@ -283,7 +283,7 @@ export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDa
         <primitive object={waterMaterial} attach="material" />
       </mesh>
 
-      <ScatteredPlants count={25} areaRadius={35} windStrength={windStrength} />
+      <EnhancedScatteredPlants count={25} areaRadius={35} windStrength={windStrength} />
 
       <fog attach="fog" args={[weather === 'fog' ? '#b0b0b0' : '#87ceeb', 12, weather === 'fog' ? 20 : 40]} />
     </group>

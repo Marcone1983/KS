@@ -2,6 +2,71 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
+export function EnhancedRainSystem({ intensity = 1.0, windStrength = 0.2 }) {
+  const particlesRef = useRef();
+  const count = Math.floor(intensity * 2000);
+  
+  const { positions, velocities } = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+    
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      positions[i3] = (Math.random() - 0.5) * 50;
+      positions[i3 + 1] = Math.random() * 25 + 5;
+      positions[i3 + 2] = (Math.random() - 0.5) * 50;
+      
+      velocities[i3] = windStrength * 0.15;
+      velocities[i3 + 1] = -0.3 - Math.random() * 0.2;
+      velocities[i3 + 2] = 0;
+    }
+    
+    return { positions, velocities };
+  }, [count, windStrength]);
+  
+  useFrame(() => {
+    if (!particlesRef.current) return;
+    
+    const positions = particlesRef.current.geometry.attributes.position.array;
+    
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      
+      positions[i3] += velocities[i3];
+      positions[i3 + 1] += velocities[i3 + 1];
+      positions[i3 + 2] += velocities[i3 + 2];
+      
+      if (positions[i3 + 1] < 0) {
+        positions[i3] = (Math.random() - 0.5) * 50;
+        positions[i3 + 1] = 25 + Math.random() * 5;
+        positions[i3 + 2] = (Math.random() - 0.5) * 50;
+      }
+    }
+    
+    particlesRef.current.geometry.attributes.position.needsUpdate = true;
+  });
+  
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={count}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.08}
+        color={0xaaccff}
+        transparent
+        opacity={0.6}
+        depthWrite={false}
+      />
+    </points>
+  );
+}
+
 export function FogParticles({ count = 500, density = 0.5, timeOfDay = 'day' }) {
   const particlesRef = useRef();
   
@@ -276,45 +341,52 @@ export function Butterflies({ count = 15 }) {
   );
 }
 
-export function Fireflies({ count = 50, timeOfDay = 'day' }) {
+export function Fireflies({ count = 150, timeOfDay = 'day' }) {
   const firefliesRef = useRef();
-  const { positions, phases } = useMemo(() => {
+  const { positions, phases, sizes } = useMemo(() => {
     const positions = new Float32Array(count * 3);
     const phases = new Float32Array(count);
+    const sizes = new Float32Array(count);
     
     for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 25;
-      positions[i * 3 + 1] = 0.5 + Math.random() * 4;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 25;
+      positions[i * 3] = (Math.random() - 0.5) * 30;
+      positions[i * 3 + 1] = 0.5 + Math.random() * 5;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 30;
       phases[i] = Math.random() * Math.PI * 2;
+      sizes[i] = 0.1 + Math.random() * 0.15;
     }
     
-    return { positions, phases };
+    return { positions, phases, sizes };
   }, [count]);
   
   useFrame((state) => {
     if (!firefliesRef.current) return;
     
     const positions = firefliesRef.current.geometry.attributes.position.array;
+    const sizeArray = firefliesRef.current.geometry.attributes.size.array;
     const time = state.clock.elapsedTime;
     
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
       const phase = phases[i];
       
-      positions[i3] += Math.sin(time + phase) * 0.01;
-      positions[i3 + 1] += Math.cos(time * 2 + phase) * 0.008;
-      positions[i3 + 2] += Math.cos(time + phase) * 0.01;
+      positions[i3] += Math.sin(time * 1.5 + phase) * 0.015;
+      positions[i3 + 1] += Math.cos(time * 2.5 + phase) * 0.012;
+      positions[i3 + 2] += Math.cos(time * 1.5 + phase) * 0.015;
       
-      if (positions[i3] > 12) positions[i3] = -12;
-      if (positions[i3] < -12) positions[i3] = 12;
-      if (positions[i3 + 1] > 5) positions[i3 + 1] = 0.5;
-      if (positions[i3 + 1] < 0.5) positions[i3 + 1] = 5;
-      if (positions[i3 + 2] > 12) positions[i3 + 2] = -12;
-      if (positions[i3 + 2] < -12) positions[i3 + 2] = 12;
+      const pulse = Math.sin(time * 3 + phase) * 0.5 + 0.5;
+      sizeArray[i] = sizes[i] * (0.8 + pulse * 0.4);
+      
+      if (positions[i3] > 15) positions[i3] = -15;
+      if (positions[i3] < -15) positions[i3] = 15;
+      if (positions[i3 + 1] > 6) positions[i3 + 1] = 0.5;
+      if (positions[i3 + 1] < 0.5) positions[i3 + 1] = 6;
+      if (positions[i3 + 2] > 15) positions[i3 + 2] = -15;
+      if (positions[i3 + 2] < -15) positions[i3 + 2] = 15;
     }
     
     firefliesRef.current.geometry.attributes.position.needsUpdate = true;
+    firefliesRef.current.geometry.attributes.size.needsUpdate = true;
   });
   
   if (timeOfDay !== 'night' && timeOfDay !== 'sunset') return null;
@@ -328,14 +400,21 @@ export function Fireflies({ count = 50, timeOfDay = 'day' }) {
           array={positions}
           itemSize={3}
         />
+        <bufferAttribute
+          attach="attributes-size"
+          count={count}
+          array={sizes}
+          itemSize={1}
+        />
       </bufferGeometry>
       <pointsMaterial
-        size={0.15}
-        color={0xffff88}
+        size={0.2}
+        color={0xffff66}
         transparent
-        opacity={0.9}
+        opacity={0.95}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
+        sizeAttenuation={true}
       />
     </points>
   );

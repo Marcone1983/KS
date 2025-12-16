@@ -17,7 +17,7 @@ import EnhancedSprayParticles from './EnhancedSprayParticles';
 import RainSystem from './RainSystem';
 import EnhancedPests3D from './EnhancedPests3D';
 import PowerUpSystem from './PowerUps';
-import { FogParticles, VolumetricLight, DynamicWater, Butterflies, Fireflies } from '../environment/AtmosphericEffects';
+import { FogParticles, VolumetricLight, DynamicWater, Butterflies, Fireflies, EnhancedRainSystem } from '../environment/AtmosphericEffects';
 
 function CameraController({ onPestKilled, activePests }) {
   const { camera } = useThree();
@@ -246,9 +246,12 @@ export default function AAA_GameScene3D({
           alpha: false,
           powerPreference: "high-performance",
           stencil: false,
-          depth: true
+          depth: true,
+          precision: 'highp',
+          logarithmicDepthBuffer: true
         }}
         dpr={[1, 2]}
+        performance={{ min: 0.5 }}
       >
         <PerspectiveCamera makeDefault position={[0, 1.4, 2.2]} fov={75} near={0.01} far={100} />
         
@@ -270,7 +273,7 @@ export default function AAA_GameScene3D({
         <VolumetricLight position={[10, 15, 5]} color={0xffffaa} intensity={timeOfDay === 'day' ? 1.5 : 0.5} timeOfDay={timeOfDay} />
         <DynamicWater position={[-10, 0.01, -15]} size={[8, 8]} timeOfDay={timeOfDay} />
         <Butterflies count={timeOfDay === 'day' ? 15 : 5} />
-        <Fireflies count={50} timeOfDay={timeOfDay} />
+        <Fireflies count={150} timeOfDay={timeOfDay} />
         
         <EnhancedPests3D pests={activePests} onPestHit={onPestKilled} />
         
@@ -281,7 +284,7 @@ export default function AAA_GameScene3D({
           />
         )}
         
-        {rainIntensity > 0 && <RainSystem intensity={rainIntensity} windStrength={windStrength} />}
+        {rainIntensity > 0 && <EnhancedRainSystem intensity={rainIntensity} windStrength={windStrength} />}
         
         {currentWeather === 'fog' && (
           <>
