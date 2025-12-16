@@ -50,7 +50,7 @@ export default function HempSprayFPV_Realistic({
       powerPreference: "high-performance"
     });
     renderer.setSize(w, h);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -163,11 +163,22 @@ export default function HempSprayFPV_Realistic({
       color: 0x4a9d4a,
       roughness: 0.7,
       metalness: 0.0,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.95,
+      emissive: 0x1a3a1a,
+      emissiveIntensity: 0.05
     });
     leafMat.userData.wetness = 0.0;
+    leafMat.userData.baseRoughness = 0.7;
 
-    const stemMat = new THREE.MeshStandardMaterial({ color: 0x5a7d4a, roughness: 0.85 });
+    const stemMat = new THREE.MeshStandardMaterial({ 
+      color: 0x5a7d4a, 
+      roughness: 0.85,
+      metalness: 0.0,
+      emissive: 0x2a3a2a,
+      emissiveIntensity: 0.03
+    });
 
     const makeSerrated = (len, wid) => {
       const sh = new THREE.Shape();
@@ -312,6 +323,46 @@ export default function HempSprayFPV_Realistic({
     allBranches.push(topLeaves);
     plantGroup.add(topLeaves);
 
+    // Add buds/flowers with pistils
+    const budMat = new THREE.MeshStandardMaterial({ 
+      color: 0x8b7355, 
+      roughness: 0.6,
+      emissive: 0x4a3a2a,
+      emissiveIntensity: 0.1
+    });
+    const pistilMat = new THREE.MeshBasicMaterial({ 
+      color: 0xff8844,
+      transparent: true,
+      opacity: 0.9
+    });
+
+    nodeLevels.slice(2).forEach((node, idx) => {
+      const budGrp = new THREE.Group();
+      budGrp.position.y = node.y + 0.05;
+      
+      const budGeo = new THREE.SphereGeometry(0.04, 6, 5);
+      const bud = new THREE.Mesh(budGeo, budMat);
+      budGrp.add(bud);
+      
+      for (let p = 0; p < 8; p++) {
+        const pistil = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.0015, 0.0015, 0.03, 3),
+          pistilMat
+        );
+        const ang = (p / 8) * Math.PI * 2;
+        pistil.position.set(
+          Math.cos(ang) * 0.025,
+          0.01,
+          Math.sin(ang) * 0.025
+        );
+        pistil.rotation.z = Math.cos(ang) * 0.3;
+        pistil.rotation.x = Math.sin(ang) * 0.3;
+        budGrp.add(pistil);
+      }
+      
+      plantGroup.add(budGrp);
+    });
+
     const pestsMap = new Map();
 
     const pestMatsA = new THREE.MeshStandardMaterial({ 
@@ -353,8 +404,8 @@ export default function HempSprayFPV_Realistic({
     };
 
     const handGrp = new THREE.Group();
-    handGrp.position.set(0.55, -0.6, -0.7);
-    handGrp.rotation.set(0.2, -0.4, 0.1);
+    handGrp.position.set(0.45, -0.5, -0.6);
+    handGrp.rotation.set(0.15, -0.3, 0.05);
     camera.add(handGrp);
 
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xd4a589, roughness: 0.6 });
@@ -382,52 +433,70 @@ export default function HempSprayFPV_Realistic({
     });
 
     const bottleGrp = new THREE.Group();
-    bottleGrp.position.set(0, 0.02, 0.04);
-    bottleGrp.rotation.set(0.1, 0, 0);
+    bottleGrp.position.set(0, 0.05, 0.06);
+    bottleGrp.rotation.set(0.15, 0.05, 0);
+    bottleGrp.scale.set(1.2, 1.2, 1.2);
     handGrp.add(bottleGrp);
 
     const glassmat = new THREE.MeshPhysicalMaterial({
       color: 0xe0f5ff,
       roughness: 0.05,
-      transmission: 0.9,
-      thickness: 0.6,
-      ior: 1.45,
-      clearcoat: 0.8
+      transmission: 0.92,
+      thickness: 0.7,
+      ior: 1.5,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+      reflectivity: 0.8
     });
 
-    const btlBody = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.4, 12), glassmat);
+    const btlBody = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.4, 16), glassmat);
     btlBody.castShadow = true;
+    btlBody.receiveShadow = true;
     bottleGrp.add(btlBody);
 
     const liqMat = new THREE.MeshPhysicalMaterial({
       color: 0x80d4ff,
-      roughness: 0.0,
-      transmission: 0.75,
-      thickness: 0.4,
-      ior: 1.33
+      roughness: 0.1,
+      transmission: 0.85,
+      thickness: 0.5,
+      ior: 1.33,
+      metalness: 0.0
     });
-    const liq = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.32, 12), liqMat);
+    const liq = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.32, 16), liqMat);
     liq.position.y = -0.05;
     bottleGrp.add(liq);
 
-    const plasticMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.2 });
-    const triggerMesh = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.09, 0.07), plasticMat);
-    triggerMesh.position.set(0.095, 0.12, 0);
+    const plasticMat = new THREE.MeshStandardMaterial({ 
+      color: 0x2a2a2a, 
+      roughness: 0.3, 
+      metalness: 0.4,
+      emissive: 0x0a0a0a,
+      emissiveIntensity: 0.1
+    });
+    const triggerMesh = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.08), plasticMat);
+    triggerMesh.position.set(0.1, 0.12, 0);
     triggerMesh.castShadow = true;
     bottleGrp.add(triggerMesh);
 
-    const capMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.085, 0.06, 12), plasticMat);
-    capMesh.position.y = 0.23;
+    const capMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.07, 16), plasticMat);
+    capMesh.position.y = 0.235;
     capMesh.castShadow = true;
     bottleGrp.add(capMesh);
 
-    const nozzleMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 0.03), plasticMat);
-    nozzleMesh.position.set(0.055, 0.23, 0);
+    const nozzleBaseMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.04, 12), plasticMat);
+    nozzleBaseMesh.position.set(0.075, 0.235, 0);
+    nozzleBaseMesh.rotation.z = Math.PI / 2;
+    nozzleBaseMesh.castShadow = true;
+    bottleGrp.add(nozzleBaseMesh);
+
+    const nozzleMesh = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.04, 8), plasticMat);
+    nozzleMesh.position.set(0.13, 0.235, 0);
+    nozzleMesh.rotation.z = -Math.PI / 2;
     nozzleMesh.castShadow = true;
     bottleGrp.add(nozzleMesh);
 
     const nozzleTip = new THREE.Object3D();
-    nozzleTip.position.set(0.12, 0.23, 0);
+    nozzleTip.position.set(0.15, 0.235, 0);
     bottleGrp.add(nozzleTip);
 
     const spriteTex = (() => {
@@ -618,8 +687,11 @@ export default function HempSprayFPV_Realistic({
 
         leafMat.userData.wetness = Math.min(1, leafMat.userData.wetness + dt * 0.3);
         groundMat.userData.wetness = Math.min(1, groundMat.userData.wetness + dt * 0.2);
-        leafMat.roughness = 0.7 * (1 - leafMat.userData.wetness * 0.6);
-        groundMat.roughness = 0.9 * (1 - groundMat.userData.wetness * 0.5);
+        leafMat.roughness = leafMat.userData.baseRoughness * (1 - leafMat.userData.wetness * 0.65);
+        leafMat.metalness = leafMat.userData.wetness * 0.15;
+        leafMat.emissiveIntensity = 0.05 + leafMat.userData.wetness * 0.08;
+        groundMat.roughness = 0.9 * (1 - groundMat.userData.wetness * 0.55);
+        groundMat.metalness = groundMat.userData.wetness * 0.1;
         
         if (currentWeather === 'acid_rain') {
           leafMat.color.lerp(new THREE.Color(0x3a7d3a), dt * 0.05);
@@ -628,8 +700,11 @@ export default function HempSprayFPV_Realistic({
         rain.visible = false;
         leafMat.userData.wetness = Math.max(0, leafMat.userData.wetness - dt * 0.1);
         groundMat.userData.wetness = Math.max(0, groundMat.userData.wetness - dt * 0.08);
-        leafMat.roughness = 0.7 * (1 - leafMat.userData.wetness * 0.6);
-        groundMat.roughness = 0.9 * (1 - groundMat.userData.wetness * 0.5);
+        leafMat.roughness = leafMat.userData.baseRoughness * (1 - leafMat.userData.wetness * 0.65);
+        leafMat.metalness = leafMat.userData.wetness * 0.15;
+        leafMat.emissiveIntensity = 0.05 + leafMat.userData.wetness * 0.08;
+        groundMat.roughness = 0.9 * (1 - groundMat.userData.wetness * 0.55);
+        groundMat.metalness = groundMat.userData.wetness * 0.1;
         
         if (currentWeather !== 'acid_rain') {
           leafMat.color.lerp(new THREE.Color(0x4a9d4a), dt * 0.1);
@@ -744,7 +819,8 @@ export default function HempSprayFPV_Realistic({
         inp.sprayT += dt;
         const dur = 0.9;
         const pr = clamp(inp.sprayT / dur, 0, 1);
-        triggerMesh.rotation.x = -Math.sin(pr * Math.PI) * 0.5;
+        triggerMesh.rotation.x = -Math.sin(pr * Math.PI) * 0.6;
+        bottleGrp.rotation.x = 0.15 - pr * 0.12;
 
         if (pr > 0.12 && pr < 0.88) {
           nozzleTip.getWorldPosition(tmpN);
@@ -791,6 +867,7 @@ export default function HempSprayFPV_Realistic({
           inp.cd = 0.45;
           inp.sprayT = 0;
           triggerMesh.rotation.x = 0;
+          bottleGrp.rotation.x = 0.15;
         }
       }
 
