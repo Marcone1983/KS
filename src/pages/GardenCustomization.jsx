@@ -6,12 +6,13 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows } from '@react-three/drei';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Palette, Box, Sparkles, Leaf, Lock, Check, Sun, Moon, Lightbulb, Wand2 } from 'lucide-react';
+import { ArrowLeft, Palette, Box, Sparkles, Leaf, Lock, Check, Sun, Moon, Lightbulb, Wand2, Cloud, Zap, Layers, Paintbrush } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import CannabisPlantR3F_AAA from '../components/game/CannabisPlantR3F_AAA';
 import GardenDesignAI from '../components/ai/GardenDesignAI';
+import CosmeticShop from '../components/cosmetics/CosmeticShop';
 
 const POT_SKINS = [
   { id: 'classic', name: 'Classic Terra Cotta', price: 0, color: '#8b4513', material: 'clay' },
@@ -136,6 +137,14 @@ export default function GardenCustomization() {
     queryFn: async () => {
       const progressList = await base44.entities.GameProgress.list();
       return progressList.length > 0 ? progressList[0] : null;
+    }
+  });
+
+  const { data: progression } = useQuery({
+    queryKey: ['playerProgression'],
+    queryFn: async () => {
+      const list = await base44.entities.PlayerProgression.list();
+      return list.length > 0 ? list[0] : null;
     }
   });
 
@@ -291,6 +300,51 @@ export default function GardenCustomization() {
     toast.success(`${preset.name} lighting activated!`);
   };
 
+  const handleCosmeticPurchase = async (item, unlockedField, activeField) => {
+    if (!customization || !progress) return;
+
+    if ((progress.leaf_currency || 0) < item.price) {
+      toast.error('Not enough Leaf!');
+      return;
+    }
+
+    const isArray = Array.isArray(customization[activeField]);
+
+    await updateCustomizationMutation.mutateAsync({
+      id: customization.id,
+      data: {
+        [unlockedField]: [...(customization[unlockedField] || []), item.id],
+        [activeField]: isArray ? [...(customization[activeField] || []), item.id] : item.id
+      }
+    });
+
+    await updateProgressMutation.mutateAsync({
+      id: progress.id,
+      data: { leaf_currency: (progress.leaf_currency || 0) - item.price }
+    });
+
+    toast.success(`${item.name} unlocked!`);
+  };
+
+  const handleCosmeticEquip = async (item, activeField) => {
+    if (!customization) return;
+
+    const isArray = Array.isArray(customization[activeField]);
+
+    await updateCustomizationMutation.mutateAsync({
+      id: customization.id,
+      data: {
+        [activeField]: isArray 
+          ? (customization[activeField]?.includes(item.id) 
+              ? customization[activeField].filter(id => id !== item.id)
+              : [...(customization[activeField] || []), item.id])
+          : item.id
+      }
+    });
+
+    toast.success(isArray && customization[activeField]?.includes(item.id) ? `${item.name} removed` : `${item.name} equipped!`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-800 to-cyan-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -382,6 +436,33 @@ export default function GardenCustomization() {
               >
                 <Wand2 className="w-4 h-4 mr-1" />
                 AI
+              </Button>
+              <Button
+                onClick={() => setSelectedTab('terrain')}
+                variant={selectedTab === 'terrain' ? 'default' : 'outline'}
+                className={selectedTab === 'terrain' ? 'bg-amber-600' : 'border-amber-600 text-white'}
+                size="sm"
+              >
+                <Layers className="w-4 h-4 mr-1" />
+                Terrain
+              </Button>
+              <Button
+                onClick={() => setSelectedTab('ambient')}
+                variant={selectedTab === 'ambient' ? 'default' : 'outline'}
+                className={selectedTab === 'ambient' ? 'bg-teal-600' : 'border-teal-600 text-white'}
+                size="sm"
+              >
+                <Cloud className="w-4 h-4 mr-1" />
+                Ambient
+              </Button>
+              <Button
+                onClick={() => setSelectedTab('spray')}
+                variant={selectedTab === 'spray' ? 'default' : 'outline'}
+                className={selectedTab === 'spray' ? 'bg-cyan-600' : 'border-cyan-600 text-white'}
+                size="sm"
+              >
+                <Zap className="w-4 h-4 mr-1" />
+                Spray FX
               </Button>
             </div>
 
@@ -525,6 +606,39 @@ export default function GardenCustomization() {
                       }}
                     />
                   </div>
+                )}
+
+                {selectedTab === 'terrain' && (
+                  <CosmeticShop
+                    category="terrain"
+                    customization={customization}
+                    progress={progress}
+                    progression={progression}
+                    onPurchase={handleCosmeticPurchase}
+                    onEquip={handleCosmeticEquip}
+                  />
+                )}
+
+                {selectedTab === 'ambient' && (
+                  <CosmeticShop
+                    category="ambient"
+                    customization={customization}
+                    progress={progress}
+                    progression={progression}
+                    onPurchase={handleCosmeticPurchase}
+                    onEquip={handleCosmeticEquip}
+                  />
+                )}
+
+                {selectedTab === 'spray' && (
+                  <CosmeticShop
+                    category="spray"
+                    customization={customization}
+                    progress={progress}
+                    progression={progression}
+                    onPurchase={handleCosmeticPurchase}
+                    onEquip={handleCosmeticEquip}
+                  />
                 )}
               </CardContent>
             </Card>
