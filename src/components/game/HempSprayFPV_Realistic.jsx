@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { createCannabisPlant } from './CannabisPlant3D';
+import { createSprayBottle } from './SprayBottle3D';
+import { createEnvironment } from './Environment3D';
 
 export default function HempSprayFPV_Realistic({ 
   activePests = [], 
@@ -43,6 +46,8 @@ export default function HempSprayFPV_Realistic({
     camera.position.set(0, 1.4, 2.2);
     camera.rotation.order = "YXZ";
     scene.add(camera);
+    
+    scene.background = new THREE.Color(0x87ceeb);
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: window.devicePixelRatio < 2,
@@ -83,9 +88,11 @@ export default function HempSprayFPV_Realistic({
       flatShading: false
     });
     groundMat.userData.wetness = 0.0;
+    // Terreno base (per compatibilità)
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
+    ground.position.y = -0.01;
     const gPos = ground.geometry.attributes.position;
     for (let i = 0; i < gPos.count; i++) {
       const x = gPos.getX(i);
@@ -96,7 +103,7 @@ export default function HempSprayFPV_Realistic({
     }
     gPos.needsUpdate = true;
     ground.geometry.computeVertexNormals();
-    scene.add(ground);
+    ground.visible = false;
 
     const rainCount = 800;
     const rainGeo = new THREE.BufferGeometry();
@@ -270,6 +277,15 @@ export default function HempSprayFPV_Realistic({
       { y: 1.75, rot: 0, len: 0.4, sc: 0.9, leafCount: 2 },
       { y: 2.0, rot: Math.PI / 2, len: 0.32, sc: 0.75, leafCount: 2 }
     ];
+
+    // Crea pianta 3D avanzata
+    const cannabisPlant = createCannabisPlant(scene, {
+      position: [0, 0, -1.5],
+      scale: 1.2,
+      growthStage: Math.min(1.0, plantHealth / 100),
+      health: plantHealth,
+      pestInfestation: Math.min(activePests.length * 5, 100)
+    });
 
     const allBranches = [];
 
@@ -498,6 +514,13 @@ export default function HempSprayFPV_Realistic({
     const nozzleTip = new THREE.Object3D();
     nozzleTip.position.set(0.15, 0.235, 0);
     bottleGrp.add(nozzleTip);
+    
+    // Crea spruzzino 3D avanzato
+    const sprayBottle = createSprayBottle(camera, {
+      position: [0.45, -0.5, -0.6],
+      rotation: [0.15, -0.3, 0.05],
+      scale: 1.0
+    });
 
     const spriteTex = (() => {
       const sz = 64;
@@ -712,9 +735,27 @@ export default function HempSprayFPV_Realistic({
       }
 
       const tc = getTimeColors(dayNightHour);
-      scene.background.lerp(new THREE.Color(tc.bg), 0.02);
+      if (scene.background) {
+        scene.background.lerp(new THREE.Color(tc.bg), 0.02);
+      }
       ambient.color.lerp(new THREE.Color(tc.ambient), 0.02);
       sun.color.lerp(new THREE.Color(tc.sun), 0.02);
+      
+      // Aggiorna ambiente
+      if (environment) {
+        const timeOfDayStr = dayNightHour >= 6 && dayNightHour < 18 ? 'day' : dayNightHour >= 18 && dayNightHour < 20 ? 'sunset' : 'night';
+        environment.update(t, wStr);
+      }
+      
+      // Aggiorna pianta
+      if (cannabisPlant) {
+        cannabisPlant.update(t, wStr);
+      }
+      
+      // Aggiorna particelle spray
+      if (sprayBottle) {
+        sprayBottle.updateParticles(dt);
+      }
       
       let sunIntensity = dayNightHour >= 6 && dayNightHour < 18 ? 1.5 : 0.2;
       if (currentWeather === 'fog') sunIntensity *= 0.4;
@@ -819,13 +860,30 @@ export default function HempSprayFPV_Realistic({
         inp.sprayT += dt;
         const dur = 0.9;
         const pr = clamp(inp.sprayT / dur, 0, 1);
-        triggerMesh.rotation.x = -Math.sin(pr * Math.PI) * 0.6;
-        bottleGrp.rotation.x = 0.15 - pr * 0.12;
+        
+        if (triggerMesh) {
+          triggerMesh.rotation.x = -Math.sin(pr * Math.PI) * 0.6;
+        }
+        if (bottleGrp) {
+          bottleGrp.rotation.x = 0.15 - pr * 0.12;
+        }
+        
+        // Anima spruzzino avanzato
+        if (sprayBottle) {
+          sprayBottle.animateTrigger(pr);
+        }
 
         if (pr > 0.12 && pr < 0.88) {
-          nozzleTip.getWorldPosition(tmpN);
+          if (nozzleTip) {
+            nozzleTip.getWorldPosition(tmpN);
+          }
           tmpF.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
           emit(tmpN, tmpF, 20);
+          
+          // Emetti anche dallo spray bottle avanzato
+          if (sprayBottle) {
+            sprayBottle.spray(camera, 30);
+          }
 
           if (Math.random() < 0.3) {
             for (let s = 0; s < 2; s++) {
@@ -866,8 +924,15 @@ export default function HempSprayFPV_Realistic({
           inp.spray = false;
           inp.cd = 0.45;
           inp.sprayT = 0;
-          triggerMesh.rotation.x = 0;
-          bottleGrp.rotation.x = 0.15;
+          if (triggerMesh) {
+            triggerMesh.rotation.x = 0;
+          }
+          if (bottleGrp) {
+            bottleGrp.rotation.x = 0.15;
+          }
+          if (sprayBottle) {
+            sprayBottle.resetTrigger();
+          }
         }
       }
 
