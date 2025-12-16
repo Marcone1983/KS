@@ -14,6 +14,8 @@ import BreedingLab from './pages/BreedingLab';
 import Leaderboards from './pages/Leaderboards';
 import PlayerProgression from './pages/PlayerProgression';
 import GardenCustomization from './pages/GardenCustomization';
+import CommunityHub from './pages/CommunityHub';
+import Trading from './pages/Trading';
 
 
 export const PAGES = {
@@ -33,6 +35,8 @@ export const PAGES = {
     "Leaderboards": Leaderboards,
     "PlayerProgression": PlayerProgression,
     "GardenCustomization": GardenCustomization,
+    "CommunityHub": CommunityHub,
+    "Trading": Trading,
 }
 
 export const pagesConfig = {

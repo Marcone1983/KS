@@ -1014,7 +1014,7 @@ export default function Game() {
       bossSpawnTimerRef.current = setInterval(() => {
         const now = Date.now();
         if (now - activeBoss.lastSpawnTime > 4000 && allPests.length > 0) {
-          const minionPest = allPests[Math.floor(Math.random() * Math.allPests.length)];
+          const minionPest = allPests[Math.floor(Math.random() * allPests.length)];
           const angle = Math.random() * Math.PI * 2;
           const distance = 2;
           
@@ -1141,10 +1141,13 @@ export default function Game() {
         plantGrowthStage={progress?.plant_stats?.growth_level / 10 || 0.5}
         pestInfestation={Math.min((activePests.length / 20) * 100, 100)}
         activePests={activePests}
+        currentWeather={currentWeather}
+        dayNightHour={dayNightHour}
+        windStrength={0.2}
+        rainIntensity={currentWeather === 'rain' ? 0.8 : 0}
         spawnedPowerUps={spawnedPowerUps}
-        onPestKilled={(count) => {
-          const pestsToKill = activePests.slice(0, count);
-          pestsToKill.forEach(pest => handlePestHit(pest.id, 100));
+        onPestKilled={(pestId, damage) => {
+          handlePestHit(pestId, damage);
         }}
         onPlantDamaged={(damage) => {
           setPlantHealth(prev => Math.max(0, prev - damage));

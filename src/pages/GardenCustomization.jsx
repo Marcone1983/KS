@@ -103,6 +103,12 @@ export default function GardenCustomization() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState('pots');
+  
+  const { data: allSeeds } = useQuery({
+    queryKey: ['seeds'],
+    queryFn: () => base44.entities.Seed.list(),
+    initialData: []
+  });
 
   const { data: customization } = useQuery({
     queryKey: ['gardenCustomization'],

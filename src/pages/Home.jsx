@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target } from 'lucide-react';
+import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target, Users } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 export default function Home() {
@@ -221,7 +221,7 @@ export default function Home() {
             variant="outline"
             className="border-2 border-emerald-400 text-white hover:bg-emerald-500/20 text-xl px-12 py-8"
           >
-            <Sparkles className="h-8 w-8 mr-3" />
+            <Leaf className="h-8 w-8 mr-3" />
             Growing Lab
           </Button>
           </div>

@@ -207,12 +207,15 @@ function GameLighting({ dayNightHour = 12, currentWeather = 'clear' }) {
 
 export default function AAA_GameScene3D({ 
   activePests = [], 
-  plantHealth = 100, 
+  plantHealth = 100,
+  plantGrowthStage = 0.8,
   currentWeather = 'clear',
   dayNightHour = 12,
   windStrength = 0.2,
   rainIntensity = 0,
-  onPestKilled 
+  spawnedPowerUps = [],
+  onPestKilled,
+  onPowerUpCollect 
 }) {
   return (
     <div className="w-full h-screen bg-black">
@@ -238,12 +241,19 @@ export default function AAA_GameScene3D({
           health={plantHealth}
           pestCount={activePests.length}
           windStrength={windStrength}
-          growthStage={0.85}
+          growthStage={plantGrowthStage}
           trichomeMaturity={0.6}
           genetics={{}}
         />
         
         <Pests3D pests={activePests} onPestHit={onPestKilled} />
+        
+        {spawnedPowerUps && spawnedPowerUps.length > 0 && (
+          <PowerUpSystem
+            powerUps={spawnedPowerUps}
+            onCollect={onPowerUpCollect}
+          />
+        )}
         
         {rainIntensity > 0 && <RainSystem intensity={rainIntensity} windStrength={windStrength} />}
         
