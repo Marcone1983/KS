@@ -1,6 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { ScatteredPlants } from './PlantModel3D';
 
 export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDay = 'day', weather = 'clear' }) {
   const grassInstancesRef = useRef([]);
@@ -282,60 +283,7 @@ export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDa
         <primitive object={waterMaterial} attach="material" />
       </mesh>
 
-      {Array.from({ length: 35 }).map((_, i) => {
-        const angle = (i / 35) * Math.PI * 2;
-        const distance = 22 + Math.random() * 10;
-        const x = Math.cos(angle) * distance;
-        const z = Math.sin(angle) * distance;
-        const treeScale = 0.8 + Math.random() * 0.9;
-        const treeVariant = Math.floor(Math.random() * 3);
-
-        return (
-          <group key={`tree-${i}`} position={[x, 0, z]} scale={treeScale}>
-            <mesh position-y={2} castShadow receiveShadow>
-              <cylinderGeometry args={[0.35, 0.45, 4, 12]} />
-              <meshStandardMaterial color={0x4a3020} roughness={0.95} />
-            </mesh>
-
-            {treeVariant === 0 && (
-              <>
-                <mesh position-y={4.5} castShadow>
-                  <coneGeometry args={[2.5, 3.5, 12]} />
-                  <meshStandardMaterial color={0x2d5016} roughness={0.8} />
-                </mesh>
-                <mesh position-y={6.2} castShadow>
-                  <coneGeometry args={[1.9, 3, 12]} />
-                  <meshStandardMaterial color={0x3a6020} roughness={0.8} />
-                </mesh>
-                <mesh position-y={7.5} castShadow>
-                  <coneGeometry args={[1.3, 2.5, 12]} />
-                  <meshStandardMaterial color={0x4a7028} roughness={0.8} />
-                </mesh>
-              </>
-            )}
-
-            {treeVariant === 1 && (
-              <mesh position-y={4.8} castShadow>
-                <sphereGeometry args={[2.8, 16, 16]} />
-                <meshStandardMaterial color={0x2d5016} roughness={0.85} />
-              </mesh>
-            )}
-
-            {treeVariant === 2 && (
-              <>
-                <mesh position-y={4.5} castShadow>
-                  <dodecahedronGeometry args={[2.2, 1]} />
-                  <meshStandardMaterial color={0x2d5016} roughness={0.8} />
-                </mesh>
-                <mesh position-y={6.5} castShadow>
-                  <dodecahedronGeometry args={[1.5, 1]} />
-                  <meshStandardMaterial color={0x3a6020} roughness={0.8} />
-                </mesh>
-              </>
-            )}
-          </group>
-        );
-      })}
+      <ScatteredPlants count={25} areaRadius={35} windStrength={windStrength} />
 
       <fog attach="fog" args={[weather === 'fog' ? '#b0b0b0' : '#87ceeb', 12, weather === 'fog' ? 20 : 40]} />
     </group>
