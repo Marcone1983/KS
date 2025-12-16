@@ -197,6 +197,8 @@ export function AdvancedGeneticsSystem({
   const [showResults, setShowResults] = useState(false);
 
   const calculateOffspring = (p1, p2) => {
+    if (!p1 || !p2) return null;
+    
     const offspring = {
       strain_name: `${p1.strain_name} × ${p2.strain_name}`,
       genes: {}
@@ -273,6 +275,12 @@ export function AdvancedGeneticsSystem({
         clearInterval(interval);
         
         const result = calculateOffspring(parent1, parent2);
+        if (!result) {
+          setIsBreeding(false);
+          toast.error('Breeding failed');
+          return;
+        }
+        
         setOffspring(result);
         setIsBreeding(false);
         setShowResults(true);

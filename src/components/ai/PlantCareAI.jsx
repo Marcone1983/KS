@@ -34,7 +34,8 @@ export function PlantCareAI({
   const analyzeConditions = async (includeUserQuestion = false, question = '') => {
     setIsAnalyzing(true);
     
-    const context = {
+    try {
+      const context = {
       plant_health: plantStats?.nutrition_level || 0,
       water_level: plantStats?.water_level || 0,
       nutrition_level: plantStats?.nutrition_level || 0,
@@ -81,21 +82,26 @@ ${includeUserQuestion ? '' : '- **Risk Assessment** (upcoming threats based on w
 
 Keep it under 200 words and game-focused.`;
 
-    const response = await base44.integrations.Core.InvokeLLM({
-      prompt: prompt,
-      add_context_from_internet: false
-    });
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: prompt,
+        add_context_from_internet: false
+      });
 
-    const aiMessage = {
-      role: 'assistant',
-      content: response,
-      timestamp: Date.now(),
-      analysis: true
-    };
+      const aiMessage = {
+        role: 'assistant',
+        content: response,
+        timestamp: Date.now(),
+        analysis: true
+      };
 
-    setMessages(prev => [...prev, aiMessage]);
-    setIsAnalyzing(false);
-    setLastAutoAdviceTime(Date.now());
+      setMessages(prev => [...prev, aiMessage]);
+      setIsAnalyzing(false);
+      setLastAutoAdviceTime(Date.now());
+    } catch (error) {
+      console.error('AI Analysis Error:', error);
+      setIsAnalyzing(false);
+      toast.error('Failed to analyze conditions');
+    }
   };
 
   useEffect(() => {
@@ -353,7 +359,8 @@ export function AIInsightPanel({
   const generateInsights = async () => {
     setIsLoading(true);
     
-    const prompt = `As a cannabis cultivation expert AI, provide 3 quick insights for the player based on:
+    try {
+      const prompt = `As a cannabis cultivation expert AI, provide 3 quick insights for the player based on:
 - Water: ${plantStats?.water_level || 0}%
 - Nutrients: ${plantStats?.nutrition_level || 0}%
 - Weather: ${currentWeather}
@@ -367,28 +374,32 @@ Return ONLY a JSON array of 3 insights in this exact format:
   {"type": "warning|tip|success", "message": "Short insight text", "icon": "emoji"}
 ]`;
 
-    const response = await base44.integrations.Core.InvokeLLM({
-      prompt: prompt,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          insights: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                type: { type: "string" },
-                message: { type: "string" },
-                icon: { type: "string" }
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            insights: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  type: { type: "string" },
+                  message: { type: "string" },
+                  icon: { type: "string" }
+                }
               }
             }
           }
         }
-      }
-    });
+      });
 
-    setInsights(response.insights || []);
-    setIsLoading(false);
+      setInsights(response.insights || []);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Insights Error:', error);
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {

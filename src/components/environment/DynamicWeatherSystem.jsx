@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cloud, CloudRain, Wind, Sun, CloudSnow, CloudDrizzle, CloudLightning, Thermometer, AlertTriangle, Zap, TrendingUp, TrendingDown } from 'lucide-react';
+import { Cloud, CloudRain, Wind, Sun, CloudLightning, Thermometer, AlertTriangle, TrendingUp, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import gsap from 'gsap';
 

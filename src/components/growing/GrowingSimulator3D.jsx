@@ -130,11 +130,17 @@ export default function GrowingSimulator3D({
   const [autoGrow, setAutoGrow] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [currentWeather, setCurrentWeather] = useState('clear');
-  const [currentSeason, setCurrentSeason] = useState(progress?.current_season || 'spring');
+  const [currentSeason, setCurrentSeason] = useState('spring');
   const [activeEvent, setActiveEvent] = useState(null);
   const [weatherEffects, setWeatherEffects] = useState({});
   
   const effects = useWeatherEffects(currentWeather, activeEvent);
+  
+  useEffect(() => {
+    if (progress?.current_season) {
+      setCurrentSeason(progress.current_season);
+    }
+  }, [progress]);
 
   const plantHealth = Math.min(100, (waterLevel * 0.4) + (nutritionLevel * 0.3) + (lightExposure * 0.3));
   const growthRate = activeSeed?.growth_speed || 1.0;
@@ -191,17 +197,24 @@ export default function GrowingSimulator3D({
         }
       }
 
-      const waterDrain = (0.3 + (temperature - 20) * 0.05) * (effects.waterModifier || 1.0);
-      const nutritionBonus = effects.nutritionBonus || 0;
+      const waterDrain = (0.3 + (temperature - 20) * 0.05) * Math.max(0, effects.waterModifier || 1.0);
+      const nutritionBonus = Math.max(0, effects.nutritionBonus || 0);
       
       setWaterLevel(prev => Math.max(0, prev - waterDrain));
       setNutritionLevel(prev => Math.min(100, Math.max(0, prev - 0.15 + (nutritionBonus / 10))));
       setLightExposure(prev => Math.max(0, prev - 0.08));
-      setTemperature(prev => prev + (effects.tempModifier || 0) * 0.1);
+      setTemperature(prev => Math.max(10, Math.min(35, prev + (effects.tempModifier || 0) * 0.1)));
       setTimeElapsed(prev => prev + 2);
       
-      if (effects.healthDrainRate) {
-        setPlantHealth(prev => Math.max(0, prev - effects.healthDrainRate));
+      if (effects.healthDrainRate && plantHealth > 0) {
+        const drain = Math.max(0, effects.healthDrainRate);
+        if (drain > 0) {
+          const newHealth = Math.max(0, plantHealth - drain);
+          if (newHealth !== plantHealth) {
+            // Only update if actually changing
+            setPlantHealth(newHealth);
+          }
+        }
       }
     }, 2000);
 

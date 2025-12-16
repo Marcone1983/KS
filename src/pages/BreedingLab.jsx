@@ -58,7 +58,7 @@ export default function BreedingLab() {
   });
 
   const handleBreedingComplete = async (offspring) => {
-    if (!progress || !parent1 || !parent2) return;
+    if (!progress || !parent1 || !parent2 || !offspring) return;
     
     const breedingCost = 150;
     
@@ -67,7 +67,8 @@ export default function BreedingLab() {
       return;
     }
 
-    const newSeed = await createSeedMutation.mutateAsync({
+    try {
+      const newSeed = await createSeedMutation.mutateAsync({
       strain_name: offspring.strain_name,
       price: offspring.rarity === 'mythic' ? 1000 : 
              offspring.rarity === 'legendary' ? 500 : 
@@ -107,9 +108,13 @@ export default function BreedingLab() {
       }
     });
 
-    toast.success(`🧬 New strain "${offspring.strain_name}" added to your collection!`);
-    setParent1(null);
-    setParent2(null);
+      toast.success(`🧬 New strain "${offspring.strain_name}" added to your collection!`);
+      setParent1(null);
+      setParent2(null);
+    } catch (error) {
+      console.error('Breeding error:', error);
+      toast.error('Failed to complete breeding');
+    }
   };
 
   const unlockedSeeds = allSeeds.filter(s => progress?.unlocked_seeds?.includes(s.id));
