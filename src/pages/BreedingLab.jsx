@@ -1,0 +1,294 @@
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, Dna, Beaker, Sparkles, TrendingUp, Leaf, Award, Lock } from 'lucide-react';
+import { createPageUrl } from '../utils';
+import { toast } from 'sonner';
+import AdvancedGeneticsSystem, { GeneticTraitBadge, GENETIC_TRAITS } from '../components/genetics/AdvancedGeneticsSystem';
+
+export default function BreedingLab() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [parent1, setParent1] = useState(null);
+  const [parent2, setParent2] = useState(null);
+  const [selectedTab, setSelectedTab] = useState('breeding');
+
+  const { data: progress } = useQuery({
+    queryKey: ['gameProgress'],
+    queryFn: async () => {
+      const progressList = await base44.entities.GameProgress.list();
+      return progressList.length > 0 ? progressList[0] : null;
+    }
+  });
+
+  const { data: allSeeds } = useQuery({
+    queryKey: ['seeds'],
+    queryFn: () => base44.entities.Seed.list(),
+    initialData: []
+  });
+
+  const { data: breedingHistory } = useQuery({
+    queryKey: ['breedingCombinations'],
+    queryFn: () => base44.entities.BreedingCombination.list('-created_date', 20),
+    initialData: []
+  });
+
+  const createSeedMutation = useMutation({
+    mutationFn: (seedData) => base44.entities.Seed.create(seedData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['seeds'] });
+    }
+  });
+
+  const createBreedingRecordMutation = useMutation({
+    mutationFn: (data) => base44.entities.BreedingCombination.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['breedingCombinations'] });
+    }
+  });
+
+  const updateProgressMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.GameProgress.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
+    }
+  });
+
+  const handleBreedingComplete = async (offspring) => {
+    if (!progress || !parent1 || !parent2) return;
+    
+    const breedingCost = 150;
+    
+    if (progress.leaf_currency < breedingCost) {
+      toast.error('Not enough Leaf for breeding!');
+      return;
+    }
+
+    const newSeed = await createSeedMutation.mutateAsync({
+      strain_name: offspring.strain_name,
+      price: offspring.rarity === 'mythic' ? 1000 : 
+             offspring.rarity === 'legendary' ? 500 : 
+             offspring.rarity === 'rare' ? 250 : 100,
+      growth_speed: offspring.genes.growth_speed || 1.0,
+      pest_resistance: offspring.genes.pest_resistance || 0,
+      water_efficiency: offspring.genes.water_efficiency || 1.0,
+      max_health_bonus: offspring.genes.yield_potential ? offspring.genes.yield_potential * 0.2 : 0,
+      rarity: offspring.rarity,
+      description: `Hybrid strain with ${offspring.rarity} genetics`,
+      genetics: offspring.genes
+    });
+
+    await createBreedingRecordMutation.mutateAsync({
+      parent_seed_1: parent1.id,
+      parent_seed_2: parent2.id,
+      offspring_strain: offspring.strain_name,
+      growth_speed: offspring.genes.growth_speed,
+      pest_resistance: offspring.genes.pest_resistance,
+      water_efficiency: offspring.genes.water_efficiency,
+      max_health_bonus: offspring.genes.yield_potential * 0.2,
+      rarity: offspring.rarity,
+      breeding_time: 300,
+      breeding_cost: breedingCost,
+      unlocked: true,
+      times_bred: 1,
+      success_rate: 1.0,
+      genetic_traits: Object.keys(offspring.genes)
+    });
+
+    await updateProgressMutation.mutateAsync({
+      id: progress.id,
+      data: {
+        ...progress,
+        leaf_currency: progress.leaf_currency - breedingCost,
+        unlocked_seeds: [...(progress.unlocked_seeds || []), newSeed.id]
+      }
+    });
+
+    toast.success(`🧬 New strain "${offspring.strain_name}" added to your collection!`);
+    setParent1(null);
+    setParent2(null);
+  };
+
+  const unlockedSeeds = allSeeds.filter(s => progress?.unlocked_seeds?.includes(s.id));
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate(createPageUrl('Shop'))}
+              className="text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Back
+            </Button>
+            <h1 className="text-5xl font-black text-white flex items-center gap-3">
+              <Dna className="w-12 h-12 text-purple-400" />
+              Breeding Laboratory
+            </h1>
+          </div>
+
+          <div className="bg-black/50 backdrop-blur rounded-lg px-6 py-3 flex items-center gap-3">
+            <Leaf className="h-6 w-6 text-green-400" />
+            <div>
+              <div className="text-sm text-gray-400">Your Leaf</div>
+              <div className="text-2xl font-bold text-white">{progress?.leaf_currency || 0}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mb-6">
+          <Button
+            onClick={() => setSelectedTab('breeding')}
+            variant={selectedTab === 'breeding' ? 'default' : 'outline'}
+            className={selectedTab === 'breeding' ? 'bg-purple-600' : 'border-purple-600 text-white'}
+          >
+            <Beaker className="h-4 w-4 mr-2" />
+            Breeding Chamber
+          </Button>
+          <Button
+            onClick={() => setSelectedTab('history')}
+            variant={selectedTab === 'history' ? 'default' : 'outline'}
+            className={selectedTab === 'history' ? 'bg-cyan-600' : 'border-cyan-600 text-white'}
+          >
+            <Award className="h-4 w-4 mr-2" />
+            Breeding History
+          </Button>
+        </div>
+
+        {selectedTab === 'breeding' && (
+          <div className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="bg-black/40 backdrop-blur border-cyan-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <span className="text-2xl">🧬</span>
+                    Parent 1
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {parent1 ? (
+                    <div className="space-y-3">
+                      <div className="text-xl font-bold text-white">{parent1.strain_name}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.keys(GENETIC_TRAITS).map(trait => {
+                          const value = parent1[trait] || parent1.genes?.[trait];
+                          if (!value) return null;
+                          return <GeneticTraitBadge key={trait} trait={trait} value={value} />;
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setParent1(null)}
+                        className="w-full"
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      {unlockedSeeds.map(seed => (
+                        <button
+                          key={seed.id}
+                          onClick={() => setParent1(seed)}
+                          className="p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-left transition-all"
+                        >
+                          <div className="text-white font-bold">{seed.strain_name}</div>
+                          <div className="text-xs text-gray-400">{seed.rarity}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-black/40 backdrop-blur border-pink-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <span className="text-2xl">🧬</span>
+                    Parent 2
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {parent2 ? (
+                    <div className="space-y-3">
+                      <div className="text-xl font-bold text-white">{parent2.strain_name}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.keys(GENETIC_TRAITS).map(trait => {
+                          const value = parent2[trait] || parent2.genes?.[trait];
+                          if (!value) return null;
+                          return <GeneticTraitBadge key={trait} trait={trait} value={value} />;
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setParent2(null)}
+                        className="w-full"
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      {unlockedSeeds.filter(s => s.id !== parent1?.id).map(seed => (
+                        <button
+                          key={seed.id}
+                          onClick={() => setParent2(seed)}
+                          className="p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg text-left transition-all"
+                        >
+                          <div className="text-white font-bold">{seed.strain_name}</div>
+                          <div className="text-xs text-gray-400">{seed.rarity}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {parent1 && parent2 && (
+              <div className="h-[600px]">
+                <AdvancedGeneticsSystem
+                  parent1={parent1}
+                  parent2={parent2}
+                  onBreedingComplete={handleBreedingComplete}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedTab === 'history' && (
+          <div className="grid md:grid-cols-3 gap-4">
+            {breedingHistory.map((record) => (
+              <Card key={record.id} className="bg-black/40 backdrop-blur border-purple-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">{record.offspring_strain}</CardTitle>
+                  <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                    record.rarity === 'mythic' ? 'bg-purple-600' :
+                    record.rarity === 'legendary' ? 'bg-yellow-600' :
+                    record.rarity === 'rare' ? 'bg-blue-600' :
+                    'bg-gray-600'
+                  }`}>
+                    {record.rarity}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-gray-300">
+                  <div>Growth Speed: <span className="text-green-400 font-bold">x{record.growth_speed?.toFixed(1)}</span></div>
+                  <div>Pest Resistance: <span className="text-purple-400 font-bold">+{record.pest_resistance?.toFixed(0)}%</span></div>
+                  <div>Water Efficiency: <span className="text-cyan-400 font-bold">x{record.water_efficiency?.toFixed(1)}</span></div>
+                  <div className="text-xs text-gray-500 pt-2">Bred {record.times_bred} times</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
