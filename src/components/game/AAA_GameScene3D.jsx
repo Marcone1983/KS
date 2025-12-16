@@ -11,11 +11,11 @@ import {
 import PostProcessingEffects, { PostProcessingPresets } from './PostProcessingEffects';
 import * as THREE from 'three';
 import CannabisPlantR3F_AAA from './CannabisPlantR3F_AAA';
-import SprayBottleR3F from './SprayBottleR3F';
-import ProceduralTerrain from './ProceduralTerrain';
-import SprayParticles from './SprayParticles';
+import EnhancedSprayBottleFPV from './EnhancedSprayBottleFPV';
+import EnhancedProceduralTerrain from './EnhancedProceduralTerrain';
+import EnhancedSprayParticles from './EnhancedSprayParticles';
 import RainSystem from './RainSystem';
-import Pests3D from './Pests3D';
+import EnhancedPests3D from './EnhancedPests3D';
 import PowerUpSystem from './PowerUps';
 
 function CameraController({ onPestKilled, activePests }) {
@@ -25,6 +25,7 @@ function CameraController({ onPestKilled, activePests }) {
   const [isSpraying, setIsSpraying] = useState(false);
   const sprayParticlesRef = useRef();
   const sprayBottleRef = useRef();
+  const { activePowerUps: powerUpsFromParent = [] } = { activePowerUps };
 
   useEffect(() => {
     camera.position.set(0, 1.4, 2.2);
@@ -116,8 +117,8 @@ function CameraController({ onPestKilled, activePests }) {
 
   return (
     <>
-      <SprayParticles ref={sprayParticlesRef} />
-      <SprayBottleR3F ref={sprayBottleRef} camera={camera} />
+      <EnhancedSprayParticles ref={sprayParticlesRef} activePowerUps={activePowerUps} />
+      <EnhancedSprayBottleFPV ref={sprayBottleRef} camera={camera} activePowerUps={activePowerUps} />
     </>
   );
 }
@@ -226,6 +227,7 @@ export default function AAA_GameScene3D({
   windStrength = 0.2,
   rainIntensity = 0,
   spawnedPowerUps = [],
+  activePowerUps = [],
   onPestKilled,
   onPowerUpCollect,
   postFxPreset = 'realistic'
@@ -251,7 +253,7 @@ export default function AAA_GameScene3D({
         
         <GameLighting dayNightHour={dayNightHour} currentWeather={currentWeather} />
         
-        <ProceduralTerrain windStrength={windStrength} />
+        <EnhancedProceduralTerrain windStrength={windStrength} timeOfDay={timeOfDay} weather={currentWeather} />
         
         <CannabisPlantR3F_AAA
           position={[0, 0.47, -1.5]}
@@ -263,7 +265,7 @@ export default function AAA_GameScene3D({
           genetics={{}}
         />
         
-        <Pests3D pests={activePests} onPestHit={onPestKilled} />
+        <EnhancedPests3D pests={activePests} onPestHit={onPestKilled} />
         
         {spawnedPowerUps && spawnedPowerUps.length > 0 && (
           <PowerUpSystem

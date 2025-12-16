@@ -47,6 +47,7 @@ export default function Game() {
   const [spawnedPowerUps, setSpawnedPowerUps] = useState([]);
   const [activePowerUps, setActivePowerUps] = useState([]);
   const [activeRandomEvent, setActiveRandomEvent] = useState(null);
+  const [specialEnemies, setSpecialEnemies] = useState([]);
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
@@ -397,6 +398,11 @@ export default function Game() {
 
   usePowerUpSpawner(currentWave, (powerup) => {
     setSpawnedPowerUps(prev => [...prev, powerup]);
+  }, {
+    plantHealth,
+    pestCount: activePests.length,
+    score,
+    difficulty: level
   });
 
   const handlePowerUpCollect = (powerup) => {
@@ -423,10 +429,37 @@ export default function Game() {
       } else if (powerup.type === 'health') {
         setPlantHealth(prev => Math.min(100, prev + 50));
         toast.success('❤️ +50 HP alla pianta!');
+      } else if (powerup.type === 'freeze') {
+        setActivePests(prev => prev.map(p => ({
+          ...p,
+          speed: p.speed * 0.1,
+          frozen: true
+        })));
+        setTimeout(() => {
+          setActivePests(prev => prev.map(p => ({
+            ...p,
+            speed: p.baseSpeed || p.speed * 10,
+            frozen: false
+          })));
+        }, 5000);
+        toast.success('❄️ Nemici congelati!');
+      } else if (powerup.type === 'slow') {
+        setActivePests(prev => prev.map(p => ({
+          ...p,
+          slowed: true,
+          slowedUntil: Date.now() + 12000
+        })));
+        toast.success('🧊 Nemici rallentati!');
+      } else if (powerup.type === 'defense') {
+        toast.success('💎 Difesa temporanea attiva!');
+      } else if (powerup.type === 'rage') {
+        toast.success('😡 RAGE MODE!');
+      } else if (powerup.type === 'lifesteal') {
+        toast.success('🩸 Life Steal attivo!');
       }
     }
     
-    toast.success(`Power-up raccolto: ${powerup.type}!`);
+    toast.success(`Power-up: ${effect?.name || powerup.type}!`);
   };
 
   useEffect(() => {
@@ -1149,16 +1182,23 @@ export default function Game() {
         plantGrowthStage={progress?.plant_stats?.growth_level / 10 || 0.5}
         pestInfestation={Math.min((activePests.length / 20) * 100, 100)}
         activePests={activePests}
+        activePowerUps={activePowerUps}
         currentWeather={currentWeather}
         dayNightHour={dayNightHour}
         windStrength={0.2}
         rainIntensity={currentWeather === 'rain' ? 0.8 : 0}
         spawnedPowerUps={spawnedPowerUps}
         onPestKilled={(pestId, damage) => {
+          const hasLifesteal = activePowerUps.some(p => p.type === 'lifesteal');
+          if (hasLifesteal) {
+            setPlantHealth(prev => Math.min(100, prev + damage * 0.2));
+          }
           handlePestHit(pestId, damage);
         }}
         onPlantDamaged={(damage) => {
-          setPlantHealth(prev => Math.max(0, prev - damage));
+          const hasDefense = activePowerUps.some(p => p.type === 'defense');
+          const finalDamage = hasDefense ? damage * 0.3 : damage;
+          setPlantHealth(prev => Math.max(0, prev - finalDamage));
         }}
         onPowerUpCollect={handlePowerUpCollect}
       />
