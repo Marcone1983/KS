@@ -6,11 +6,12 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows } from '@react-three/drei';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Palette, Box, Sparkles, Leaf, Lock, Check, Sun, Moon, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Palette, Box, Sparkles, Leaf, Lock, Check, Sun, Moon, Lightbulb, Wand2 } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import CannabisPlantR3F_AAA from '../components/game/CannabisPlantR3F_AAA';
+import GardenDesignAI from '../components/ai/GardenDesignAI';
 
 const POT_SKINS = [
   { id: 'classic', name: 'Classic Terra Cotta', price: 0, color: '#8b4513', material: 'clay' },
@@ -373,6 +374,15 @@ export default function GardenCustomization() {
                 <Sun className="w-4 h-4 mr-1" />
                 Light
               </Button>
+              <Button
+                onClick={() => setSelectedTab('ai_designer')}
+                variant={selectedTab === 'ai_designer' ? 'default' : 'outline'}
+                className={selectedTab === 'ai_designer' ? 'bg-pink-600' : 'border-pink-600 text-white'}
+                size="sm"
+              >
+                <Wand2 className="w-4 h-4 mr-1" />
+                AI
+              </Button>
             </div>
 
             <Card className="bg-black/40 backdrop-blur border-cyan-500/30">
@@ -495,6 +505,27 @@ export default function GardenCustomization() {
                     </div>
                   );
                 })}
+
+                {selectedTab === 'ai_designer' && (
+                  <div className="p-4">
+                    <GardenDesignAI
+                      currentProgress={progress}
+                      availableSeeds={allSeeds}
+                      onApplyDesign={(design) => {
+                        if (customization) {
+                          updateCustomizationMutation.mutate({
+                            id: customization.id,
+                            data: {
+                              ...customization,
+                              background_theme: design.aesthetic,
+                              decorative_items: design.decorations || []
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
