@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, 
@@ -16,7 +17,9 @@ import {
   Sparkles,
   AlertTriangle,
   Brain,
-  X
+  X,
+  Droplets,
+  Move
 } from 'lucide-react';
 
 const TUTORIAL_STEPS = [
