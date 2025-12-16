@@ -52,7 +52,7 @@ export default function HempSprayFPV_Realistic({
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.BasicShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     container.appendChild(renderer.domElement);
@@ -64,8 +64,9 @@ export default function HempSprayFPV_Realistic({
     const sun = new THREE.DirectionalLight(colors.sun, isDay ? 1.5 : 0.2);
     sun.position.set(6, 10, 4);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.radius = 2;
     sun.shadow.camera.near = 0.5;
     sun.shadow.camera.far = 25;
     sun.shadow.camera.left = -8;
@@ -74,11 +75,12 @@ export default function HempSprayFPV_Realistic({
     sun.shadow.camera.bottom = -8;
     scene.add(sun);
 
-    const groundGeo = new THREE.PlaneGeometry(40, 40, 20, 20);
+    const groundGeo = new THREE.PlaneGeometry(40, 40, 30, 30);
     const groundMat = new THREE.MeshStandardMaterial({ 
       color: 0x2a3a2a, 
       roughness: 0.9,
-      metalness: 0.0
+      metalness: 0.0,
+      flatShading: false
     });
     groundMat.userData.wetness = 0.0;
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -86,7 +88,11 @@ export default function HempSprayFPV_Realistic({
     ground.receiveShadow = true;
     const gPos = ground.geometry.attributes.position;
     for (let i = 0; i < gPos.count; i++) {
-      gPos.setZ(i, gPos.getZ(i) + (Math.random() - 0.5) * 0.1);
+      const x = gPos.getX(i);
+      const y = gPos.getY(i);
+      const noise = Math.sin(x * 0.2) * Math.cos(y * 0.2) * 0.12 + 
+                    Math.sin(x * 0.5) * Math.cos(y * 0.5) * 0.05;
+      gPos.setZ(i, noise);
     }
     gPos.needsUpdate = true;
     ground.geometry.computeVertexNormals();
@@ -194,9 +200,18 @@ export default function HempSprayFPV_Realistic({
       return geo;
     };
 
+    const leafGeometryCache = new Map();
+    const getLeafGeometry = (len, wid) => {
+      const key = `${len.toFixed(2)}_${wid.toFixed(2)}`;
+      if (!leafGeometryCache.has(key)) {
+        leafGeometryCache.set(key, makeSerrated(len, wid));
+      }
+      return leafGeometryCache.get(key);
+    };
+
     const makePalmLeaf = (sc = 1.0) => {
       const grp = new THREE.Group();
-      const mainGeo = makeSerrated(0.5 * sc, 0.1 * sc);
+      const mainGeo = getLeafGeometry(0.5 * sc, 0.1 * sc);
       const main = new THREE.Mesh(mainGeo, leafMat);
       main.rotation.x = -Math.PI / 2;
       main.castShadow = true;
@@ -212,7 +227,7 @@ export default function HempSprayFPV_Realistic({
       ];
 
       sides.forEach(cfg => {
-        const geo = makeSerrated(cfg.l * sc, cfg.w * sc);
+        const geo = getLeafGeometry(cfg.l * sc, cfg.w * sc);
         const m = new THREE.Mesh(geo, leafMat);
         m.rotation.x = -Math.PI / 2;
         m.rotation.z = cfg.a;
@@ -237,12 +252,12 @@ export default function HempSprayFPV_Realistic({
     plantGroup.add(mainStem);
 
     const nodeLevels = [
-      { y: 0.4, rot: 0, len: 0.4, sc: 0.75 },
-      { y: 0.75, rot: Math.PI / 2, len: 0.45, sc: 0.85 },
-      { y: 1.1, rot: 0, len: 0.48, sc: 0.95 },
-      { y: 1.45, rot: Math.PI / 2, len: 0.45, sc: 1.0 },
-      { y: 1.75, rot: 0, len: 0.4, sc: 0.9 },
-      { y: 2.0, rot: Math.PI / 2, len: 0.32, sc: 0.75 }
+      { y: 0.4, rot: 0, len: 0.4, sc: 0.75, leafCount: 2 },
+      { y: 0.75, rot: Math.PI / 2, len: 0.45, sc: 0.85, leafCount: 2 },
+      { y: 1.1, rot: 0, len: 0.48, sc: 0.95, leafCount: 3 },
+      { y: 1.45, rot: Math.PI / 2, len: 0.45, sc: 1.0, leafCount: 3 },
+      { y: 1.75, rot: 0, len: 0.4, sc: 0.9, leafCount: 2 },
+      { y: 2.0, rot: Math.PI / 2, len: 0.32, sc: 0.75, leafCount: 2 }
     ];
 
     const allBranches = [];
@@ -262,15 +277,15 @@ export default function HempSprayFPV_Realistic({
         branchStem.castShadow = true;
         nodeGrp.add(branchStem);
 
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < node.leafCount; i++) {
           const lf = makePalmLeaf(node.sc);
-          const t = 0.6 + i * 0.3;
+          const t = 0.5 + (i / (node.leafCount - 1)) * 0.4;
           lf.position.x = dir * node.len * t;
           lf.position.y = (Math.random() - 0.5) * 0.04;
           lf.rotation.y = dir * (Math.PI / 2 + (Math.random() - 0.5) * 0.3);
           lf.rotation.x = (Math.random() - 0.5) * 0.25;
           lf.userData.windOff = Math.random() * Math.PI * 2;
-          lf.userData.windBase = { x: 0, z: 0 };
+          lf.userData.windBase = { x: lf.rotation.x, y: lf.rotation.y, z: lf.rotation.z };
           nodeGrp.add(lf);
         }
       });
@@ -282,13 +297,15 @@ export default function HempSprayFPV_Realistic({
 
     const topLeaves = new THREE.Group();
     topLeaves.position.y = 2.4;
-    for (let i = 0; i < 4; i++) {
-      const lf = makePalmLeaf(0.7);
-      const ang = (i / 4) * Math.PI * 2;
-      lf.position.set(Math.cos(ang) * 0.08, 0, Math.sin(ang) * 0.08);
+    for (let i = 0; i < 5; i++) {
+      const lf = makePalmLeaf(0.7 + (i === 0 ? 0.2 : 0));
+      const ang = (i / 5) * Math.PI * 2;
+      const rad = i === 0 ? 0 : 0.08;
+      lf.position.set(Math.cos(ang) * rad, 0, Math.sin(ang) * rad);
       lf.rotation.y = ang;
-      lf.rotation.x = Math.PI / 4;
+      lf.rotation.x = i === 0 ? 0 : Math.PI / 4;
       lf.userData.windOff = Math.random() * Math.PI * 2;
+      lf.userData.windBase = { x: lf.rotation.x, y: lf.rotation.y, z: lf.rotation.z };
       topLeaves.add(lf);
     }
     topLeaves.userData.windOff = Math.random() * Math.PI * 2;
@@ -654,8 +671,10 @@ export default function HempSprayFPV_Realistic({
         
         br.children.forEach(ch => {
           if (ch.userData.windOff !== undefined && ch.userData.windBase) {
-            const lw = Math.sin(t * 2.2 + ch.userData.windOff) * wStr * 0.06;
-            ch.rotation.z = ch.userData.windBase.z + lw;
+            const lw1 = Math.sin(t * 2.2 + ch.userData.windOff) * wStr * 0.06;
+            const lw2 = Math.cos(t * 1.8 + ch.userData.windOff * 1.3) * wStr * 0.04;
+            ch.rotation.x = ch.userData.windBase.x + lw2;
+            ch.rotation.z = ch.userData.windBase.z + lw1;
           }
         });
       });
