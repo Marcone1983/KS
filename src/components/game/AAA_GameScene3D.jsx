@@ -22,12 +22,13 @@ import {
 } from '@react-three/postprocessing';
 import { BlendFunction, ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
-import CannabisPlantR3F from './CannabisPlantR3F';
+import CannabisPlantR3F_AAA from './CannabisPlantR3F_AAA';
 import SprayBottleR3F from './SprayBottleR3F';
 import ProceduralTerrain from './ProceduralTerrain';
 import SprayParticles from './SprayParticles';
 import RainSystem from './RainSystem';
 import Pests3D from './Pests3D';
+import { useAdvancedGestureControls, useKeyboardControls, useGamepadControls } from './GestureControls';
 
 function CameraController({ onPestKilled, activePests }) {
   const { camera } = useThree();
@@ -231,11 +232,14 @@ export default function AAA_GameScene3D({
         
         <ProceduralTerrain windStrength={windStrength} />
         
-        <CannabisPlantR3F 
-          position={[0, 0, -1.5]}
+        <CannabisPlantR3F_AAA
+          position={[0, 0.47, -1.5]}
           health={plantHealth}
           pestCount={activePests.length}
           windStrength={windStrength}
+          growthStage={0.85}
+          trichomeMaturity={0.6}
+          genetics={{}}
         />
         
         <Pests3D pests={activePests} onPestHit={onPestKilled} />

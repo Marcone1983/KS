@@ -5,6 +5,8 @@ import AAA_GameScene3D from '../components/game/AAA_GameScene3D';
 import GameUI from '../components/game/GameUI';
 import GameOver from '../components/game/GameOver';
 import PauseMenu from '../components/game/PauseMenu';
+import WaveSystem from '../components/game/WaveSystem';
+import PowerUpSystem, { usePowerUpSpawner, POWERUP_EFFECTS, ActivePowerUpHUD } from '../components/game/PowerUps';
 import TutorPanel from '../components/game/TutorPanel';
 import BossHealthBar from '../components/game/BossHealthBar';
 import LevelObjectives from '../components/game/LevelObjectives';
@@ -38,6 +40,10 @@ export default function Game() {
   const [levelObjectives, setLevelObjectives] = useState([]);
   const [discoveredLore, setDiscoveredLore] = useState(null);
   const [currentSeason, setCurrentSeason] = useState('spring');
+  const [waveState, setWaveState] = useState('preparing');
+  const [currentWave, setCurrentWave] = useState(1);
+  const [spawnedPowerUps, setSpawnedPowerUps] = useState([]);
+  const [activePowerUps, setActivePowerUps] = useState([]);
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
@@ -381,6 +387,51 @@ export default function Game() {
 
     return modifiers;
   };
+
+  usePowerUpSpawner(currentWave, (powerup) => {
+    setSpawnedPowerUps(prev => [...prev, powerup]);
+  });
+
+  const handlePowerUpCollect = (powerup) => {
+    setSpawnedPowerUps(prev => prev.filter(p => p.id !== powerup.id));
+    
+    const effect = POWERUP_EFFECTS[powerup.type];
+    if (effect) {
+      if (effect.duration > 0) {
+        setActivePowerUps(prev => [...prev, {
+          ...powerup,
+          startTime: Date.now(),
+          duration: effect.duration
+        }]);
+        
+        setTimeout(() => {
+          setActivePowerUps(prev => prev.filter(p => p.id !== powerup.id));
+        }, effect.duration * 1000);
+      }
+      
+      if (powerup.type === 'nuke') {
+        setActivePests([]);
+        setScore(s => s + 200);
+        toast.success('💣 NUKE! Tutti i parassiti eliminati!');
+      } else if (powerup.type === 'health') {
+        setPlantHealth(prev => Math.min(100, prev + 50));
+        toast.success('❤️ +50 HP alla pianta!');
+      }
+    }
+    
+    toast.success(`Power-up raccolto: ${powerup.type}!`);
+  };
+
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      setActivePowerUps(prev => prev.filter(p => 
+        now - p.startTime < p.duration * 1000
+      ));
+    }, 100);
+    
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
   const spawnPests = () => {
     if (!allPests || allPests.length === 0) return;
