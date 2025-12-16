@@ -269,14 +269,12 @@ export default function Home() {
             </div>
 
             {showAssetChecker && (
-            <div className="mt-8 max-w-3xl mx-auto">
-            <AssetChecker assets={[
-              '/models/plant01.glb',
-              '/models/plant02.glb',
-              '/models/plant03.glb',
-              '/models/plant04.glb'
-            ]} />
-            </div>
+              <div className="mt-8 max-w-3xl mx-auto">
+                <AssetChecker assets={[
+                  '/models/plant03.glb',
+                  '/models/plant04.glb'
+                ]} />
+              </div>
             )}
 
         {sessions.length > 0 && (
