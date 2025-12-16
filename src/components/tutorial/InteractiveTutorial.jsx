@@ -43,4 +43,15 @@ export default function InteractiveTutorial({ onComplete, onSkip }) {
                   <Trophy className="w-8 h-8 text-green-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl">Benvenuto in Ku
+                  <CardTitle className="text-2xl">Benvenuto in Kurstaki Strike!</CardTitle>
+                  <p className="text-gray-400 mt-1">Difendi la tua pianta dai parassiti</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
+                <p><strong className="text-white">🎮 Obiettivo:</strong> Proteggi la tua pianta di cannabis eliminando i parassiti prima che la danneggino.</p>
+                <p><strong className="text-white">🖱️ Controlli:</strong> Muovi il mouse per mirare, CLICK o SPACE per spruzzare il Btk.</p>
+                <p><strong className="text-white">⚡ Power-ups:</strong> Raccogli power-up per abilità speciali che ti aiuteranno in battaglia.</p>
+                <p><strong className="text-white">🐛 Parassiti:</strong> Ogni parassita ha abilità uniche - studia i loro comportamenti!</p>
+                <p
