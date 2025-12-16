@@ -541,13 +541,13 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && !activeBoss && allPests.length > 0) {
+    if (gameState === 'playing' && !isPaused && !activeBoss && allPests?.length > 0) {
       const spawnDelay = Math.max(3000 - (level * 100), 2000);
       const spawnInterval = setInterval(spawnPests, spawnDelay);
       spawnPests();
       return () => clearInterval(spawnInterval);
     }
-  }, [gameState, isPaused, level, allPests.length, activeBoss?.id]);
+  }, [gameState, isPaused, level, allPests?.length, activeBoss?.id]);
 
   const handleBossHit = (damage) => {
     if (!activeBoss) return;
