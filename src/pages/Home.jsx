@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target, Users, Share2 } from 'lucide-react';
+import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target, Users, Share2, Zap } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 export default function Home() {
@@ -223,6 +223,36 @@ export default function Home() {
           >
             <Leaf className="h-8 w-8 mr-3" />
             Growing Lab
+          </Button>
+          
+          <Button 
+            onClick={() => navigate(createPageUrl('Progression'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-purple-400 text-white hover:bg-purple-500/20 text-xl px-12 py-8"
+          >
+            <Trophy className="h-8 w-8 mr-3" />
+            Progression
+          </Button>
+          
+          <Button 
+            onClick={() => navigate(createPageUrl('Challenges'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-orange-400 text-white hover:bg-orange-500/20 text-xl px-12 py-8"
+          >
+            <Target className="h-8 w-8 mr-3" />
+            Challenges
+          </Button>
+          
+          <Button 
+            onClick={() => navigate(createPageUrl('Codex'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-green-400 text-white hover:bg-green-500/20 text-xl px-12 py-8"
+          >
+            <BookOpen className="h-8 w-8 mr-3" />
+            Codex
           </Button>
           </div>
 

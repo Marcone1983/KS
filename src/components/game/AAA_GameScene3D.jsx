@@ -231,7 +231,8 @@ export default function AAA_GameScene3D({
   activePowerUps = [],
   onPestKilled,
   onPowerUpCollect,
-  postFxPreset = 'realistic'
+  postFxPreset = 'realistic',
+  gameLevel = 1
 }) {
   const timeOfDay = useMemo(() => {
     return (dayNightHour >= 6 && dayNightHour < 17) ? 'day' : (dayNightHour >= 17 && dayNightHour < 20) ? 'sunset' : 'night';
@@ -260,7 +261,7 @@ export default function AAA_GameScene3D({
         <ambientLight intensity={0.4} color="#ffffff" />
         <hemisphereLight args={['#87ceeb', '#2d5016', 0.5]} />
 
-        <EnhancedProceduralTerrain windStrength={windStrength} timeOfDay={timeOfDay} weather={currentWeather} />
+        <EnhancedProceduralTerrain windStrength={windStrength} timeOfDay={timeOfDay} weather={currentWeather} plantCount={Math.min(gameLevel, 10)} />
 
         <CannabisPlantR3F_AAA
           position={[0, 0.47, -1.5]}

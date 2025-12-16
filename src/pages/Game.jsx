@@ -17,6 +17,7 @@ import DynamicWeatherSystem, { useWeatherEffects } from '../components/environme
 import PlantCareAI from '../components/ai/PlantCareAI';
 import PlantTypeSelector from '../components/game/PlantTypeSelector';
 import { useDynamicDifficulty } from '../components/game/DynamicDifficultyScaler';
+import { useAIPlantGrowth, useAIPestBehaviorPredictor } from '../components/ai/AIPlantGrowthEngine';
 import { toast } from 'sonner';
 
 export default function Game() {
@@ -66,6 +67,41 @@ export default function Game() {
     damageTaken: 100 - plantHealth,
     gameTime,
     currentWave
+  });
+  
+  const aiGrowthData = useAIPlantGrowth({
+    plantType: selectedPlantType,
+    gameEvents: {
+      pestCount: activePests.length,
+      powerUpsActive: activePowerUps.length,
+      damageTaken: 100 - plantHealth,
+      healingReceived: 0
+    },
+    playerActions: {
+      sprayFrequency: 0.5,
+      accuracy: 0.7,
+      idleTime: 0
+    },
+    currentEnvironment: {
+      weather: currentWeather,
+      season: currentSeason,
+      timeOfDay: dayNightHour >= 6 && dayNightHour < 18 ? 'day' : 'night'
+    },
+    onGrowthUpdate: (data) => {
+      if (progress?.id && data.growthRate > 1.2) {
+        const growthBonus = (data.growthRate - 1.0) * 0.02;
+        setPlantHealth(prev => Math.min((selectedPlantType?.stats?.baseHealth || 100) * 1.1, prev + growthBonus));
+      }
+    }
+  });
+  
+  const pestBehaviorPredictions = useAIPestBehaviorPredictor({
+    difficultyMultipliers,
+    playerPerformance: {
+      accuracy: 0.7,
+      reactionTime: 1.0,
+      survivalRate: plantHealth / 100
+    }
   });
 
   const { data: progress } = useQuery({
@@ -1049,7 +1085,7 @@ export default function Game() {
     bossSpawnedRef.current = false;
     setGameState('plant_selection');
     setScore(0);
-    setPlantHealth(100);
+    setPlantHealth(selectedPlantType?.stats?.baseHealth || 100);
     setSprayAmmo(100);
     setPestsEliminated({});
     setActivePests([]);

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Bug, Sparkles, Leaf, Lock, BookOpen, Target, Shield, Zap, ArrowLeft } from 'lucide-react';
+import { Search, Bug, Sparkles, Leaf, Lock, BookOpen, Target, Shield, Zap, ArrowLeft, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { POWERUP_EFFECTS } from '../components/game/PowerUps';
@@ -438,7 +438,7 @@ export default function Codex() {
         </div>
 
         <Tabs defaultValue="pests" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8 bg-gray-800">
+          <TabsList className="grid w-full grid-cols-4 mb-8 bg-gray-800">
             <TabsTrigger value="pests" className="data-[state=active]:bg-green-600">
               <Bug className="w-4 h-4 mr-2" />
               Pests ({encounteredPests.length}/{allPests.length})
@@ -450,6 +450,10 @@ export default function Codex() {
             <TabsTrigger value="plants" className="data-[state=active]:bg-emerald-600">
               <Leaf className="w-4 h-4 mr-2" />
               Plant Types ({plantTypesList.length})
+            </TabsTrigger>
+            <TabsTrigger value="challenges" className="data-[state=active]:bg-orange-600">
+              <Trophy className="w-4 h-4 mr-2" />
+              Challenges
             </TabsTrigger>
           </TabsList>
 
@@ -471,6 +475,85 @@ export default function Codex() {
           <TabsContent value="plants">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPlants.map(renderPlantCard)}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="challenges">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-4">Challenge Types</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="bg-gray-800 border-orange-500">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Target className="w-5 h-5 text-orange-400" />
+                        Wave Challenges
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-gray-300 text-sm">
+                      Complete specific waves with special conditions like no damage, limited ammo, or time limits.
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gray-800 border-red-500">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Bug className="w-5 h-5 text-red-400" />
+                        Pest Challenges
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-gray-300 text-sm">
+                      Eliminate specific numbers or types of pests within a game or timeframe.
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gray-800 border-blue-500">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-blue-400" />
+                        Time Challenges
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-gray-300 text-sm">
+                      Complete levels or objectives within strict time constraints.
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="bg-gray-800 border-purple-500">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-purple-400" />
+                        Survival Challenges
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-gray-300 text-sm">
+                      Maintain plant health above certain thresholds while surviving multiple waves.
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-orange-900/50 to-red-900/50 border border-orange-500 rounded-lg p-6">
+                <h3 className="text-2xl font-bold text-white mb-3">Rewards System</h3>
+                <div className="space-y-2 text-gray-300">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-400" />
+                    <span><strong>XP:</strong> Level up faster and unlock skill points</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-green-400" />
+                    <span><strong>Leaf Currency:</strong> Purchase upgrades and cosmetics</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                    <span><strong>Exclusive Cosmetics:</strong> Unlock rare skins and effects</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-center text-gray-400 p-8">
+                <p className="text-lg">Visit the <Link to={createPageUrl('Challenges')} className="text-orange-400 hover:underline">Challenges</Link> page to start completing objectives and earning rewards!</p>
+              </div>
             </div>
           </TabsContent>
         </Tabs>

@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { EnhancedScatteredPlants } from './EnhancedPlantShaders';
 
-export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDay = 'day', weather = 'clear' }) {
+export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDay = 'day', weather = 'clear', plantCount = 1 }) {
   const grassInstancesRef = useRef([]);
   const rockRefs = useRef([]);
   const flowerRefs = useRef([]);
@@ -283,7 +283,7 @@ export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDa
         <primitive object={waterMaterial} attach="material" />
       </mesh>
 
-      <EnhancedScatteredPlants count={25} areaRadius={35} windStrength={windStrength} cameraPosition={[0, 1.4, 2.2]} />
+      <EnhancedScatteredPlants count={Math.max(5, plantCount * 3)} areaRadius={35} windStrength={windStrength} cameraPosition={[0, 1.4, 2.2]} />
 
       <fog attach="fog" args={[weather === 'fog' ? '#b0b0b0' : '#87ceeb', 12, weather === 'fog' ? 20 : 40]} />
     </group>

@@ -197,7 +197,8 @@ export const usePowerUpSpawner = (currentWave, onSpawn, gameContext = {}) => {
       pestCount = 0, 
       score = 0,
       recentDamage = 0,
-      difficulty = 1 
+      difficulty = 1,
+      spawnRateMultiplier = 1.0
     } = gameContext;
 
     let baseInterval = 15000;
@@ -222,10 +223,10 @@ export const usePowerUpSpawner = (currentWave, onSpawn, gameContext = {}) => {
     }
 
     const waveMultiplier = Math.max(0.3, 1 - (currentWave * 0.04));
-    const finalInterval = Math.max(baseInterval * waveMultiplier, 4000);
+    const finalInterval = Math.max(baseInterval * waveMultiplier / spawnRateMultiplier, 4000);
     
     const interval = setInterval(() => {
-      if (Math.random() > 0.25 / spawnChanceMultiplier) return;
+      if (Math.random() > (0.25 / spawnChanceMultiplier) * spawnRateMultiplier) return;
 
       let powerupTypes = Object.keys(POWERUP_EFFECTS);
       let rarity = 'common';
