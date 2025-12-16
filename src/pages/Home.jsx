@@ -215,6 +215,15 @@ export default function Home() {
             <Palette className="h-8 w-8 mr-3" />
             Customize
           </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('GrowingLab'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-emerald-400 text-white hover:bg-emerald-500/20 text-xl px-12 py-8"
+          >
+            <Leaf className="h-8 w-8 mr-3" />
+            Growing Lab
+          </Button>
           </div>
 
         {sessions.length > 0 && (

@@ -256,7 +256,9 @@ export default function CannabisPlantR3F_AAA({
   windStrength = 0.2,
   growthStage = 0.8,
   trichomeMaturity = 0.5,
-  genetics = {}
+  genetics = {},
+  customColors = null,
+  rainbow = false
 }) {
   const groupRef = useRef();
   const leavesRef = useRef([]);
@@ -266,9 +268,9 @@ export default function CannabisPlantR3F_AAA({
   const diseaseLevel = infestationFactor;
 
   const leafMaterial = useMemo(() => {
-    const baseColor = new THREE.Color(0x3a7d3a);
+    const baseLeafColor = customColors?.leaf ? new THREE.Color(customColors.leaf) : new THREE.Color(0x3a7d3a);
     const infectedColor = new THREE.Color(0x8b7d3a);
-    const leafColor = baseColor.clone().lerp(infectedColor, infestationFactor * 0.6);
+    const leafColor = baseLeafColor.clone().lerp(infectedColor, infestationFactor * 0.6);
     
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -293,6 +295,12 @@ export default function CannabisPlantR3F_AAA({
     if (leafMaterial) {
       leafMaterial.uniforms.time.value = state.clock.elapsedTime;
       leafMaterial.uniforms.windStrength.value = windStrength;
+      
+      if (rainbow) {
+        const hue = (state.clock.elapsedTime * 0.1) % 1;
+        const rainbowColor = new THREE.Color().setHSL(hue, 0.8, 0.5);
+        leafMaterial.uniforms.leafColor.value.copy(rainbowColor);
+      }
     }
     
     if (groupRef.current) {
@@ -302,12 +310,15 @@ export default function CannabisPlantR3F_AAA({
     }
   });
 
-  const stemMaterial = useMemo(() => new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x5a7d4a).lerp(new THREE.Color(0x4a3a2a), diseaseLevel * 0.4),
-    roughness: 0.85,
-    metalness: 0.0,
-    normalScale: new THREE.Vector2(0.5, 0.5)
-  }), [diseaseLevel]);
+  const stemMaterial = useMemo(() => {
+    const baseStemColor = customColors?.stem ? new THREE.Color(customColors.stem) : new THREE.Color(0x5a7d4a);
+    return new THREE.MeshStandardMaterial({
+      color: baseStemColor.clone().lerp(new THREE.Color(0x4a3a2a), diseaseLevel * 0.4),
+      roughness: 0.85,
+      metalness: 0.0,
+      normalScale: new THREE.Vector2(0.5, 0.5)
+    });
+  }, [diseaseLevel, customColors]);
 
   const budMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     color: new THREE.Color(0xa08555).lerp(new THREE.Color(0x8b7355), trichomeMaturity),
