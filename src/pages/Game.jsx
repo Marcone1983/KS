@@ -15,12 +15,16 @@ import StrategyAdvisor from '../components/advisor/StrategyAdvisor';
 import InGameUpgradePanel from '../components/game/InGameUpgradePanel';
 import DynamicWeatherSystem, { useWeatherEffects } from '../components/environment/DynamicWeatherSystem';
 import PlantCareAI from '../components/ai/PlantCareAI';
+import PlantTypeSelector from '../components/game/PlantTypeSelector';
+import { useDynamicDifficulty } from '../components/game/DynamicDifficultyScaler';
 import { toast } from 'sonner';
 
 export default function Game() {
   const [showUpgradePanel, setShowUpgradePanel] = useState(false);
+  const [showPlantSelector, setShowPlantSelector] = useState(false);
+  const [selectedPlantType, setSelectedPlantType] = useState(null);
   const queryClient = useQueryClient();
-  const [gameState, setGameState] = useState('loading');
+  const [gameState, setGameState] = useState('plant_selection');
   const [level, setLevel] = useState(1);
   const [score, setScore] = useState(0);
   const [plantHealth, setPlantHealth] = useState(100);
@@ -54,6 +58,15 @@ export default function Game() {
   const weatherTimerRef = useRef(null);
   
   const weatherEffects = useWeatherEffects(currentWeather, activeRandomEvent);
+  
+  const difficultyMultipliers = useDynamicDifficulty({
+    plantHealth,
+    score,
+    pestsKilled: Object.values(pestsEliminated).reduce((a, b) => a + b, 0),
+    damageTaken: 100 - plantHealth,
+    gameTime,
+    currentWave
+  });
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -124,7 +137,7 @@ export default function Game() {
   const levelLoadedRef = useRef(false);
   
   useEffect(() => {
-    if (progress?.id && gameState === 'loading' && !levelLoadedRef.current) {
+    if (progress?.id && gameState === 'loading' && !levelLoadedRef.current && selectedPlantType) {
       levelLoadedRef.current = true;
       
       const loadLevel = async () => {
@@ -297,8 +310,8 @@ export default function Game() {
         if (bossData) {
           const enhancedBoss = {
             ...bossData,
-            base_health: Math.floor(bossData.base_health * (bossConfig.health_multiplier || 1)),
-            speed: bossData.speed * (bossConfig.speed_multiplier || 1),
+            base_health: Math.floor(bossData.base_health * (bossConfig.health_multiplier || 1) * difficultyMultipliers.pestHealth),
+            speed: bossData.speed * (bossConfig.speed_multiplier || 1) * difficultyMultipliers.pestSpeed,
             damage_per_second: bossData.damage_per_second * (bossConfig.damage_multiplier || 1)
           };
           spawnBoss(enhancedBoss);
@@ -402,7 +415,8 @@ export default function Game() {
     plantHealth,
     pestCount: activePests.length,
     score,
-    difficulty: level
+    difficulty: level,
+    spawnRateMultiplier: difficultyMultipliers.powerUpSpawnRate
   });
 
   const handlePowerUpCollect = (powerup) => {
@@ -549,8 +563,8 @@ export default function Game() {
 
       const mods = behaviorModifiers[behavior] || behaviorModifiers.normal;
 
-      const finalHealth = pestConfig.health || Math.floor(pestType.health * healthMultiplier * mods.healthMult * seasonalMods.healthMult);
-      const finalSpeed = (pestConfig.speed || pestType.speed * speedMultiplier) * mods.speedMult * speedBoost * seasonalMods.speedMult;
+      const finalHealth = Math.floor((pestConfig.health || pestType.health * healthMultiplier * mods.healthMult * seasonalMods.healthMult) * difficultyMultipliers.pestHealth);
+      const finalSpeed = (pestConfig.speed || pestType.speed * speedMultiplier) * mods.speedMult * speedBoost * seasonalMods.speedMult * difficultyMultipliers.pestSpeed;
       const finalDamage = (pestConfig.damage || pestType.damage_per_second * damageMultiplier) * seasonalMods.damageMult;
 
       const pest = {
@@ -1033,7 +1047,7 @@ export default function Game() {
   const restartGame = () => {
     levelLoadedRef.current = false;
     bossSpawnedRef.current = false;
-    setGameState('loading');
+    setGameState('plant_selection');
     setScore(0);
     setPlantHealth(100);
     setSprayAmmo(100);
@@ -1049,6 +1063,7 @@ export default function Game() {
     setGameTime(0);
     setWaveState('preparing');
     setCurrentWave(1);
+    setSelectedPlantType(null);
     gameStartTime.current = Date.now();
   };
 
@@ -1129,6 +1144,19 @@ export default function Game() {
   }, []);
 
 
+
+  if (gameState === 'plant_selection') {
+    return (
+      <PlantTypeSelector
+        onSelectPlant={(plant) => {
+          setSelectedPlantType(plant);
+          setPlantHealth(plant.stats.baseHealth);
+          setGameState('loading');
+        }}
+        onClose={() => {}}
+      />
+    );
+  }
 
   if (gameState === 'loading' || !progress) {
     return (
