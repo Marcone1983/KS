@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { Droplets, Sun, Wind, Thermometer, Heart, Zap, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
 import CannabisPlantR3F_AAA from '../game/CannabisPlantR3F_AAA';
+import DynamicWeatherSystem, { useWeatherEffects } from '../environment/DynamicWeatherSystem';
+import PlantCareAI, { AIInsightPanel } from '../ai/PlantCareAI';
 
 const GrowthTimelineMarker = ({ stage, isActive, position, label }) => {
   const markerRef = useRef();
@@ -127,6 +129,12 @@ export default function GrowingSimulator3D({
   const [trichomeMaturity, setTrichomeMaturity] = useState(0.3);
   const [autoGrow, setAutoGrow] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [currentWeather, setCurrentWeather] = useState('clear');
+  const [currentSeason, setCurrentSeason] = useState(progress?.current_season || 'spring');
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [weatherEffects, setWeatherEffects] = useState({});
+  
+  const effects = useWeatherEffects(currentWeather, activeEvent);
 
   const plantHealth = Math.min(100, (waterLevel * 0.4) + (nutritionLevel * 0.3) + (lightExposure * 0.3));
   const growthRate = activeSeed?.growth_speed || 1.0;
@@ -157,9 +165,11 @@ export default function GrowingSimulator3D({
       const optimalLight = lightExposure > 50 && lightExposure < 85;
       const optimalTemp = temperature > 18 && temperature < 28;
 
+      const growthModifier = (effects.growthModifier || 1.0) * growthRate;
+
       if (optimalWater && optimalNutrition && optimalLight && optimalTemp) {
         setPlantGrowth(prev => {
-          const newGrowth = Math.min(1.0, prev + (0.008 * growthRate));
+          const newGrowth = Math.min(1.0, prev + (0.008 * growthModifier));
           
           if (onUpdate && progress) {
             onUpdate({
@@ -181,14 +191,22 @@ export default function GrowingSimulator3D({
         }
       }
 
-      setWaterLevel(prev => Math.max(0, prev - (0.3 + (temperature - 20) * 0.05)));
-      setNutritionLevel(prev => Math.max(0, prev - 0.15));
+      const waterDrain = (0.3 + (temperature - 20) * 0.05) * (effects.waterModifier || 1.0);
+      const nutritionBonus = effects.nutritionBonus || 0;
+      
+      setWaterLevel(prev => Math.max(0, prev - waterDrain));
+      setNutritionLevel(prev => Math.min(100, Math.max(0, prev - 0.15 + (nutritionBonus / 10))));
       setLightExposure(prev => Math.max(0, prev - 0.08));
+      setTemperature(prev => prev + (effects.tempModifier || 0) * 0.1);
       setTimeElapsed(prev => prev + 2);
+      
+      if (effects.healthDrainRate) {
+        setPlantHealth(prev => Math.max(0, prev - effects.healthDrainRate));
+      }
     }, 2000);
 
     return () => clearInterval(growthInterval);
-  }, [autoGrow, waterLevel, nutritionLevel, lightExposure, temperature, plantGrowth, growthRate]);
+  }, [autoGrow, waterLevel, nutritionLevel, lightExposure, temperature, plantGrowth, growthRate, effects]);
 
   const handleWater = () => {
     const newLevel = Math.min(100, waterLevel + 35);
@@ -243,8 +261,41 @@ export default function GrowingSimulator3D({
     }
   };
 
+  const handleWeatherChange = (weather, pattern) => {
+    setCurrentWeather(weather);
+    setWeatherEffects(pattern);
+  };
+
+  const handleRandomEvent = (event, effects) => {
+    setActiveEvent({ ...event, ...effects });
+  };
+
   return (
     <div className="w-full h-screen bg-gradient-to-br from-emerald-900 via-green-800 to-teal-900 p-6 overflow-hidden">
+      <DynamicWeatherSystem
+        currentSeason={currentSeason}
+        onWeatherChange={handleWeatherChange}
+        onRandomEvent={handleRandomEvent}
+        plantGrowthStage={plantGrowth}
+        hasSmartPot={progress?.active_pot === 'smart'}
+      />
+      
+      <PlantCareAI
+        plantStats={{
+          nutrition_level: nutritionLevel,
+          water_level: waterLevel,
+          light_exposure: lightExposure,
+          plant_health: plantHealth
+        }}
+        environment={{ temperature, humidity: 55 }}
+        currentWeather={currentWeather}
+        currentSeason={currentSeason}
+        pestCount={0}
+        activePests={[]}
+        growthStage={plantGrowth}
+        position="bottom-right"
+      />
+      
       <div className="max-w-7xl mx-auto h-full flex flex-col">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -519,6 +570,19 @@ export default function GrowingSimulator3D({
                 )}
               </div>
             )}
+            
+            <div className="bg-black/40 backdrop-blur-sm rounded-2xl border-2 border-purple-500/50 p-4">
+              <h3 className="text-white font-bold mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                AI Insights
+              </h3>
+              <AIInsightPanel
+                plantStats={{ water_level: waterLevel, nutrition_level: nutritionLevel, plant_health: plantHealth }}
+                currentWeather={currentWeather}
+                currentSeason={currentSeason}
+                pestTypes={[]}
+              />
+            </div>
           </div>
         </div>
       </div>

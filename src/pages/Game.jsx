@@ -13,6 +13,8 @@ import LevelObjectives from '../components/game/LevelObjectives';
 import LoreDiscovery from '../components/game/LoreDiscovery';
 import StrategyAdvisor from '../components/advisor/StrategyAdvisor';
 import InGameUpgradePanel from '../components/game/InGameUpgradePanel';
+import DynamicWeatherSystem, { useWeatherEffects } from '../components/environment/DynamicWeatherSystem';
+import PlantCareAI from '../components/ai/PlantCareAI';
 import { toast } from 'sonner';
 
 export default function Game() {
@@ -44,10 +46,13 @@ export default function Game() {
   const [currentWave, setCurrentWave] = useState(1);
   const [spawnedPowerUps, setSpawnedPowerUps] = useState([]);
   const [activePowerUps, setActivePowerUps] = useState([]);
+  const [activeRandomEvent, setActiveRandomEvent] = useState(null);
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
   const weatherTimerRef = useRef(null);
+  
+  const weatherEffects = useWeatherEffects(currentWeather, activeRandomEvent);
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -168,30 +173,30 @@ export default function Game() {
     }
   }, [progress, gameState]);
 
-  useEffect(() => {
-    if (gameState === 'playing' && !isPaused && progress) {
-      const weatherDuration = 30000;
-      const weatherChangeInterval = setInterval(() => {
-        const now = Date.now();
-        if (now > (progress.weather_end_time || 0)) {
-          const weatherTypes = ['clear', 'clear', 'rain', 'wind', 'heatwave'];
-          const newWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
-          setCurrentWeather(newWeather);
-          
-          updateProgressMutation.mutate({
-            id: progress.id,
-            data: {
-              ...progress,
-              current_weather: newWeather,
-              weather_end_time: now + weatherDuration
-            }
-          });
+  const handleWeatherChange = (weather, pattern) => {
+    setCurrentWeather(weather);
+    
+    if (progress) {
+      updateProgressMutation.mutate({
+        id: progress.id,
+        data: {
+          ...progress,
+          current_weather: weather
         }
-      }, 5000);
-
-      return () => clearInterval(weatherChangeInterval);
+      });
     }
-  }, [gameState, isPaused, progress]);
+  };
+
+  const handleRandomEvent = (event, effects) => {
+    setActiveRandomEvent({ ...event, ...effects });
+    
+    if (event.id === 'pest_outbreak') {
+      setTimeout(() => {
+        spawnPests();
+        spawnPests();
+      }, 1000);
+    }
+  };
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress) {
@@ -222,6 +227,13 @@ export default function Game() {
           nutritionDecay += 0.02;
         } else if (currentSeason === 'spring') {
           nutritionDecay -= 0.02;
+        }
+        
+        waterDecay *= (weatherEffects.waterModifier || 1.0);
+        
+        const tempChange = weatherEffects.tempModifier || 0;
+        if (tempChange !== 0) {
+          setDayNightHour(prev => Math.max(0, Math.min(24, prev + tempChange * 0.01)));
         }
 
         if (currentWeather === 'rain') {
@@ -257,6 +269,8 @@ export default function Game() {
           if (currentSeason === 'spring') growthChance += 0.01;
           if (currentSeason === 'summer') growthChance += 0.005;
           if (currentSeason === 'winter') growthChance -= 0.01;
+          
+          growthChance *= (weatherEffects.growthModifier || 1.0);
 
           if (Math.random() < growthChance) {
             updates.plant_stats.growth_level = Math.min(10, progress.plant_stats.growth_level + 0.1);
@@ -483,8 +497,10 @@ export default function Game() {
       const pestType = pestConfig.pestData;
       const behavior = getPestBehaviorType(pestType.type);
       const seasonalMods = getSeasonalPestModifiers(currentSeason, pestType.type);
+      
+      const finalSpawnChance = seasonalMods.spawnChance * (weatherEffects.pestSpawnModifier || 1.0);
 
-      if (Math.random() > seasonalMods.spawnChance) continue;
+      if (Math.random() > finalSpawnChance) continue;
 
       const angle = (i / pestCount) * Math.PI * 2;
       const distance = 8 + Math.random() * 4;
@@ -1060,6 +1076,25 @@ export default function Game() {
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
+      <DynamicWeatherSystem
+        currentSeason={currentSeason}
+        onWeatherChange={handleWeatherChange}
+        onRandomEvent={handleRandomEvent}
+        plantGrowthStage={progress?.plant_stats?.growth_level / 10 || 0}
+        hasSmartPot={progress?.active_pot === 'smart'}
+      />
+      
+      <PlantCareAI
+        plantStats={progress?.plant_stats}
+        environment={{ temperature: 22, humidity: 55 }}
+        currentWeather={currentWeather}
+        currentSeason={currentSeason}
+        pestCount={activePests.length}
+        activePests={activePests}
+        growthStage={progress?.plant_stats?.growth_level / 10 || 0}
+        position="bottom-left"
+      />
+      
       <WaveSystem
         currentWave={currentWave}
         totalWaves={20}
