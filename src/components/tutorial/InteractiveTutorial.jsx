@@ -19,7 +19,10 @@ import {
   Brain,
   X,
   Droplets,
-  Move
+  Move,
+  Crosshair, // Added new icon
+  Heart,     // Added new icon
+  Flame      // Added new icon
 } from 'lucide-react';
 
 const TUTORIAL_STEPS = [
@@ -33,7 +36,7 @@ const TUTORIAL_STEPS = [
   },
   {
     id: 'objective',
-    title: 'L\'Obiettivo',
+    title: "L'Obiettivo",
     description: 'Il tuo compito è proteggere la tua pianta di cannabis dai parassiti che la attaccano. Dovrai identificare i parassiti e applicare il BtK strategicamente per neutralizzarli prima che causino troppi danni.',
     icon: <Target className="h-8 w-8 text-green-500" />,
     buttonText: 'Capito!',

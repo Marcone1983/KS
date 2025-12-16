@@ -1,424 +1,305 @@
-import { useRef, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-export class EnemyAIController {
-  constructor() {
-    this.heatmap = new Map();
-    this.sprayZones = [];
-    this.playerPatterns = {
-      sprayFrequency: 0,
-      preferredAngles: [],
-      reactionTime: 0,
-      defenseZones: []
-    };
-    this.swarmGroups = new Map();
-    this.specialAbilityCooldowns = new Map();
+export const SPECIAL_ENEMY_TYPES = {
+  healer: {
+    name: 'Healer Aphid',
+    healRange: 5,
+    healAmount: 15,
+    healCooldown: 5000,
+    color: '#00ff88',
+    size: 'small',
+    health: 80,
+    speed: 0.6,
+    description: 'Guarisce gli altri nemici nelle vicinanze'
+  },
+  trapper: {
+    name: 'Trap Layer',
+    trapRange: 3,
+    trapDuration: 8000,
+    trapCooldown: 6000,
+    color: '#ff8800',
+    size: 'medium',
+    health: 100,
+    speed: 0.7,
+    description: 'Piazza trappole che rallentano il giocatore'
+  },
+  berserker: {
+    name: 'Berserker Beetle',
+    rageThreshold: 0.3,
+    rageDamageMultiplier: 2.5,
+    rageSpeedMultiplier: 1.8,
+    color: '#ff0000',
+    size: 'large',
+    health: 150,
+    speed: 0.5,
+    description: 'Si potenzia quando ha pochi HP'
+  },
+  summoner: {
+    name: 'Summoner Moth',
+    summonCount: 2,
+    summonCooldown: 10000,
+    minionHealth: 30,
+    color: '#9966ff',
+    size: 'medium',
+    health: 120,
+    speed: 0.6,
+    description: 'Evoca piccoli parassiti'
+  },
+  tank: {
+    name: 'Armored Tank',
+    armor: 50,
+    armorRegenRate: 5,
+    color: '#666666',
+    size: 'large',
+    health: 200,
+    speed: 0.3,
+    description: 'Corazza rigenerante'
+  },
+  speedster: {
+    name: 'Speed Demon',
+    dashCooldown: 3000,
+    dashSpeed: 3.0,
+    dashDuration: 1000,
+    color: '#00ffff',
+    size: 'small',
+    health: 60,
+    speed: 1.5,
+    description: 'Scatti rapidi imprevedibili'
   }
+};
 
-  updateHeatmap(sprayPosition, timestamp) {
-    const key = `${Math.floor(sprayPosition.x)}_${Math.floor(sprayPosition.z)}`;
-    const existing = this.heatmap.get(key) || { count: 0, lastTime: 0 };
-    this.heatmap.set(key, {
-      count: existing.count + 1,
-      lastTime: timestamp
-    });
+export const useEnemyAI = (enemies, setEnemies, plantPosition, playerPosition, gameTime) => {
+  const lastUpdateTime = useRef(Date.now());
+  const healerCooldowns = useRef({});
+  const trapperCooldowns = useRef({});
+  const summonerCooldowns = useRef({});
+  const speedsterCooldowns = useRef({});
 
-    this.sprayZones = Array.from(this.heatmap.entries())
-      .filter(([_, data]) => timestamp - data.lastTime < 10000)
-      .map(([key, data]) => {
-        const [x, z] = key.split('_').map(Number);
-        return { x, z, intensity: data.count };
-      });
-  }
+  useEffect(() => {
+    if (!enemies || enemies.length === 0) return;
 
-  analyzePlayerBehavior(playerActions) {
-    if (playerActions.length < 10) return;
+    const aiInterval = setInterval(() => {
+      const now = Date.now();
+      const deltaTime = (now - lastUpdateTime.current) / 1000;
+      lastUpdateTime.current = now;
 
-    const recent = playerActions.slice(-20);
-    this.playerPatterns.sprayFrequency = recent.filter(a => a.type === 'spray').length / 20;
+      setEnemies(prevEnemies => {
+        const updatedEnemies = [];
+        const activeTraps = [];
 
-    const angles = recent
-      .filter(a => a.angle !== undefined)
-      .map(a => a.angle);
-    
-    if (angles.length > 5) {
-      const angleGroups = {};
-      angles.forEach(angle => {
-        const bucket = Math.floor(angle / 30) * 30;
-        angleGroups[bucket] = (angleGroups[bucket] || 0) + 1;
-      });
-      
-      this.playerPatterns.preferredAngles = Object.entries(angleGroups)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([angle]) => Number(angle));
-    }
-  }
+        prevEnemies.forEach(enemy => {
+          if (!enemy || enemy.health <= 0) return;
 
-  shouldAvoidZone(position) {
-    return this.sprayZones.some(zone => {
-      const dist = Math.sqrt(
-        Math.pow(position.x - zone.x, 2) + 
-        Math.pow(position.z - zone.z, 2)
-      );
-      return dist < 2 && zone.intensity > 3;
-    });
-  }
+          let newEnemy = { ...enemy };
+          const enemyPos = new THREE.Vector3(enemy.position.x, enemy.position.y, enemy.position.z);
 
-  calculateSwarmBehavior(pest, allPests, plantPosition) {
-    const groupId = pest.swarmGroupId || 'default';
-    let group = this.swarmGroups.get(groupId);
+          if (enemy.specialType === 'healer') {
+            if (!healerCooldowns.current[enemy.id] || now - healerCooldowns.current[enemy.id] > SPECIAL_ENEMY_TYPES.healer.healCooldown) {
+              const nearbyEnemies = prevEnemies.filter(e => {
+                if (e.id === enemy.id || e.health <= 0 || e.health >= e.maxHealth) return false;
+                const dist = enemyPos.distanceTo(new THREE.Vector3(e.position.x, e.position.y, e.position.z));
+                return dist < SPECIAL_ENEMY_TYPES.healer.healRange;
+              });
 
-    if (!group) {
-      group = {
-        members: [],
-        leader: null,
-        formation: 'wedge',
-        targetAngle: Math.random() * Math.PI * 2
-      };
-      this.swarmGroups.set(groupId, group);
-    }
-
-    const nearbyPests = allPests.filter(p => {
-      if (!p.position) return false;
-      const dist = Math.sqrt(
-        Math.pow(p.position.x - pest.position.x, 2) +
-        Math.pow(p.position.z - pest.position.z, 2)
-      );
-      return dist < 4 && p.id !== pest.id;
-    });
-
-    group.members = [pest, ...nearbyPests];
-
-    if (!group.leader || !group.members.find(m => m.id === group.leader.id)) {
-      group.leader = group.members.reduce((strongest, current) => 
-        (current.health > strongest.health) ? current : strongest
-      );
-    }
-
-    const isLeader = pest.id === group.leader.id;
-
-    if (isLeader) {
-      const toPlant = new THREE.Vector2(
-        plantPosition.x - pest.position.x,
-        plantPosition.z - pest.position.z
-      ).normalize();
-
-      if (this.shouldAvoidZone(pest.position)) {
-        const avoidAngle = group.targetAngle + Math.PI / 2;
-        return {
-          x: Math.cos(avoidAngle),
-          z: Math.sin(avoidAngle),
-          coordinated: true,
-          role: 'leader'
-        };
-      }
-
-      group.targetAngle = Math.atan2(toPlant.y, toPlant.x);
-      return { x: toPlant.x, z: toPlant.y, coordinated: true, role: 'leader' };
-    } else {
-      const formations = {
-        wedge: (index, total) => ({
-          offsetAngle: (index / total) * Math.PI / 3 - Math.PI / 6,
-          distance: 1.5
-        }),
-        circle: (index, total) => ({
-          offsetAngle: (index / total) * Math.PI * 2,
-          distance: 2
-        }),
-        line: (index, total) => ({
-          offsetAngle: 0,
-          distance: 1 * index
-        })
-      };
-
-      const memberIndex = group.members.findIndex(m => m.id === pest.id);
-      const formation = formations[group.formation](memberIndex, group.members.length);
-
-      const targetAngle = group.targetAngle + formation.offsetAngle;
-      const leaderPos = group.leader.position;
-
-      const targetX = leaderPos.x + Math.cos(targetAngle) * formation.distance;
-      const targetZ = leaderPos.z + Math.sin(targetAngle) * formation.distance;
-
-      const toTarget = new THREE.Vector2(
-        targetX - pest.position.x,
-        targetZ - pest.position.z
-      ).normalize();
-
-      return { x: toTarget.x, z: toTarget.y, coordinated: true, role: 'follower' };
-    }
-  }
-
-  executeSpecialAbility(pest, allPests, timestamp) {
-    const cooldownKey = `${pest.id}_${pest.specialAbility}`;
-    const lastUse = this.specialAbilityCooldowns.get(cooldownKey) || 0;
-
-    if (timestamp - lastUse < pest.abilityCooldown) {
-      return null;
-    }
-
-    let abilityResult = null;
-
-    switch (pest.specialAbility) {
-      case 'healer':
-        const injured = allPests
-          .filter(p => p.health < p.maxHealth * 0.5 && p.id !== pest.id)
-          .sort((a, b) => a.health - b.health)[0];
-
-        if (injured) {
-          const dist = Math.sqrt(
-            Math.pow(injured.position.x - pest.position.x, 2) +
-            Math.pow(injured.position.z - pest.position.z, 2)
-          );
-
-          if (dist < 3) {
-            abilityResult = {
-              type: 'heal',
-              targetId: injured.id,
-              amount: pest.maxHealth * 0.2,
-              castTime: 2000
-            };
-          }
-        }
-        break;
-
-      case 'trapper':
-        const playerApproachZone = this.sprayZones
-          .sort((a, b) => b.intensity - a.intensity)[0];
-
-        if (playerApproachZone) {
-          abilityResult = {
-            type: 'trap',
-            position: { x: playerApproachZone.x, z: playerApproachZone.z },
-            duration: 8000,
-            effect: 'slow',
-            radius: 2
-          };
-        }
-        break;
-
-      case 'berserker':
-        if (pest.health < pest.maxHealth * 0.3) {
-          abilityResult = {
-            type: 'berserker',
-            targetId: pest.id,
-            speedMultiplier: 2.0,
-            damageMultiplier: 1.5,
-            duration: 5000
-          };
-        }
-        break;
-
-      case 'spawner':
-        if (allPests.length < 15) {
-          abilityResult = {
-            type: 'spawn',
-            count: 2,
-            position: pest.position,
-            spawnType: 'minion'
-          };
-        }
-        break;
-
-      case 'teleporter':
-        if (this.shouldAvoidZone(pest.position)) {
-          const safeZones = [];
-          for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const testPos = {
-              x: Math.cos(angle) * 6,
-              z: Math.sin(angle) * 6
-            };
-            if (!this.shouldAvoidZone(testPos)) {
-              safeZones.push(testPos);
+              if (nearbyEnemies.length > 0) {
+                nearbyEnemies.forEach(target => {
+                  const targetIndex = prevEnemies.findIndex(e => e.id === target.id);
+                  if (targetIndex !== -1) {
+                    prevEnemies[targetIndex].health = Math.min(
+                      prevEnemies[targetIndex].maxHealth,
+                      prevEnemies[targetIndex].health + SPECIAL_ENEMY_TYPES.healer.healAmount
+                    );
+                    prevEnemies[targetIndex].justHealed = true;
+                  }
+                });
+                
+                newEnemy.isHealing = true;
+                healerCooldowns.current[enemy.id] = now;
+                
+                setTimeout(() => {
+                  setEnemies(prev => prev.map(e => 
+                    e.id === enemy.id ? { ...e, isHealing: false } : e
+                  ));
+                }, 500);
+              }
             }
           }
 
-          if (safeZones.length > 0) {
-            abilityResult = {
-              type: 'teleport',
-              targetId: pest.id,
-              position: safeZones[Math.floor(Math.random() * safeZones.length)]
-            };
-          }
-        }
-        break;
+          if (enemy.specialType === 'trapper') {
+            if (!trapperCooldowns.current[enemy.id] || now - trapperCooldowns.current[enemy.id] > SPECIAL_ENEMY_TYPES.trapper.trapCooldown) {
+              const distToPlant = enemyPos.distanceTo(new THREE.Vector3(plantPosition[0], plantPosition[1], plantPosition[2]));
+              
+              if (distToPlant < 6 && distToPlant > 2) {
+                const trapPosition = {
+                  x: enemy.position.x + (Math.random() - 0.5) * 2,
+                  y: 0.1,
+                  z: enemy.position.z + (Math.random() - 0.5) * 2
+                };
 
-      case 'shield':
-        const nearbyAllies = allPests.filter(p => {
-          const dist = Math.sqrt(
-            Math.pow(p.position.x - pest.position.x, 2) +
-            Math.pow(p.position.z - pest.position.z, 2)
-          );
-          return dist < 4 && p.id !== pest.id;
+                activeTraps.push({
+                  id: `trap_${enemy.id}_${now}`,
+                  position: trapPosition,
+                  createdAt: now,
+                  duration: SPECIAL_ENEMY_TYPES.trapper.trapDuration,
+                  range: SPECIAL_ENEMY_TYPES.trapper.trapRange,
+                  ownerId: enemy.id
+                });
+
+                newEnemy.justPlacedTrap = true;
+                trapperCooldowns.current[enemy.id] = now;
+
+                setTimeout(() => {
+                  setEnemies(prev => prev.map(e => 
+                    e.id === enemy.id ? { ...e, justPlacedTrap: false } : e
+                  ));
+                }, 500);
+              }
+            }
+          }
+
+          if (enemy.specialType === 'berserker') {
+            const healthPercent = enemy.health / enemy.maxHealth;
+            
+            if (healthPercent <= SPECIAL_ENEMY_TYPES.berserker.rageThreshold && !enemy.isEnraged) {
+              newEnemy.isEnraged = true;
+              newEnemy.damage = (enemy.baseDamage || enemy.damage) * SPECIAL_ENEMY_TYPES.berserker.rageDamageMultiplier;
+              newEnemy.speed = (enemy.baseSpeed || enemy.speed) * SPECIAL_ENEMY_TYPES.berserker.rageSpeedMultiplier;
+              newEnemy.color = '#ff0000';
+              newEnemy.glowIntensity = 2.0;
+            }
+          }
+
+          if (enemy.specialType === 'summoner') {
+            if (!summonerCooldowns.current[enemy.id] || now - summonerCooldowns.current[enemy.id] > SPECIAL_ENEMY_TYPES.summoner.summonCooldown) {
+              const distToPlant = enemyPos.distanceTo(new THREE.Vector3(plantPosition[0], plantPosition[1], plantPosition[2]));
+              
+              if (distToPlant < 8) {
+                for (let i = 0; i < SPECIAL_ENEMY_TYPES.summoner.summonCount; i++) {
+                  const angle = (Math.PI * 2 / SPECIAL_ENEMY_TYPES.summoner.summonCount) * i;
+                  const distance = 1.5;
+                  
+                  const minion = {
+                    id: `minion_${enemy.id}_${now}_${i}`,
+                    type: 'summoned_minion',
+                    name: 'Summoned Pest',
+                    health: SPECIAL_ENEMY_TYPES.summoner.minionHealth,
+                    maxHealth: SPECIAL_ENEMY_TYPES.summoner.minionHealth,
+                    speed: 0.8,
+                    damage: 0.3,
+                    position: {
+                      x: enemy.position.x + Math.cos(angle) * distance,
+                      y: enemy.position.y,
+                      z: enemy.position.z + Math.sin(angle) * distance
+                    },
+                    color: '#dd88ff',
+                    size: 'tiny',
+                    behavior: 'fast',
+                    isMinion: true,
+                    masterId: enemy.id
+                  };
+
+                  updatedEnemies.push(minion);
+                }
+
+                newEnemy.isSummoning = true;
+                summonerCooldowns.current[enemy.id] = now;
+
+                setTimeout(() => {
+                  setEnemies(prev => prev.map(e => 
+                    e.id === enemy.id ? { ...e, isSummoning: false } : e
+                  ));
+                }, 1000);
+              }
+            }
+          }
+
+          if (enemy.specialType === 'tank') {
+            if (!enemy.currentArmor) {
+              newEnemy.currentArmor = SPECIAL_ENEMY_TYPES.tank.armor;
+            }
+
+            if (newEnemy.currentArmor < SPECIAL_ENEMY_TYPES.tank.armor) {
+              newEnemy.currentArmor = Math.min(
+                SPECIAL_ENEMY_TYPES.tank.armor,
+                newEnemy.currentArmor + SPECIAL_ENEMY_TYPES.tank.armorRegenRate * deltaTime
+              );
+            }
+          }
+
+          if (enemy.specialType === 'speedster') {
+            if (!speedsterCooldowns.current[enemy.id] || now - speedsterCooldowns.current[enemy.id] > SPECIAL_ENEMY_TYPES.speedster.dashCooldown) {
+              const distToPlant = enemyPos.distanceTo(new THREE.Vector3(plantPosition[0], plantPosition[1], plantPosition[2]));
+              
+              if (distToPlant < 10 && distToPlant > 3 && Math.random() > 0.7) {
+                newEnemy.isDashing = true;
+                newEnemy.dashEndTime = now + SPECIAL_ENEMY_TYPES.speedster.dashDuration;
+                newEnemy.dashSpeed = SPECIAL_ENEMY_TYPES.speedster.dashSpeed;
+                speedsterCooldowns.current[enemy.id] = now;
+
+                setTimeout(() => {
+                  setEnemies(prev => prev.map(e => 
+                    e.id === enemy.id ? { ...e, isDashing: false, dashSpeed: undefined } : e
+                  ));
+                }, SPECIAL_ENEMY_TYPES.speedster.dashDuration);
+              }
+            }
+          }
+
+          if (newEnemy.justHealed) {
+            setTimeout(() => {
+              setEnemies(prev => prev.map(e => 
+                e.id === enemy.id ? { ...e, justHealed: false } : e
+              ));
+            }, 1000);
+          }
+
+          updatedEnemies.push(newEnemy);
         });
 
-        if (nearbyAllies.length >= 2) {
-          abilityResult = {
-            type: 'shield',
-            targetIds: nearbyAllies.map(p => p.id),
-            damageReduction: 0.5,
-            duration: 6000
-          };
+        if (activeTraps.length > 0) {
+          updatedEnemies.forEach(enemy => {
+            if (!enemy.activeTraps) enemy.activeTraps = [];
+            enemy.activeTraps = [...enemy.activeTraps, ...activeTraps];
+          });
         }
-        break;
-    }
 
-    if (abilityResult) {
-      this.specialAbilityCooldowns.set(cooldownKey, timestamp);
-    }
-
-    return abilityResult;
-  }
-
-  calculateAdaptiveMovement(pest, plantPosition, cameraPosition, allPests, timestamp) {
-    const baseDirection = new THREE.Vector2(
-      plantPosition.x - pest.position.x,
-      plantPosition.z - pest.position.z
-    ).normalize();
-
-    if (this.shouldAvoidZone(pest.position)) {
-      const avoidVector = new THREE.Vector2();
-      
-      this.sprayZones.forEach(zone => {
-        const toZone = new THREE.Vector2(
-          pest.position.x - zone.x,
-          pest.position.z - zone.z
-        );
-        const dist = toZone.length();
-        if (dist < 3) {
-          toZone.normalize().multiplyScalar(1 / (dist + 0.1));
-          avoidVector.add(toZone);
-        }
+        return updatedEnemies;
       });
+    }, 100);
 
-      baseDirection.add(avoidVector.normalize().multiplyScalar(0.7));
-      baseDirection.normalize();
+    return () => clearInterval(aiInterval);
+  }, [enemies?.length, setEnemies, plantPosition, playerPosition, gameTime]);
 
-      return {
-        direction: baseDirection,
-        speedMultiplier: 1.3,
-        behavior: 'avoiding',
-        isAdaptive: true
-      };
-    }
+  return null;
+};
 
-    if (pest.behavior === 'coordinated' || pest.type === 'swarm_coordinator') {
-      const swarmDir = this.calculateSwarmBehavior(pest, allPests, plantPosition);
-      return {
-        direction: new THREE.Vector2(swarmDir.x, swarmDir.z),
-        speedMultiplier: 1.0,
-        behavior: 'coordinated',
-        role: swarmDir.role,
-        isAdaptive: true
-      };
-    }
+export const spawnSpecialEnemy = (specialType, position, level = 1) => {
+  const config = SPECIAL_ENEMY_TYPES[specialType];
+  if (!config) return null;
 
-    const toCameraAngle = Math.atan2(
-      cameraPosition.z - pest.position.z,
-      cameraPosition.x - pest.position.x
-    );
-
-    if (this.playerPatterns.preferredAngles.length > 0) {
-      const preferredAngle = this.playerPatterns.preferredAngles[0] * (Math.PI / 180);
-      const angleDiff = Math.abs(toCameraAngle - preferredAngle);
-      
-      if (angleDiff < Math.PI / 4) {
-        const flanking = toCameraAngle + Math.PI / 2;
-        baseDirection.x = Math.cos(flanking) * 0.6 + baseDirection.x * 0.4;
-        baseDirection.y = Math.sin(flanking) * 0.6 + baseDirection.y * 0.4;
-        baseDirection.normalize();
-
-        return {
-          direction: baseDirection,
-          speedMultiplier: 1.1,
-          behavior: 'flanking',
-          isAdaptive: true
-        };
-      }
-    }
-
-    if (pest.behavior === 'zigzag') {
-      const zigzagAngle = Math.sin(timestamp / 500) * Math.PI / 4;
-      const rotated = new THREE.Vector2(
-        baseDirection.x * Math.cos(zigzagAngle) - baseDirection.y * Math.sin(zigzagAngle),
-        baseDirection.x * Math.sin(zigzagAngle) + baseDirection.y * Math.cos(zigzagAngle)
-      );
-      return {
-        direction: rotated,
-        speedMultiplier: 1.0,
-        behavior: 'zigzag',
-        isAdaptive: false
-      };
-    }
-
-    return {
-      direction: baseDirection,
-      speedMultiplier: 1.0,
-      behavior: 'normal',
-      isAdaptive: false
-    };
-  }
-
-  reset() {
-    this.heatmap.clear();
-    this.sprayZones = [];
-    this.playerPatterns = {
-      sprayFrequency: 0,
-      preferredAngles: [],
-      reactionTime: 0,
-      defenseZones: []
-    };
-    this.swarmGroups.clear();
-    this.specialAbilityCooldowns.clear();
-  }
-}
-
-export function useAdvancedEnemyAI() {
-  const aiController = useRef(new EnemyAIController());
-  const playerActions = useRef([]);
-
-  const trackPlayerAction = (action) => {
-    playerActions.current.push({
-      ...action,
-      timestamp: Date.now()
-    });
-
-    if (playerActions.current.length > 100) {
-      playerActions.current = playerActions.current.slice(-50);
-    }
-
-    if (action.type === 'spray' && action.position) {
-      aiController.current.updateHeatmap(action.position, Date.now());
-    }
-
-    aiController.current.analyzePlayerBehavior(playerActions.current);
-  };
-
-  const getMovementForPest = (pest, plantPosition, cameraPosition, allPests) => {
-    return aiController.current.calculateAdaptiveMovement(
-      pest,
-      plantPosition,
-      cameraPosition,
-      allPests,
-      Date.now()
-    );
-  };
-
-  const checkSpecialAbility = (pest, allPests) => {
-    return aiController.current.executeSpecialAbility(pest, allPests, Date.now());
-  };
-
-  const resetAI = () => {
-    aiController.current.reset();
-    playerActions.current = [];
-  };
+  const levelMultiplier = 1 + (level - 1) * 0.15;
 
   return {
-    trackPlayerAction,
-    getMovementForPest,
-    checkSpecialAbility,
-    resetAI
+    id: `special_${specialType}_${Date.now()}_${Math.random()}`,
+    specialType,
+    name: config.name,
+    type: specialType,
+    health: Math.floor(config.health * levelMultiplier),
+    maxHealth: Math.floor(config.health * levelMultiplier),
+    speed: config.speed,
+    baseSpeed: config.speed,
+    damage: 1.0,
+    baseDamage: 1.0,
+    position: position || { x: 0, y: 1, z: -10 },
+    color: config.color,
+    size: config.size,
+    behavior: specialType,
+    glowIntensity: 1.5,
+    isSpecial: true,
+    description: config.description,
+    currentArmor: specialType === 'tank' ? config.armor : undefined
   };
-}
+};
+
+export default useEnemyAI;
