@@ -42,7 +42,7 @@ export default function Game() {
   const [levelObjectives, setLevelObjectives] = useState([]);
   const [discoveredLore, setDiscoveredLore] = useState(null);
   const [currentSeason, setCurrentSeason] = useState('spring');
-  const [waveState, setWaveState] = useState('preparing');
+  const [waveState, setWaveState] = useState('active');
   const [currentWave, setCurrentWave] = useState(1);
   const [spawnedPowerUps, setSpawnedPowerUps] = useState([]);
   const [activePowerUps, setActivePowerUps] = useState([]);
@@ -1159,20 +1159,22 @@ export default function Game() {
         position="bottom-left"
       />
       
-      <WaveSystem
-        currentWave={currentWave}
-        totalWaves={20}
-        waveProgress={(Object.values(pestsEliminated).reduce((a, b) => a + b, 0) / Math.max(1, activePests.length + Object.values(pestsEliminated).reduce((a, b) => a + b, 0)))}
-        pestsRemaining={activePests.length}
-        totalPests={activePests.length + Object.values(pestsEliminated).reduce((a, b) => a + b, 0)}
-        waveState={waveState}
-        onWaveStart={() => setWaveState('active')}
-        onWaveComplete={() => {
-          setCurrentWave(w => w + 1);
-          setWaveState('preparing');
-        }}
-        rewards={{ leaves: level * 50, experience: level * 100 }}
-      />
+      {waveState !== 'hidden' && (
+        <WaveSystem
+          currentWave={currentWave}
+          totalWaves={20}
+          waveProgress={(Object.values(pestsEliminated).reduce((a, b) => a + b, 0) / Math.max(1, activePests.length + Object.values(pestsEliminated).reduce((a, b) => a + b, 0)))}
+          pestsRemaining={activePests.length}
+          totalPests={activePests.length + Object.values(pestsEliminated).reduce((a, b) => a + b, 0)}
+          waveState={waveState}
+          onWaveStart={() => setWaveState('active')}
+          onWaveComplete={() => {
+            setCurrentWave(w => w + 1);
+            setWaveState('active');
+          }}
+          rewards={{ leaves: level * 50, experience: level * 100 }}
+        />
+      )}
       
       <ActivePowerUpHUD activePowerUps={activePowerUps} />
       

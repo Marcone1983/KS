@@ -244,6 +244,31 @@ export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDa
             <sphereGeometry args={[0.08, 8, 8]} />
             <meshStandardMaterial color={flower.color} roughness={0.4} emissive={flower.color} emissiveIntensity={0.3} />
           </mesh>
+          {Array.from({ length: 6 }).map((_, p) => {
+            const petalAngle = (p / 6) * Math.PI * 2;
+            return (
+              <mesh
+                key={p}
+                position={[
+                  Math.cos(petalAngle) * 0.06,
+                  0.3,
+                  Math.sin(petalAngle) * 0.06
+                ]}
+                rotation-x={Math.PI / 2}
+                rotation-z={petalAngle}
+                castShadow
+              >
+                <planeGeometry args={[0.05, 0.08]} />
+                <meshStandardMaterial
+                  color={flower.color}
+                  roughness={0.3}
+                  side={2}
+                  emissive={flower.color}
+                  emissiveIntensity={0.2}
+                />
+              </mesh>
+            );
+          })}
         </group>
       ))}
 

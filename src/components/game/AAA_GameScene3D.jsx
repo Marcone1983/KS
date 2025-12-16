@@ -17,6 +17,7 @@ import EnhancedSprayParticles from './EnhancedSprayParticles';
 import RainSystem from './RainSystem';
 import EnhancedPests3D from './EnhancedPests3D';
 import PowerUpSystem from './PowerUps';
+import { FogParticles, VolumetricLight, DynamicWater, Butterflies, Fireflies } from '../environment/AtmosphericEffects';
 
 function CameraController({ onPestKilled, activePests }) {
   const { camera } = useThree();
@@ -254,7 +255,7 @@ export default function AAA_GameScene3D({
         <GameLighting dayNightHour={dayNightHour} currentWeather={currentWeather} />
         
         <EnhancedProceduralTerrain windStrength={windStrength} timeOfDay={timeOfDay} weather={currentWeather} />
-        
+
         <CannabisPlantR3F_AAA
           position={[0, 0.47, -1.5]}
           health={plantHealth}
@@ -264,6 +265,12 @@ export default function AAA_GameScene3D({
           trichomeMaturity={0.6}
           genetics={{}}
         />
+
+        <FogParticles count={currentWeather === 'fog' ? 800 : 300} density={currentWeather === 'fog' ? 1.0 : 0.3} timeOfDay={timeOfDay} />
+        <VolumetricLight position={[10, 15, 5]} color={0xffffaa} intensity={timeOfDay === 'day' ? 1.5 : 0.5} timeOfDay={timeOfDay} />
+        <DynamicWater position={[-10, 0.01, -15]} size={[8, 8]} timeOfDay={timeOfDay} />
+        <Butterflies count={timeOfDay === 'day' ? 15 : 5} />
+        <Fireflies count={50} timeOfDay={timeOfDay} />
         
         <EnhancedPests3D pests={activePests} onPestHit={onPestKilled} />
         
