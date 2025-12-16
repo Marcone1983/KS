@@ -115,14 +115,11 @@ export default function Game() {
   });
 
   const updateProgressMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.GameProgress.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
-    }
+    mutationFn: ({ id, data }) => base44.entities.GameProgress.update(id, data)
   });
 
   useEffect(() => {
-    if (progress && gameState === 'loading') {
+    if (progress?.id && gameState === 'loading') {
       const loadLevel = async () => {
         setCurrentSeason(progress.current_season || 'spring');
 
@@ -171,20 +168,10 @@ export default function Game() {
 
       loadLevel();
     }
-  }, [progress, gameState]);
+  }, [progress?.id, gameState]);
 
   const handleWeatherChange = (weather, pattern) => {
     setCurrentWeather(weather);
-    
-    if (progress) {
-      updateProgressMutation.mutate({
-        id: progress.id,
-        data: {
-          ...progress,
-          current_weather: weather
-        }
-      });
-    }
   };
 
   const handleRandomEvent = (event, effects) => {
@@ -199,8 +186,8 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && progress) {
-      const cycleSpeed = progress.day_night_cycle?.cycle_speed || 1;
+    if (gameState === 'playing' && !isPaused && progress?.day_night_cycle) {
+      const cycleSpeed = progress.day_night_cycle.cycle_speed || 1;
       const interval = setInterval(() => {
         setDayNightHour(prev => {
           const newHour = (prev + (0.1 * cycleSpeed)) % 24;
@@ -209,10 +196,10 @@ export default function Game() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [gameState, isPaused, progress]);
+  }, [gameState, isPaused, progress?.day_night_cycle?.cycle_speed]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && progress) {
+    if (gameState === 'playing' && !isPaused && progress?.id) {
       const plantDecayInterval = setInterval(() => {
         if (!progress?.plant_stats) return;
 
@@ -238,18 +225,6 @@ export default function Game() {
 
         if (currentWeather === 'rain') {
           waterDecay = -0.5;
-          const newWaterLevel = Math.min(100, progress.plant_stats.water_level - waterDecay);
-          updateProgressMutation.mutate({
-            id: progress.id,
-            data: {
-              ...progress,
-              plant_stats: {
-                ...progress.plant_stats,
-                water_level: newWaterLevel
-              }
-            }
-          });
-          return;
         } else if (currentWeather === 'heatwave') {
           waterDecay = 0.25;
         } else if (currentWeather === 'wind') {
@@ -280,13 +255,11 @@ export default function Game() {
         if (progress.plant_stats.water_level < 20 || progress.plant_stats.nutrition_level < 20) {
           setPlantHealth(prev => Math.max(0, prev - 0.2));
         }
-
-        updateProgressMutation.mutate({ id: progress.id, data: updates });
       }, 3000);
 
       return () => clearInterval(plantDecayInterval);
     }
-  }, [gameState, isPaused, progress, dayNightHour, currentSeason, currentWeather]);
+  }, [gameState, isPaused, progress?.id, dayNightHour, currentSeason, currentWeather, weatherEffects]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
@@ -304,8 +277,8 @@ export default function Game() {
   }, [plantHealth, gameState]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && !activeBoss && allBosses.length > 0) {
-      if (proceduralLevelData && proceduralLevelData.boss) {
+    if (gameState === 'playing' && !isPaused && !activeBoss && allBosses.length > 0 && level > 0) {
+      if (proceduralLevelData?.boss) {
         const bossConfig = proceduralLevelData.boss;
         const bossData = allBosses.find(b => b.id === bossConfig.boss_id);
         if (bossData) {
@@ -324,7 +297,7 @@ export default function Game() {
         }
       }
     }
-  }, [level, gameState, isPaused, activeBoss, allBosses, proceduralLevelData]);
+  }, [level, gameState, isPaused, activeBoss?.id, allBosses.length]);
 
   const spawnBoss = (bossData) => {
     const healthMultiplier = 1 + (level - bossData.level_appearance) * 0.2;
@@ -563,13 +536,13 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && !activeBoss) {
+    if (gameState === 'playing' && !isPaused && !activeBoss && allPests.length > 0) {
       const spawnDelay = Math.max(3000 - (level * 100), 2000);
       const spawnInterval = setInterval(spawnPests, spawnDelay);
       spawnPests();
       return () => clearInterval(spawnInterval);
     }
-  }, [gameState, isPaused, level, allPests, activeBoss]);
+  }, [gameState, isPaused, level, allPests.length, activeBoss?.id]);
 
   const handleBossHit = (damage) => {
     if (!activeBoss) return;
@@ -755,8 +728,8 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && progress) {
-      const refillSpeed = progress.upgrades?.refill_speed || 1;
+    if (gameState === 'playing' && !isPaused && progress?.upgrades) {
+      const refillSpeed = progress.upgrades.refill_speed || 1;
       const refillAmount = 1 + (refillSpeed - 1) * 0.3;
       const refillDelay = Math.max(50, 200 - (refillSpeed - 1) * 15);
       
@@ -765,15 +738,11 @@ export default function Game() {
       }, refillDelay);
       return () => clearInterval(refillInterval);
     }
-  }, [gameState, isPaused, progress]);
+  }, [gameState, isPaused, progress?.upgrades?.refill_speed]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress?.plant_stats) {
-      let resistanceBonus = progress.plant_stats.resistance_bonus || 0;
-      const activeBuffs = (progress.plant_stats?.temporary_buffs || []).filter(buff => buff.expiresAt > Date.now());
-      const tempResistance = activeBuffs.reduce((sum, buff) => sum + (buff.type === 'resistance' ? buff.value : 0), 0);
-      resistanceBonus += tempResistance;
-      
+      const resistanceBonus = progress.plant_stats.resistance_bonus || 0;
       const damageReduction = 1 - (Math.min(resistanceBonus, 75) / 100);
       
       const damageInterval = setInterval(() => {
@@ -812,13 +781,13 @@ export default function Game() {
       }, 500);
       return () => clearInterval(damageInterval);
     }
-  }, [gameState, isPaused, activePests, activeBoss, toxicClouds, progress]);
+  }, [gameState, isPaused, activePests.length, activeBoss?.id, toxicClouds.length, progress?.plant_stats?.resistance_bonus]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && progress) {
-      const sprayDuration = progress.upgrades?.spray_duration || 1;
-      const slowEffect = progress.upgrades?.slow_effect || 0;
-      const areaDamage = progress.upgrades?.area_damage || 0;
+    if (gameState === 'playing' && !isPaused && progress?.upgrades) {
+      const sprayDuration = progress.upgrades.spray_duration || 1;
+      const slowEffect = progress.upgrades.slow_effect || 0;
+      const areaDamage = progress.upgrades.area_damage || 0;
 
       if (activeSprayEffects.length > 0) {
         const effectInterval = setInterval(() => {
@@ -858,7 +827,7 @@ export default function Game() {
         return () => clearInterval(effectInterval);
       }
     }
-  }, [gameState, isPaused, activeSprayEffects, progress]);
+  }, [gameState, isPaused, activeSprayEffects.length, progress?.upgrades?.spray_duration, progress?.upgrades?.slow_effect, progress?.upgrades?.area_damage]);
 
   const endGame = async (completed) => {
     setGameState('gameover');
@@ -960,6 +929,7 @@ export default function Game() {
       await updateProgressMutation.mutateAsync({ id: progress.id, data: updates });
     }
     
+    queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
     queryClient.invalidateQueries({ queryKey: ['playerSkillTree'] });
   };
 
@@ -988,6 +958,7 @@ export default function Game() {
     updates.leaf_currency = progress.leaf_currency - cost;
     
     await updateProgressMutation.mutateAsync({ id: progress.id, data: updates });
+    queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
     toast.success('Potenziamento acquistato!');
   };
 
@@ -1010,7 +981,7 @@ export default function Game() {
   };
 
   useEffect(() => {
-    if (activeBoss && activeBoss.type === 'swarm' && gameState === 'playing' && !isPaused) {
+    if (activeBoss?.type === 'swarm' && gameState === 'playing' && !isPaused && allPests.length > 0) {
       bossSpawnTimerRef.current = setInterval(() => {
         const now = Date.now();
         if (now - activeBoss.lastSpawnTime > 4000 && allPests.length > 0) {
@@ -1049,10 +1020,10 @@ export default function Game() {
         }
       };
     }
-  }, [activeBoss, gameState, isPaused, allPests]);
+  }, [activeBoss?.id, activeBoss?.type, gameState, isPaused, allPests.length]);
 
   useEffect(() => {
-    if (activeBoss && activeBoss.type === 'toxic' && gameState === 'playing' && !isPaused) {
+    if (activeBoss?.type === 'toxic' && gameState === 'playing' && !isPaused) {
       toxicCloudTimerRef.current = setInterval(() => {
         const now = Date.now();
         if (now - activeBoss.lastToxicTime > 6000) {
@@ -1074,7 +1045,7 @@ export default function Game() {
         }
       };
     }
-  }, [activeBoss, gameState, isPaused]);
+  }, [activeBoss?.id, activeBoss?.type, gameState, isPaused]);
 
   useEffect(() => {
     if (toxicClouds.length > 0) {
