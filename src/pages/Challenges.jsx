@@ -68,10 +68,10 @@ export default function Challenges() {
         rewards_claimed: true
       });
 
-      if (progression) {
+      if (progression?.id) {
         const updates = {
-          total_xp: progression.total_xp + (rewards.xp || 0),
-          current_xp: progression.current_xp + (rewards.xp || 0)
+          total_xp: (progression.total_xp || 0) + (rewards.xp || 0),
+          current_xp: (progression.current_xp || 0) + (rewards.xp || 0)
         };
 
         if (updates.current_xp >= (progression.xp_to_next_level || 100)) {
@@ -82,13 +82,13 @@ export default function Challenges() {
         }
 
         await base44.entities.PlayerProgression.update(progression.id, updates);
-        }
+      }
 
-        if (gameProgress?.id && rewards.leaf) {
+      if (gameProgress?.id && rewards.leaf) {
         await base44.entities.GameProgress.update(gameProgress.id, {
           leaf_currency: (gameProgress.leaf_currency || 0) + rewards.leaf
         });
-        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['playerChallenges'] });
