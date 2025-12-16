@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Bug, Sparkles, Leaf, Lock, BookOpen, Target, Shield, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from './utils';
+import { createPageUrl } from '../utils';
 import { POWERUP_EFFECTS } from '../components/game/PowerUps';
 import { PLANT_TYPES } from '../components/game/PlantTypeSelector';
 
@@ -268,6 +268,7 @@ export default function Codex() {
               <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
                 <div className="text-sm text-green-400 font-bold mb-1">WEAKNESS</div>
                 <div className="text-white">Bacillus thuringiensis kurstaki (Btk) spray is highly effective. Target with consistent spray patterns to eliminate quickly.</div>
+              </div>Btk) spray is highly effective. Target with consistent spray patterns to eliminate quickly.</div>
               </div>
             </CardContent>
           </Card>
