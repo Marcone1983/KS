@@ -22,7 +22,9 @@ import {
   Move,
   Crosshair, // Added new icon
   Heart,     // Added new icon
-  Flame      // Added new icon
+  Flame,     // Added new icon
+  Wind,      // Added new icon
+  Skull      // Added new icon
 } from 'lucide-react';
 
 const TUTORIAL_STEPS = [
