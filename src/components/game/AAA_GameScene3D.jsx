@@ -18,6 +18,7 @@ import RainSystem from './RainSystem';
 import EnhancedPests3D from './EnhancedPests3D';
 import PowerUpSystem from './PowerUps';
 import { FogParticles, VolumetricLight, DynamicWater, Butterflies, Fireflies, EnhancedRainSystem } from '../environment/AtmosphericEffects';
+import PerformanceMonitor, { PerformanceOverlay } from './PerformanceMonitor';
 
 function CameraController({ onPestKilled, activePests }) {
   const { camera } = useThree();
@@ -234,12 +235,28 @@ export default function AAA_GameScene3D({
   postFxPreset = 'realistic',
   gameLevel = 1
 }) {
+  const [debugVisible, setDebugVisible] = useState(false);
+  const [metrics, setMetrics] = useState({ fps: 0, drawCalls: 0, triangles: 0 });
+
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === 'd' || e.key === 'D') {
+        setDebugVisible(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
   const timeOfDay = useMemo(() => {
     return (dayNightHour >= 6 && dayNightHour < 17) ? 'day' : (dayNightHour >= 17 && dayNightHour < 20) ? 'sunset' : 'night';
   }, [dayNightHour]);
   
   return (
     <div className="w-full h-screen bg-black">
+      <PerformanceOverlay metrics={metrics} visible={debugVisible} />
+      
       <Canvas
         shadows
         gl={{ 
@@ -255,6 +272,8 @@ export default function AAA_GameScene3D({
         performance={{ min: 0.5 }}
       >
         <PerspectiveCamera makeDefault position={[0, 1.4, 2.2]} fov={75} near={0.01} far={100} />
+        
+        <PerformanceMonitor visible={debugVisible} onMetricsUpdate={setMetrics} />
         
         <GameLighting dayNightHour={dayNightHour} currentWeather={currentWeather} />
 
@@ -331,6 +350,7 @@ export default function AAA_GameScene3D({
         <div className="font-bold text-green-400">Controls</div>
         <div>MOUSE — Look Around</div>
         <div>CLICK/SPACE — Spray</div>
+        <div>D — Toggle Debug</div>
       </div>
     </div>
   );
