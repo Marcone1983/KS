@@ -1060,14 +1060,38 @@ export default function Game() {
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
-      <HempSprayFPV_Realistic 
-        activePests={activePests}
+      <WaveSystem
+        currentWave={currentWave}
+        totalWaves={20}
+        waveProgress={(Object.values(pestsEliminated).reduce((a, b) => a + b, 0) / Math.max(1, activePests.length + Object.values(pestsEliminated).reduce((a, b) => a + b, 0)))}
+        pestsRemaining={activePests.length}
+        totalPests={activePests.length + Object.values(pestsEliminated).reduce((a, b) => a + b, 0)}
+        waveState={waveState}
+        onWaveStart={() => setWaveState('active')}
+        onWaveComplete={() => {
+          setCurrentWave(w => w + 1);
+          setWaveState('preparing');
+        }}
+        rewards={{ leaves: level * 50, experience: level * 100 }}
+      />
+      
+      <ActivePowerUpHUD activePowerUps={activePowerUps} />
+      
+      <AAA_GameScene3D
+        gameLevel={level}
         plantHealth={plantHealth}
-        currentWeather={currentWeather}
-        dayNightHour={dayNightHour}
-        windStrength={currentWeather === 'wind' ? 0.5 : 0.2}
-        rainIntensity={currentWeather === 'rain' ? 0.8 : 0}
-        onPestKilled={(pestId) => handlePestHit(pestId, 100)}
+        plantGrowthStage={progress?.plant_stats?.growth_level / 10 || 0.5}
+        pestInfestation={Math.min((activePests.length / 20) * 100, 100)}
+        activePests={activePests}
+        spawnedPowerUps={spawnedPowerUps}
+        onPestKilled={(count) => {
+          const pestsToKill = activePests.slice(0, count);
+          pestsToKill.forEach(pest => handlePestHit(pest.id, 100));
+        }}
+        onPlantDamaged={(damage) => {
+          setPlantHealth(prev => Math.max(0, prev - damage));
+        }}
+        onPowerUpCollect={handlePowerUpCollect}
       />
 
       {activeBoss && (
