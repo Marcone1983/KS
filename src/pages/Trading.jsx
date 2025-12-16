@@ -122,34 +122,52 @@ export default function Trading() {
   };
 
   const handleAcceptTrade = async (trade) => {
+    if (!currentUser || !progress) return;
+
     await updateTradeMutation.mutateAsync({
       id: trade.id,
       data: {
-        ...trade,
-        trade_status: 'accepted'
+        trade_status: 'completed',
+        target_result: {
+          accepted_at: new Date().toISOString(),
+          receiver_email: currentUser.email
+        }
       }
     });
 
-    if (progress && trade.offered_seed_id) {
-      const updatedSeeds = [...(progress.unlocked_seeds || []), trade.offered_seed_id];
-      await base44.entities.GameProgress.update(progress.id, {
-        ...progress,
-        unlocked_seeds: updatedSeeds
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
-      toast.success('Trade accepted! Seed unlocked.');
-    }
+    const updatedSeeds = [...new Set([...(progress.unlocked_seeds || []), trade.offered_seed_id])];
+    await base44.entities.GameProgress.update(progress.id, {
+      unlocked_seeds: updatedSeeds
+    });
+
+    await base44.entities.PlayerMessage.create({
+      from_email: currentUser.email,
+      from_name: currentUser.full_name || currentUser.email,
+      to_email: trade.from_player_email,
+      message: `Trade accepted! ${currentUser.full_name} now has ${trade.offered_seed_name}.`,
+      message_type: 'trade_offer'
+    });
+    
+    queryClient.invalidateQueries({ queryKey: ['gameProgress'] });
+    toast.success('Trade completed! Seed unlocked.');
   };
 
   const handleDeclineTrade = async (trade) => {
     await updateTradeMutation.mutateAsync({
       id: trade.id,
       data: {
-        ...trade,
         trade_status: 'declined'
       }
     });
+
+    await base44.entities.PlayerMessage.create({
+      from_email: currentUser.email,
+      from_name: currentUser.full_name || currentUser.email,
+      to_email: trade.from_player_email,
+      message: `Trade declined: ${trade.offered_seed_name}`,
+      message_type: 'trade_offer'
+    });
+
     toast.info('Trade declined');
   };
 
@@ -206,8 +224,8 @@ export default function Trading() {
 
               <div>
                 <label className="text-white text-sm mb-2 block">Requested Seed (Optional)</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {allSeeds.slice(0, 6).map(seed => (
+                <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+                  {allSeeds.map(seed => (
                     <Button
                       key={seed.id}
                       onClick={() => setSelectedRequest(seed.id)}
@@ -215,7 +233,7 @@ export default function Trading() {
                       size="sm"
                       className={selectedRequest === seed.id ? 'bg-purple-600' : 'border-white text-white'}
                     >
-                      {seed.strain_name}
+                      <div className="truncate">{seed.strain_name}</div>
                     </Button>
                   ))}
                 </div>
@@ -261,8 +279,19 @@ export default function Trading() {
                     </div>
 
                     {trade.message && (
-                      <p className="text-gray-300 text-sm mb-3">{trade.message}</p>
+                      <p className="text-gray-300 text-sm mb-3 italic">"{trade.message}"</p>
                     )}
+
+                    {trade.requested_seed_name && (
+                      <div className="text-xs text-gray-400 mb-2">
+                        Wants: {trade.requested_seed_name}
+                      </div>
+                    )}
+
+                    <div className="text-xs text-gray-500 mb-3">
+                      Growth: ×{trade.offered_genetics?.growth_speed || 1} | 
+                      Resistance: {trade.offered_genetics?.pest_resistance || 0}%
+                    </div>
 
                     <div className="flex gap-2">
                       <Button

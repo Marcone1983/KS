@@ -7,15 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Users, Eye, TrendingUp, Sprout, Trophy, MessageCircle, Share2 } from 'lucide-react';
+import { ArrowLeft, Users, Eye, TrendingUp, Sprout, Trophy, MessageCircle, Share2, UserPlus, Star } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
+import PopularGardensLeaderboard from '../components/community/PopularGardensLeaderboard';
 
 export default function CommunityHub() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedGarden, setSelectedGarden] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [friendEmail, setFriendEmail] = useState('');
+  const [messageText, setMessageText] = useState('');
+  const [selectedFriend, setSelectedFriend] = useState(null);
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -56,6 +60,61 @@ export default function CommunityHub() {
     initialData: []
   });
 
+  const { data: friends } = useQuery({
+    queryKey: ['friends'],
+    queryFn: async () => {
+      if (!currentUser) return [];
+      const friendships = await base44.entities.Friendship.filter({
+        status: 'accepted'
+      });
+      return friendships.filter(f => 
+        f.requester_email === currentUser.email || f.receiver_email === currentUser.email
+      );
+    },
+    enabled: !!currentUser,
+    initialData: []
+  });
+
+  const { data: friendRequests } = useQuery({
+    queryKey: ['friendRequests'],
+    queryFn: async () => {
+      if (!currentUser) return [];
+      return await base44.entities.Friendship.filter({
+        receiver_email: currentUser.email,
+        status: 'pending'
+      });
+    },
+    enabled: !!currentUser,
+    initialData: []
+  });
+
+  const { data: messages } = useQuery({
+    queryKey: ['messages', selectedFriend],
+    queryFn: async () => {
+      if (!currentUser || !selectedFriend) return [];
+      return await base44.entities.PlayerMessage.filter({
+        or: [
+          { from_email: currentUser.email, to_email: selectedFriend },
+          { from_email: selectedFriend, to_email: currentUser.email }
+        ]
+      }, '-created_date');
+    },
+    enabled: !!currentUser && !!selectedFriend,
+    initialData: []
+  });
+
+  const { data: topGardens } = useQuery({
+    queryKey: ['topGardens'],
+    queryFn: async () => {
+      return await base44.entities.CommunityGarden.filter(
+        { is_public: true },
+        '-popularity_score',
+        10
+      );
+    },
+    initialData: []
+  });
+
   const createGardenMutation = useMutation({
     mutationFn: (gardenData) => base44.entities.CommunityGarden.create(gardenData),
     onSuccess: () => {
@@ -68,6 +127,40 @@ export default function CommunityHub() {
     mutationFn: ({ id, data }) => base44.entities.CommunityGarden.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communityGardens'] });
+      queryClient.invalidateQueries({ queryKey: ['topGardens'] });
+    }
+  });
+
+  const addFriendMutation = useMutation({
+    mutationFn: (friendData) => base44.entities.Friendship.create(friendData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      toast.success('Friend request sent!');
+      setFriendEmail('');
+    }
+  });
+
+  const updateFriendshipMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Friendship.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+    }
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: (messageData) => base44.entities.PlayerMessage.create(messageData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      setMessageText('');
+    }
+  });
+
+  const rateGardenMutation = useMutation({
+    mutationFn: (ratingData) => base44.entities.GardenRating.create(ratingData),
+    onSuccess: () => {
+      toast.success('Rating submitted!');
+      queryClient.invalidateQueries({ queryKey: ['communityGardens'] });
     }
   });
 
@@ -77,10 +170,72 @@ export default function CommunityHub() {
     await visitGardenMutation.mutateAsync({
       id: garden.id,
       data: {
-        ...garden,
-        visit_count: (garden.visit_count || 0) + 1
+        visit_count: (garden.visit_count || 0) + 1,
+        popularity_score: (garden.popularity_score || 0) + 5
       }
     });
+  };
+
+  const handleAddFriend = async () => {
+    if (!currentUser || !friendEmail) {
+      toast.error('Enter email');
+      return;
+    }
+
+    await addFriendMutation.mutateAsync({
+      requester_email: currentUser.email,
+      requester_name: currentUser.full_name || currentUser.email,
+      receiver_email: friendEmail,
+      status: 'pending'
+    });
+  };
+
+  const handleAcceptFriend = async (request) => {
+    await updateFriendshipMutation.mutateAsync({
+      id: request.id,
+      data: { status: 'accepted', receiver_name: currentUser.full_name || currentUser.email }
+    });
+    toast.success('Friend request accepted!');
+  };
+
+  const handleSendMessage = async () => {
+    if (!currentUser || !selectedFriend || !messageText) return;
+
+    await sendMessageMutation.mutateAsync({
+      from_email: currentUser.email,
+      from_name: currentUser.full_name || currentUser.email,
+      to_email: selectedFriend,
+      message: messageText,
+      message_type: 'chat'
+    });
+  };
+
+  const handleRateGarden = async (gardenId, rating) => {
+    if (!currentUser) return;
+
+    await rateGardenMutation.mutateAsync({
+      garden_id: gardenId,
+      rater_email: currentUser.email,
+      rating
+    });
+
+    await visitGardenMutation.mutateAsync({
+      id: gardenId,
+      data: {
+        popularity_score: (selectedGarden.popularity_score || 0) + rating * 10
+      }
+    });
+  };
+
+  const getFriendsList = () => {
+    if (!currentUser) return [];
+    return friends.map(f => {
+      const isRequester = f.requester_email === currentUser.email;
+      return {
+        email: isRequester ? f.receiver_email : f.requester_email,
+        name: isRequester ? f.receiver_name : f.requester_name
+      };
+    }).filter(f => f.email);
   };
 
   const handleCreateGarden = async () => {
@@ -216,12 +371,14 @@ export default function CommunityHub() {
           <TabsList className="bg-black/40 backdrop-blur">
             <TabsTrigger value="popular">
               <TrendingUp className="w-4 h-4 mr-2" />
-              Most Popular
+              Explore
             </TabsTrigger>
-            <TabsTrigger value="recent">
-              Recent Gardens
+            <TabsTrigger value="leaderboard">
+              <Trophy className="w-4 h-4 mr-2" />
+              Top Gardens
             </TabsTrigger>
             <TabsTrigger value="friends">
+              <Users className="w-4 h-4 mr-2" />
               Friends
             </TabsTrigger>
           </TabsList>
@@ -271,15 +428,134 @@ export default function CommunityHub() {
             </div>
           </TabsContent>
 
-          <TabsContent value="recent">
-            <div className="text-center text-gray-400 py-12">
-              Feature coming soon
-            </div>
+
+
+          <TabsContent value="leaderboard">
+            <PopularGardensLeaderboard onVisitGarden={handleVisitGarden} />
           </TabsContent>
 
           <TabsContent value="friends">
-            <div className="text-center text-gray-400 py-12">
-              Feature coming soon
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card className="bg-black/40 backdrop-blur border-green-500/50">
+                <CardHeader>
+                  <CardTitle className="text-white">Add Friend</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      placeholder="Friend's email..."
+                      value={friendEmail}
+                      onChange={(e) => setFriendEmail(e.target.value)}
+                      className="flex-1 bg-white/10 text-white"
+                    />
+                    <Button
+                      onClick={handleAddFriend}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <UserPlus className="w-5 h-5" />
+                    </Button>
+                  </div>
+
+                  {friendRequests.length > 0 && (
+                    <div>
+                      <div className="text-white font-bold mb-3">Pending Requests</div>
+                      {friendRequests.map(req => (
+                        <div key={req.id} className="bg-black/30 p-3 rounded-lg mb-2 flex items-center justify-between">
+                          <span className="text-white">{req.requester_name}</span>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleAcceptFriend(req)}
+                              size="sm"
+                              className="bg-green-600"
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              onClick={() => updateFriendshipMutation.mutate({
+                                id: req.id,
+                                data: { status: 'declined' }
+                              })}
+                              size="sm"
+                              variant="outline"
+                              className="border-red-500 text-white"
+                            >
+                              Decline
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="text-white font-bold mb-3">Your Friends ({getFriendsList().length})</div>
+                    <div className="space-y-2">
+                      {getFriendsList().map((friend, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-black/30 p-3 rounded-lg flex items-center justify-between cursor-pointer hover:bg-black/50"
+                          onClick={() => setSelectedFriend(friend.email)}
+                        >
+                          <span className="text-white">{friend.name}</span>
+                          <MessageCircle className="w-5 h-5 text-cyan-400" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-black/40 backdrop-blur border-cyan-500/50">
+                <CardHeader>
+                  <CardTitle className="text-white">
+                    {selectedFriend ? `Chat with ${getFriendsList().find(f => f.email === selectedFriend)?.name}` : 'Select a friend to chat'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedFriend ? (
+                    <div className="space-y-4">
+                      <div className="bg-black/30 rounded-lg p-4 h-[300px] overflow-y-auto space-y-2">
+                        {messages.map(msg => {
+                          const isMine = msg.from_email === currentUser.email;
+                          return (
+                            <div
+                              key={msg.id}
+                              className={`p-3 rounded-lg max-w-[80%] ${
+                                isMine
+                                  ? 'ml-auto bg-green-600 text-white'
+                                  : 'mr-auto bg-gray-700 text-white'
+                              }`}
+                            >
+                              <div className="text-xs opacity-70 mb-1">{msg.from_name}</div>
+                              <div>{msg.message}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Type a message..."
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                          className="bg-white/10 text-white"
+                        />
+                        <Button
+                          onClick={handleSendMessage}
+                          className="bg-cyan-600"
+                        >
+                          Send
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-400 py-12">
+                      Select a friend to start chatting
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
@@ -356,6 +632,23 @@ export default function CommunityHub() {
                   </div>
                 )}
 
+                <div>
+                  <div className="text-sm text-gray-400 mb-2">Rate this Garden</div>
+                  <div className="flex gap-2 mb-4">
+                    {[1, 2, 3, 4, 5].map(rating => (
+                      <Button
+                        key={rating}
+                        onClick={() => handleRateGarden(selectedGarden.id, rating)}
+                        size="sm"
+                        variant="outline"
+                        className="border-yellow-500 text-white hover:bg-yellow-500/20"
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <Button
                     onClick={() => navigate(createPageUrl('Trading') + `?with=${selectedGarden.owner_email}`)}
@@ -365,6 +658,10 @@ export default function CommunityHub() {
                     Propose Trade
                   </Button>
                   <Button
+                    onClick={() => {
+                      setSelectedFriend(selectedGarden.owner_email);
+                      setSelectedGarden(null);
+                    }}
                     variant="outline"
                     className="flex-1 border-cyan-500 text-white hover:bg-cyan-500/20"
                   >

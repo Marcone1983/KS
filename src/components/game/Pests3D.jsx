@@ -40,7 +40,43 @@ function PestMesh({ pest, onHit }) {
       pest.position.z
     );
 
-    groupRef.current.position.lerp(targetPos, 0.1);
+    const lerpSpeed = pest.behavior === 'fast' ? 0.15 : pest.behavior === 'resistant' ? 0.05 : 0.1;
+    groupRef.current.position.lerp(targetPos, lerpSpeed);
+
+    if (pest.behavior === 'zigzag') {
+      const zigzag = Math.sin(state.clock.elapsedTime * 4) * 0.3;
+      groupRef.current.position.x += zigzag * delta;
+    }
+
+    if (pest.behavior === 'swarm') {
+      const swarmOffset = Math.sin(state.clock.elapsedTime * 8 + pest.id * 2) * 0.15;
+      groupRef.current.position.x += swarmOffset * delta;
+      groupRef.current.position.z += Math.cos(state.clock.elapsedTime * 8 + pest.id * 2) * 0.15 * delta;
+    }
+
+    if (pest.behavior === 'jumper') {
+      const jumpPhase = (state.clock.elapsedTime * 2 + pest.id) % 2;
+      if (jumpPhase < 0.3) {
+        groupRef.current.position.y = targetPos.y + Math.sin(jumpPhase * Math.PI * 3.33) * 0.5;
+      }
+    }
+
+    if (pest.behavior === 'burrowing' && pest.underground) {
+      groupRef.current.position.y = -0.5;
+      if (Date.now() > pest.emergeTime) {
+        groupRef.current.position.y = targetPos.y;
+      }
+    }
+
+    if (pest.behavior === 'camouflaged') {
+      const opacity = 0.3 + Math.sin(state.clock.elapsedTime * 2) * 0.2;
+      groupRef.current.traverse(child => {
+        if (child.material) {
+          child.material.transparent = true;
+          child.material.opacity = opacity;
+        }
+      });
+    }
 
     const wiggle = Math.sin(state.clock.elapsedTime * 6 + pest.id) * 0.1;
     groupRef.current.rotation.x = wiggle;
@@ -52,7 +88,28 @@ function PestMesh({ pest, onHit }) {
     });
 
     if (pest.behavior === 'flying') {
-      groupRef.current.position.y += Math.sin(state.clock.elapsedTime * 3 + pest.id) * 0.02;
+      const bobHeight = Math.sin(state.clock.elapsedTime * 3 + pest.id) * 0.3;
+      groupRef.current.position.y = targetPos.y + bobHeight;
+      
+      const wingFlap = Math.abs(Math.sin(state.clock.elapsedTime * 8));
+      groupRef.current.rotation.z = wingFlap * 0.2;
+    }
+
+    if (pest.alerted && pest.alertTarget) {
+      const panicSpeed = 1.5;
+      const fleeDirection = new THREE.Vector3(
+        groupRef.current.position.x - pest.alertTarget.x,
+        0,
+        groupRef.current.position.z - pest.alertTarget.z
+      ).normalize();
+      
+      groupRef.current.position.x += fleeDirection.x * delta * panicSpeed;
+      groupRef.current.position.z += fleeDirection.z * delta * panicSpeed;
+    }
+
+    if (pest.slowed && Date.now() < pest.slowedUntil) {
+      const slowScale = 0.5;
+      groupRef.current.position.lerp(targetPos, lerpSpeed * slowScale);
     }
   });
 

@@ -421,11 +421,14 @@ export default function Game() {
   }, []);
 
   const spawnPests = () => {
-    if (!allPests || allPests.length === 0) return;
+    if (!allPests || allPests.length === 0 || !progress) return;
+    
+    const difficultyMultiplier = 1 + (level - 1) * 0.1;
+    const healthScaling = plantHealth < 50 ? 0.8 : plantHealth > 80 ? 1.2 : 1.0;
     
     let pestsToSpawn = [];
     
-    if (proceduralLevelData && proceduralLevelData.pests && proceduralLevelData.pests.length > 0) {
+    if (proceduralLevelData?.pests && proceduralLevelData.pests.length > 0) {
       pestsToSpawn = proceduralLevelData.pests.map(pestConfig => {
         const basePest = allPests.find(p => p.id === pestConfig.pest_id || p.type === pestConfig.type);
         return {
@@ -458,9 +461,9 @@ export default function Game() {
     
     const pestCount = pestsToSpawn.length;
     
-    const healthMultiplier = 1 + (level - 1) * 0.15;
-    const speedMultiplier = 1 + (level - 1) * 0.08;
-    const damageMultiplier = 1 + (level - 1) * 0.1;
+    const healthMultiplier = (1 + (level - 1) * 0.15) * difficultyMultiplier * healthScaling;
+    const speedMultiplier = (1 + (level - 1) * 0.08) * difficultyMultiplier;
+    const damageMultiplier = (1 + (level - 1) * 0.1) * difficultyMultiplier;
     
     const speedBoost = proceduralLevelData?.special_conditions?.find(c => c.type === 'speed_boost')?.value || 1;
     

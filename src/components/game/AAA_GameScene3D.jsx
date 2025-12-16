@@ -91,18 +91,33 @@ function CameraController({ onPestKilled, activePests }) {
       const raycaster = new THREE.Raycaster(sprayOrigin, sprayDirection, 0, 4);
 
       activePests.forEach((pest) => {
-        if (pest.health <= 0) return;
+        if (pest.health <= 0 || pest.underground) return;
         
         const pestPos = new THREE.Vector3(pest.position.x, pest.position.y, pest.position.z);
         const distance = sprayOrigin.distanceTo(pestPos);
+        
+        let hitRadius = 0.3;
+        let damage = 35;
+        
+        if (pest.behavior === 'flying') {
+          hitRadius = 0.4;
+        } else if (pest.behavior === 'fast') {
+          hitRadius = 0.25;
+          damage = 40;
+        } else if (pest.behavior === 'resistant') {
+          damage = 20;
+        } else if (pest.behavior === 'camouflaged') {
+          hitRadius = 0.2;
+          damage = 45;
+        }
         
         if (distance < 4) {
           const toPest = pestPos.clone().sub(sprayOrigin).normalize();
           const angle = sprayDirection.angleTo(toPest);
           
-          if (angle < 0.3 && distance < 3.5) {
+          if (angle < hitRadius && distance < 3.5) {
             if (onPestKilled) {
-              onPestKilled(pest.id, 35);
+              onPestKilled(pest.id, damage);
             }
           }
         }
