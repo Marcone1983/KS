@@ -19,6 +19,8 @@ import EnhancedPests3D from './EnhancedPests3D';
 import PowerUpSystem from './PowerUps';
 import { FogParticles, VolumetricLight, DynamicWater, Butterflies, Fireflies, EnhancedRainSystem } from '../environment/AtmosphericEffects';
 import PerformanceMonitor, { PerformanceOverlay } from './PerformanceMonitor';
+import PlantTargetingSystem from './PlantTargetingSystem';
+import SprayFeedbackUI from './SprayFeedbackUI';
 
 function CameraController({ onPestKilled, activePests, activePowerUps = [] }) {
   const { camera } = useThree();
@@ -236,6 +238,9 @@ export default function AAA_GameScene3D({
 }) {
   const [debugVisible, setDebugVisible] = useState(false);
   const [metrics, setMetrics] = useState({ fps: 0, drawCalls: 0, triangles: 0 });
+  const [sprayedPlantsCount, setSprayedPlantsCount] = useState(0);
+  const [targetedPlant, setTargetedPlant] = useState(null);
+  const totalPlants = 11;
 
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -251,10 +256,20 @@ export default function AAA_GameScene3D({
   const timeOfDay = useMemo(() => {
     return (dayNightHour >= 6 && dayNightHour < 17) ? 'day' : (dayNightHour >= 17 && dayNightHour < 20) ? 'sunset' : 'night';
   }, [dayNightHour]);
+
+  const handlePlantSprayed = (plantId) => {
+    setSprayedPlantsCount(prev => prev + 1);
+    console.log(`Plant interaction: ${plantId} treated (Total: ${sprayedPlantsCount + 1}/${totalPlants})`);
+  };
   
   return (
     <div className="w-full h-screen bg-black">
       <PerformanceOverlay metrics={metrics} visible={debugVisible} />
+      <SprayFeedbackUI 
+        targetedPlant={targetedPlant} 
+        sprayedCount={sprayedPlantsCount} 
+        totalPlants={totalPlants}
+      />
       
       <Canvas
         shadows
@@ -279,16 +294,12 @@ export default function AAA_GameScene3D({
         <ambientLight intensity={0.4} color="#ffffff" />
         <hemisphereLight args={['#87ceeb', '#2d5016', 0.5]} />
 
-        <EnhancedProceduralTerrain windStrength={windStrength} timeOfDay={timeOfDay} weather={currentWeather} plantCount={Math.min(gameLevel, 10)} />
+        <EnhancedProceduralTerrain windStrength={windStrength} timeOfDay={timeOfDay} weather={currentWeather} plantCount={0} />
 
-        <CannabisPlantR3F_AAA
-          position={[0, 0.47, -1.5]}
-          health={plantHealth}
-          pestCount={activePests.length}
-          windStrength={windStrength}
-          growthStage={plantGrowthStage}
-          trichomeMaturity={0.6}
-          genetics={{}}
+        <PlantTargetingSystem 
+          plantCount={10}
+          onPlantSprayed={handlePlantSprayed}
+          debugMode={debugVisible}
         />
 
         <FogParticles count={currentWeather === 'fog' ? 800 : 300} density={currentWeather === 'fog' ? 1.0 : 0.3} timeOfDay={timeOfDay} />

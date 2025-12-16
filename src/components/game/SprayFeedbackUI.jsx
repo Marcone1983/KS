@@ -33,4 +33,10 @@ export default function SprayFeedbackUI({ targetedPlant, sprayedCount, totalPlan
         <div className="mt-2 h-2 bg-gray-700 rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-300"
-            style={{ width: `${(sprayedCount / totalPlants)
+            style={{ width: `${(sprayedCount / totalPlants) * 100}%` }}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
