@@ -1,26 +1,5 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { 
-  PerspectiveCamera, 
-  Environment, 
-  Sky,
-  Cloud,
-  Stars,
-  ContactShadows,
-  useTexture,
-  Sparkles
-} from '@react-three/drei';
-import { 
-  EffectComposer, 
-  Bloom, 
-  DepthOfField, 
-  SSAO, 
-  ChromaticAberration,
-  Vignette,
-  ColorDepth,
-  ToneMapping
-} from '@react-three/postprocessing';
-import { BlendFunction, ToneMappingMode } from 'postprocessing';
+import PostProcessingEffects, { PostProcessingPresets } from './PostProcessingEffects';
 import * as THREE from 'three';
 import CannabisPlantR3F_AAA from './CannabisPlantR3F_AAA';
 import SprayBottleR3F from './SprayBottleR3F';
@@ -142,7 +121,14 @@ function GameLighting({ dayNightHour = 12, currentWeather = 'clear' }) {
     const isDawn = dayNightHour >= 5 && dayNightHour < 7;
     const isDay = dayNightHour >= 7 && dayNightHour < 17;
     const isDusk = dayNightHour >= 17 && dayNightHour < 19;
-    const isNight = dayNightHour < 5 || dayNightHour >= 19;
+    
+  // Derive a simple time-of-day label for post FX
+  const timeOfDay = (dayNightHour >= 6 && dayNightHour < 17)
+    ? 'day'
+    : (dayNightHour >= 17 && dayNightHour < 20)
+      ? 'sunset'
+      : 'night';
+const isNight = dayNightHour < 5 || dayNightHour >= 19;
 
     if (isDawn) {
       return {
@@ -220,7 +206,7 @@ function GameLighting({ dayNightHour = 12, currentWeather = 'clear' }) {
   );
 }
 
-export default function AAA_GameScene3D({ 
+export default function AAA_GameScene3D({
   activePests = [], 
   plantHealth = 100,
   plantGrowthStage = 0.8,
@@ -230,7 +216,8 @@ export default function AAA_GameScene3D({
   rainIntensity = 0,
   spawnedPowerUps = [],
   onPestKilled,
-  onPowerUpCollect 
+  onPowerUpCollect,
+  postFxPreset = 'realistic'
 }) {
   return (
     <div className="w-full h-screen bg-black">
@@ -294,49 +281,12 @@ export default function AAA_GameScene3D({
         
         <CameraController onPestKilled={onPestKilled} activePests={activePests} />
         
-        <EffectComposer multisampling={8}>
-          <Bloom 
-            intensity={0.8}
-            luminanceThreshold={0.5}
-            luminanceSmoothing={0.9}
-            height={300}
-            opacity={0.8}
-            blendFunction={BlendFunction.SCREEN}
+        {/* KS-style post FX: cleaner + quality presets (mobile-friendly) */}
+          <PostProcessingEffects
+            {...(PostProcessingPresets[postFxPreset] || PostProcessingPresets.realistic)}
+            timeOfDay={timeOfDay}
+            focusTarget={[0, 1, 0]}
           />
-          <DepthOfField 
-            focusDistance={0.02} 
-            focalLength={0.05} 
-            bokehScale={3} 
-            height={480} 
-          />
-          <SSAO
-            samples={16}
-            radius={0.1}
-            intensity={20}
-            luminanceInfluence={0.5}
-            color="black"
-            blendFunction={BlendFunction.MULTIPLY}
-          />
-          <ChromaticAberration 
-            offset={[0.0005, 0.0005]} 
-            blendFunction={BlendFunction.NORMAL}
-          />
-          <Vignette 
-            offset={0.3} 
-            darkness={0.5} 
-            eskil={false}
-            blendFunction={BlendFunction.NORMAL}
-          />
-          <ToneMapping 
-            mode={ToneMappingMode.ACES_FILMIC}
-            resolution={256}
-            whitePoint={4.0}
-            middleGrey={0.6}
-            minLuminance={0.01}
-            averageLuminance={1.0}
-            adaptationRate={1.0}
-          />
-        </EffectComposer>
       </Canvas>
       
       <div className="absolute top-4 left-4 bg-black/75 text-white p-2 rounded text-xs font-mono backdrop-blur-sm pointer-events-none">
