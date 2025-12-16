@@ -5,11 +5,12 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snowflake, Flame, Box, Sprout, Dna, FlaskConical, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Leaf, Lock, Check, Zap, Target, Droplets, Clock, Timer, Snowflake, Flame, Box, Sprout, Dna, FlaskConical, TrendingUp, Cube } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import PlantCarePanel from '../components/plant/PlantCarePanel';
 import { useNavigate as useNav } from 'react-router-dom';
+import Marketplace3D from '../components/marketplace/Marketplace3D';
 
 const SKINS = [
   { id: 'default', name: 'Classico', price: 0, description: 'Spruzzino base', color: '#00BFFF' },
@@ -300,6 +301,14 @@ export default function Shop() {
 
         <div className="flex gap-3 mb-8 flex-wrap">
           <Button
+            onClick={() => setSelectedTab('marketplace3d')}
+            variant={selectedTab === 'marketplace3d' ? 'default' : 'outline'}
+            className={selectedTab === 'marketplace3d' ? 'bg-cyan-600' : 'border-cyan-600 text-white'}
+          >
+            <Cube className="h-4 w-4 mr-2" />
+            Marketplace 3D
+          </Button>
+          <Button
             onClick={() => setSelectedTab('skins')}
             variant={selectedTab === 'skins' ? 'default' : 'outline'}
             className={selectedTab === 'skins' ? 'bg-purple-600' : 'border-purple-600 text-white'}
@@ -329,6 +338,14 @@ export default function Shop() {
           >
             <Dna className="h-4 w-4 mr-2" />
             Breeding
+          </Button>
+          <Button
+            onClick={() => navRouter(createPageUrl('GrowingLab'))}
+            variant="outline"
+            className="border-green-600 text-white hover:bg-green-600"
+          >
+            <Sprout className="h-4 w-4 mr-2" />
+            Growing Lab
           </Button>
           <Button
             onClick={() => navRouter(createPageUrl('ResearchTree'))}
@@ -688,8 +705,38 @@ export default function Shop() {
           </div>
         )}
 
+        {selectedTab === 'marketplace3d' && (
+          <Marketplace3D
+            playerCurrency={progress?.leaf_currency || 0}
+            unlockedSkins={progress?.unlocked_skins || ['default']}
+            unlockedSeeds={progress?.unlocked_seeds || []}
+            onPurchase={async (itemType, itemId, cost) => {
+              if (!progress) return;
+
+              if (progress.leaf_currency < cost) {
+                toast.error('Leaf insufficienti!');
+                return false;
+              }
+
+              let updatedData = { ...progress, leaf_currency: progress.leaf_currency - cost };
+
+              if (itemType === 'skin') {
+                updatedData.unlocked_skins = [...(progress.unlocked_skins || ['default']), itemId];
+                updatedData.active_skin = itemId;
+              } else if (itemType === 'seed') {
+                updatedData.unlocked_seeds = [...(progress.unlocked_seeds || []), itemId];
+                updatedData.active_seed = itemId;
+              }
+
+              await updateProgressMutation.mutateAsync({ id: progress.id, data: updatedData });
+              toast.success('Acquisto completato!');
+              return true;
+            }}
+          />
+        )}
+
         {selectedTab === 'plant' && (
-          <PlantCarePanel 
+          <PlantCarePanel
             progress={progress}
             onUpdate={async (updatedData) => {
               await updateProgressMutation.mutateAsync({ id: progress.id, data: updatedData });

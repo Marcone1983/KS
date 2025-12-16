@@ -15,6 +15,10 @@ import Pests3D from './Pests3D';
 import Environment3D from './Environment3D';
 import PostProcessingEffects, { PostProcessingPresets } from './PostProcessingEffects';
 import CustomShaders, { createShaderMaterial } from './CustomShaders';
+import FreneticGameplay from './FreneticGameplay';
+import WaveSystem from './WaveSystem';
+import PowerUps, { POWERUP_EFFECTS } from './PowerUps';
+import GestureControls from '../controls/GestureControls';
 
 // Loading screen component
 const LoadingScreen = () => {
@@ -105,6 +109,20 @@ const GameScene = ({
   const [weatherEffect, setWeatherEffect] = useState('clear');
   const [qualityPreset, setQualityPreset] = useState('high');
 
+  // Wave system state
+  const [currentWave, setCurrentWave] = useState(1);
+  const [waveState, setWaveState] = useState('preparing');
+  const [wavePestsRemaining, setWavePestsRemaining] = useState(0);
+
+  // Frenetic gameplay state
+  const freneticApiRef = useRef();
+  const [activePowerUps, setActivePowerUps] = useState([]);
+  const [powerUpEffects, setPowerUpEffects] = useState({});
+
+  // Score tracking
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+
   // Generate pest positions around plants
   const pestData = useMemo(() => {
     if (pestInfestation === 0) return [];
@@ -138,10 +156,79 @@ const GameScene = ({
     setTimeout(() => setSprayActive(false), 500);
 
     // Check for pest hits
-    if (pestData.length > 0 && onPestKilled) {
-      const killCount = Math.floor(Math.random() * 3) + 1;
-      onPestKilled(killCount);
+    if (pestData.length > 0) {
+      const baseKillCount = Math.floor(Math.random() * 3) + 1;
+      const powerUpMultiplier = powerUpEffects.rapid_fire ? 3 : 1;
+      const finalKillCount = baseKillCount * powerUpMultiplier;
+
+      // Register kill with frenetic gameplay system
+      if (freneticApiRef.current) {
+        for (let i = 0; i < finalKillCount; i++) {
+          const randomX = 50 + (Math.random() - 0.5) * 20;
+          const randomY = 50 + (Math.random() - 0.5) * 20;
+          freneticApiRef.current.registerKill({ x: randomX, y: randomY }, false);
+        }
+      }
+
+      setScore(s => s + (finalKillCount * 10));
+      setWavePestsRemaining(p => Math.max(0, p - finalKillCount));
+
+      if (onPestKilled) {
+        onPestKilled(finalKillCount);
+      }
     }
+  };
+
+  // Handle power-up collection
+  const handlePowerUpCollect = (powerUpType) => {
+    const effect = POWERUP_EFFECTS[powerUpType];
+    if (!effect) return;
+
+    setPowerUpEffects(prev => ({ ...prev, [powerUpType]: true }));
+
+    if (effect.duration > 0) {
+      setTimeout(() => {
+        setPowerUpEffects(prev => {
+          const newEffects = { ...prev };
+          delete newEffects[powerUpType];
+          return newEffects;
+        });
+      }, effect.duration * 1000);
+    } else {
+      // Instant effects (like nuke)
+      if (powerUpType === 'nuke') {
+        setWavePestsRemaining(0);
+        setScore(s => s + 500);
+        if (freneticApiRef.current) {
+          freneticApiRef.current.registerKill({ x: 50, y: 50 }, true);
+        }
+      }
+      setTimeout(() => {
+        setPowerUpEffects(prev => {
+          const newEffects = { ...prev };
+          delete newEffects[powerUpType];
+          return newEffects;
+        });
+      }, 100);
+    }
+  };
+
+  // Wave progression
+  useEffect(() => {
+    if (waveState === 'active' && wavePestsRemaining <= 0) {
+      setWaveState('completed');
+      setTimeout(() => {
+        setCurrentWave(w => w + 1);
+        setWaveState('preparing');
+      }, 3000);
+    }
+  }, [waveState, wavePestsRemaining]);
+
+  // Start wave
+  const handleWaveStart = (wave) => {
+    const pestsForWave = 10 + (wave * 5);
+    setWavePestsRemaining(pestsForWave);
+    setWaveState('active');
   };
 
   // Keyboard controls
@@ -219,7 +306,7 @@ const GameScene = ({
           rotation={[0, -0.5, 0]}
           scale={0.8}
           isSpraying={sprayActive}
-          sprayColor={0x4a90e2}
+          sprayColor={powerUpEffects.fire_spray ? 0xff4500 : 0x4a90e2}
           onSprayComplete={() => setSprayActive(false)}
         />
 
@@ -248,68 +335,132 @@ const GameScene = ({
 
 // Main Canvas Wrapper Component
 const AAA_GameScene3D = (props) => {
+  const [gameState, setGameState] = useState({
+    score: 0,
+    wave: 1,
+    combo: 0,
+    streak: 0
+  });
+
   return (
     <div style={{ width: '100%', height: '100vh', background: '#000' }}>
-      <Canvas
-        shadows
-        gl={{
-          antialias: true,
-          alpha: false,
-          powerPreference: 'high-performance',
-          stencil: false,
-          depth: true
+      {/* Wrap entire game in Gesture Controls */}
+      <GestureControls
+        onSwipe={({ direction }) => {
+          console.log('Swipe:', direction);
         }}
-        dpr={[1, 2]}
+        onPinch={({ scale }) => {
+          console.log('Pinch zoom:', scale);
+        }}
+        onDoubleTap={() => {
+          console.log('Double tap: Quick reload');
+        }}
+        onLongPress={() => {
+          console.log('Long press: Special ability');
+        }}
+        onShake={() => {
+          console.log('Shake: Emergency reload');
+        }}
       >
-        <Suspense fallback={<LoadingScreen />}>
-          <GameScene {...props} />
-        </Suspense>
-      </Canvas>
+        <Canvas
+          shadows
+          gl={{
+            antialias: true,
+            alpha: false,
+            powerPreference: 'high-performance',
+            stencil: false,
+            depth: true
+          }}
+          dpr={[1, 2]}
+        >
+          <Suspense fallback={<LoadingScreen />}>
+            <GameScene {...props} />
+          </Suspense>
+        </Canvas>
 
-      {/* UI Overlay */}
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        left: '20px',
-        color: 'white',
-        fontFamily: 'monospace',
-        background: 'rgba(0, 0, 0, 0.6)',
-        padding: '15px',
-        borderRadius: '8px',
-        fontSize: '14px',
-        pointerEvents: 'none'
-      }}>
-        <div><strong>🎮 CONTROLS</strong></div>
-        <div style={{ marginTop: '10px' }}>
-          <div>🖱️ Mouse: Look Around</div>
-          <div>SPACE / E: Spray</div>
-          <div>T: Change Time of Day</div>
-          <div>W: Change Weather</div>
-          <div>Q: Toggle Quality</div>
-        </div>
-        <div style={{ marginTop: '15px', borderTop: '1px solid rgba(255,255,255,0.3)', paddingTop: '10px' }}>
-          <div>🌿 Plant Health: {props.plantHealth}%</div>
-          <div>📈 Growth: {Math.round(props.plantGrowthStage * 100)}%</div>
-          <div>🐛 Pests: {props.pestInfestation}%</div>
-          <div>🎯 Level: {props.gameLevel}</div>
-        </div>
-      </div>
+        {/* Frenetic Gameplay Overlay */}
+        <FreneticGameplay
+          onComboUpdate={({ combo, multiplier }) => {
+            setGameState(prev => ({ ...prev, combo, multiplier }));
+          }}
+          onStreakUpdate={(streak) => {
+            setGameState(prev => ({ ...prev, streak }));
+          }}
+          timeLimit={props.timeLimit || 180}
+        >
+          {(api) => {
+            // Expose API for game scene to call registerKill
+            if (api) window.freneticGameplayApi = api;
+            return null;
+          }}
+        </FreneticGameplay>
 
-      {/* Performance Stats (optional) */}
-      <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        right: '20px',
-        color: '#4a7028',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        background: 'rgba(0, 0, 0, 0.6)',
-        padding: '10px',
-        borderRadius: '5px'
-      }}>
-        <div>AAA Graphics Enabled ✓</div>
-        <div>Kurstaki Strike v2.0</div>
-      </div>
+        {/* Wave System Overlay */}
+        <WaveSystem
+          currentWave={gameState.wave}
+          waveState="active"
+          onWaveStart={(wave) => {
+            console.log('Wave started:', wave);
+            setGameState(prev => ({ ...prev, wave }));
+          }}
+        />
+
+        {/* Power-Ups System */}
+        <PowerUps
+          spawnPowerUps={true}
+          onPowerUpCollect={(type) => {
+            console.log('Power-up collected:', type);
+          }}
+        />
+
+        {/* UI Overlay */}
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          color: 'white',
+          fontFamily: 'monospace',
+          background: 'rgba(0, 0, 0, 0.6)',
+          padding: '15px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          pointerEvents: 'none'
+        }}>
+          <div><strong>🎮 CONTROLS</strong></div>
+          <div style={{ marginTop: '10px' }}>
+            <div>🖱️ Mouse: Look Around</div>
+            <div>SPACE / E: Spray</div>
+            <div>T: Change Time of Day</div>
+            <div>W: Change Weather</div>
+            <div>Q: Toggle Quality</div>
+          </div>
+          <div style={{ marginTop: '15px', borderTop: '1px solid rgba(255,255,255,0.3)', paddingTop: '10px' }}>
+            <div>🌿 Plant Health: {props.plantHealth}%</div>
+            <div>📈 Growth: {Math.round(props.plantGrowthStage * 100)}%</div>
+            <div>🐛 Pests: {props.pestInfestation}%</div>
+            <div>🎯 Level: {props.gameLevel}</div>
+            <div>💯 Score: {gameState.score}</div>
+            <div>🔥 Combo: {gameState.combo}x</div>
+          </div>
+        </div>
+
+        {/* Performance Stats */}
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          color: '#4a7028',
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          background: 'rgba(0, 0, 0, 0.6)',
+          padding: '10px',
+          borderRadius: '5px'
+        }}>
+          <div>AAA Graphics Enabled ✓</div>
+          <div>Frenetic Gameplay Active ✓</div>
+          <div>Wave {gameState.wave}</div>
+        </div>
+      </GestureControls>
     </div>
   );
 };

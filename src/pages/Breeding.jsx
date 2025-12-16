@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Sprout, Dna, Clock, Leaf, Plus, ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sprout, Dna, Clock, Leaf, Plus, ArrowRight, Sparkles, Cube } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
+import BreedingSystem3D from '../components/breeding/BreedingSystem3D';
 
 export default function Breeding() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function Breeding() {
   const [selectedParent1, setSelectedParent1] = useState(null);
   const [selectedParent2, setSelectedParent2] = useState(null);
   const [activeBreeding, setActiveBreeding] = useState(null);
+  const [view3D, setView3D] = useState(false);
 
   const { data: allSeeds } = useQuery({
     queryKey: ['seeds'],
@@ -191,18 +193,40 @@ export default function Breeding() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate(createPageUrl('Shop'))}
+              className="text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Indietro
+            </Button>
+            <Dna className="h-8 w-8 text-purple-400" />
+            <h1 className="text-4xl font-bold text-white">Sistema Breeding</h1>
+          </div>
+
           <Button
-            variant="ghost"
-            onClick={() => navigate(createPageUrl('Shop'))}
-            className="text-white hover:bg-white/10"
+            onClick={() => setView3D(!view3D)}
+            variant={view3D ? 'default' : 'outline'}
+            className={view3D ? 'bg-purple-600' : 'border-purple-600 text-white'}
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Indietro
+            <Cube className="h-4 w-4 mr-2" />
+            {view3D ? 'Vista 2D' : 'Vista 3D'}
           </Button>
-          <Dna className="h-8 w-8 text-purple-400" />
-          <h1 className="text-4xl font-bold text-white">Sistema Breeding</h1>
         </div>
+
+        {view3D && selectedParent1 && selectedParent2 && (
+          <div className="mb-8">
+            <BreedingSystem3D
+              genetics1={availableSeeds.find(s => s.id === selectedParent1)}
+              genetics2={availableSeeds.find(s => s.id === selectedParent2)}
+              breeding={activeBreeding !== null}
+              offspring={previewOffspring}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="bg-black/40 backdrop-blur border-purple-500/30">
