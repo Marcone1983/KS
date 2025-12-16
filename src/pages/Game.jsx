@@ -279,7 +279,7 @@ export default function Game() {
   }, [plantHealth, gameState]);
 
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && !activeBoss && allBosses.length > 0 && level > 0) {
+    if (gameState === 'playing' && !isPaused && !activeBoss && allBosses?.length > 0 && level > 0) {
       if (proceduralLevelData?.boss) {
         const bossConfig = proceduralLevelData.boss;
         const bossData = allBosses.find(b => b.id === bossConfig.boss_id);
@@ -299,7 +299,7 @@ export default function Game() {
         }
       }
     }
-  }, [level, gameState, isPaused, activeBoss?.id, allBosses.length]);
+  }, [level, gameState, isPaused, activeBoss?.id, allBosses?.length]);
 
   const spawnBoss = (bossData) => {
     const healthMultiplier = 1 + (level - bossData.level_appearance) * 0.2;
