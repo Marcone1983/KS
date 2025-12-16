@@ -1,55 +1,58 @@
-import React, { useState, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Environment, ContactShadows } from '@react-three/drei';
+import React, { useState, useRef, Suspense } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Text } from '@react-three/drei';
 import { motion } from 'framer-motion';
 import * as THREE from 'three';
-import { Leaf, Sparkles, Box, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingCart, Check, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-const MARKETPLACE_ITEMS = [
-  {
-    id: 'gold_skin',
-    name: 'Gold Spray',
-    type: 'skin',
-    price: 250,
-    color: '#FFD700',
-    description: 'Spruzzino dorato di lusso'
-  },
-  {
-    id: 'neon_skin',
-    name: 'Neon Spray',
-    type: 'skin',
-    price: 300,
-    color: '#FF00FF',
-    description: 'Effetto neon futuristico'
-  },
-  {
-    id: 'fire_skin',
-    name: 'Fire Spray',
-    type: 'skin',
-    price: 400,
-    color: '#FF4500',
-    description: 'Fiamme ardenti'
-  }
-];
+import { toast } from 'sonner';
 
 function RotatingItem3D({ item, isSelected }) {
+  const meshRef = useRef();
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y = state.clock.elapsedTime * 0.5;
+      meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 2) * 0.1;
+    }
+  });
+
+  const color = item.color || '#8B4513';
+
   return (
     <group>
-      <mesh castShadow>
-        <cylinderGeometry args={[0.15, 0.2, 0.6, 16]} />
+      <mesh ref={meshRef} castShadow>
+        <cylinderGeometry args={[0.6, 0.5, 0.8, 32]} />
         <meshStandardMaterial
-          color={item.color}
-          metalness={0.7}
-          roughness={0.2}
-          emissive={item.color}
-          emissiveIntensity={isSelected ? 0.5 : 0.2}
+          color={color}
+          roughness={0.5}
+          metalness={0.3}
+          emissive={isSelected ? color : '#000000'}
+          emissiveIntensity={isSelected ? 0.3 : 0}
         />
       </mesh>
-      <mesh position={[0.15, 0.2, 0]} rotation-z={Math.PI / 2}>
-        <cylinderGeometry args={[0.03, 0.04, 0.12, 12]} />
-        <meshStandardMaterial color="#333333" metalness={0.5} roughness={0.3} />
-      </mesh>
+      
+      <Text
+        position={[0, 1.2, 0]}
+        fontSize={0.2}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {item.name}
+      </Text>
+      
+      <Text
+        position={[0, -0.8, 0]}
+        fontSize={0.15}
+        color={item.price === 0 ? '#4ade80' : '#fbbf24'}
+        anchorX="center"
+        anchorY="middle"
+      >
+        {item.price === 0 ? 'FREE' : `${item.price} Leaf`}
+      </Text>
+      
+      <ContactShadows position={[0, -0.4, 0]} opacity={0.5} scale={2} blur={2} />
     </group>
   );
 }
@@ -60,103 +63,140 @@ export default function Marketplace3D({
   unlockedSeeds = [],
   onPurchase
 }) {
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [hoveredItem, setHoveredItem] = useState(null);
+  const [currentCategory, setCurrentCategory] = useState('pots');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const ITEMS = {
+    pots: [
+      { id: 'classic', name: 'Classic', price: 0, color: '#8B4513' },
+      { id: 'ceramic', name: 'Ceramic', price: 150, color: '#F5F5F5' },
+      { id: 'modern', name: 'Modern', price: 200, color: '#1A1A1A' },
+      { id: 'gold', name: 'Gold', price: 500, color: '#FFD700' }
+    ],
+    skins: [
+      { id: 'default', name: 'Default', price: 0, color: '#00BFFF' },
+      { id: 'neon', name: 'Neon', price: 100, color: '#FF00FF' },
+      { id: 'gold', name: 'Gold', price: 250, color: '#FFD700' },
+      { id: 'rainbow', name: 'Rainbow', price: 500, color: '#FF69B4' }
+    ]
+  };
+
+  const currentItems = ITEMS[currentCategory] || ITEMS.pots;
+  const currentItem = currentItems[currentIndex];
+  const isUnlocked = currentCategory === 'skins' 
+    ? unlockedSkins.includes(currentItem.id)
+    : unlockedSeeds.includes(currentItem.id);
+
+  const handlePrevious = () => {
+    setCurrentIndex((prev) => (prev - 1 + currentItems.length) % currentItems.length);
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % currentItems.length);
+  };
 
   const handlePurchase = async () => {
-    if (!selectedItem) return;
-
-    const success = await onPurchase(selectedItem.type, selectedItem.id, selectedItem.price);
+    if (isUnlocked) return;
+    
+    const success = await onPurchase(currentCategory.slice(0, -1), currentItem.id, currentItem.price);
     if (success) {
-      setSelectedItem(null);
+      toast.success(`${currentItem.name} unlocked!`);
     }
   };
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
-      <div className="bg-black/30 rounded-2xl border-2 border-cyan-500/50 h-[500px]">
+    <div className="w-full h-[600px] bg-gradient-to-br from-purple-900 to-indigo-900 rounded-2xl overflow-hidden relative">
+      <div className="h-full">
         <Canvas shadows dpr={[1, 2]}>
           <Suspense fallback={null}>
-            <PerspectiveCamera makeDefault position={[0, 1, 3]} fov={50} />
-            <OrbitControls autoRotate autoRotateSpeed={2} enableZoom={false} />
-            
-            <ambientLight intensity={0.4} />
-            <directionalLight position={[5, 5, 5]} intensity={1} castShadow />
-            <pointLight position={[-3, 2, -3]} intensity={0.5} color="#00ffff" />
-            
-            {selectedItem && (
-              <RotatingItem3D item={selectedItem} isSelected={true} />
-            )}
-            
-            <ContactShadows position={[0, -0.5, 0]} opacity={0.6} scale={3} blur={2} />
+            <PerspectiveCamera makeDefault position={[0, 1.5, 3]} fov={50} />
+            <OrbitControls
+              enableZoom={false}
+              enablePan={false}
+              autoRotate={false}
+              minPolarAngle={Math.PI / 3}
+              maxPolarAngle={Math.PI / 2}
+            />
+
+            <ambientLight intensity={0.5} />
+            <directionalLight position={[5, 10, 5]} intensity={1.5} castShadow />
+            <pointLight position={[-3, 3, -3]} intensity={0.8} color="#00ffff" />
+            <pointLight position={[3, 3, -3]} intensity={0.8} color="#ff00ff" />
+
+            <RotatingItem3D item={currentItem} isSelected={true} />
+
             <Environment preset="city" />
           </Suspense>
         </Canvas>
       </div>
 
-      <div className="space-y-4">
-        <div className="bg-black/40 backdrop-blur rounded-xl p-4 flex items-center justify-between">
-          <span className="text-white font-bold">Your Leaf</span>
-          <div className="flex items-center gap-2">
-            <Leaf className="w-5 h-5 text-green-400" />
-            <span className="text-2xl font-black text-white">{playerCurrency}</span>
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-6">
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            onClick={handlePrevious}
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+
+          <div className="text-center">
+            <div className="text-2xl font-black text-white mb-2">{currentItem.name}</div>
+            <div className="text-sm text-gray-400">
+              {currentIndex + 1} / {currentItems.length}
+            </div>
           </div>
+
+          <Button
+            onClick={handleNext}
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
         </div>
 
-        <div className="space-y-3 max-h-[400px] overflow-y-auto">
-          {MARKETPLACE_ITEMS.map(item => {
-            const isUnlocked = unlockedSkins.includes(item.id);
-            const isSelected = selectedItem?.id === item.id;
+        <Button
+          onClick={handlePurchase}
+          className="w-full"
+          disabled={isUnlocked || currentItem.price > playerCurrency}
+        >
+          {isUnlocked ? (
+            <>
+              <Check className="h-5 w-5 mr-2" />
+              Owned
+            </>
+          ) : currentItem.price > playerCurrency ? (
+            <>
+              <Lock className="h-5 w-5 mr-2" />
+              Need {currentItem.price - playerCurrency} more Leaf
+            </>
+          ) : (
+            <>
+              <ShoppingCart className="h-5 w-5 mr-2" />
+              Purchase ({currentItem.price} Leaf)
+            </>
+          )}
+        </Button>
+      </div>
 
-            return (
-              <motion.div
-                key={item.id}
-                onHoverStart={() => setHoveredItem(item)}
-                onHoverEnd={() => setHoveredItem(null)}
-                onClick={() => setSelectedItem(item)}
-                className={`p-4 rounded-xl cursor-pointer transition-all ${
-                  isSelected ? 'bg-purple-600 border-2 border-purple-400' :
-                  isUnlocked ? 'bg-green-900/30 border-2 border-green-500/50' :
-                  'bg-gray-800/50 border-2 border-gray-600 hover:border-cyan-500/50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-12 h-12 rounded-lg"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <div>
-                      <div className="text-white font-bold">{item.name}</div>
-                      <div className="text-xs text-gray-400">{item.description}</div>
-                    </div>
-                  </div>
-                  {isUnlocked && <Check className="w-5 h-5 text-green-400" />}
-                </div>
-
-                {!isUnlocked && (
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-2 text-yellow-400">
-                      <Leaf className="w-4 h-4" />
-                      <span className="font-bold">{item.price}</span>
-                    </div>
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePurchase();
-                      }}
-                      size="sm"
-                      disabled={playerCurrency < item.price || !isSelected}
-                      className="bg-cyan-600 hover:bg-cyan-700"
-                    >
-                      Buy
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
+      <div className="absolute top-4 right-4 flex gap-2">
+        <Button
+          onClick={() => setCurrentCategory('pots')}
+          size="sm"
+          variant={currentCategory === 'pots' ? 'default' : 'outline'}
+          className={currentCategory === 'pots' ? 'bg-orange-600' : 'border-white text-white'}
+        >
+          Pots
+        </Button>
+        <Button
+          onClick={() => setCurrentCategory('skins')}
+          size="sm"
+          variant={currentCategory === 'skins' ? 'default' : 'outline'}
+          className={currentCategory === 'skins' ? 'bg-purple-600' : 'border-white text-white'}
+        >
+          Skins
+        </Button>
       </div>
     </div>
   );
