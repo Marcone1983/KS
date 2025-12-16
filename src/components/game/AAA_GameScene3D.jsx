@@ -1,4 +1,13 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { 
+  PerspectiveCamera, 
+  Sky,
+  Cloud,
+  Stars,
+  ContactShadows,
+  Sparkles
+} from '@react-three/drei';
 import PostProcessingEffects, { PostProcessingPresets } from './PostProcessingEffects';
 import * as THREE from 'three';
 import CannabisPlantR3F_AAA from './CannabisPlantR3F_AAA';
@@ -8,7 +17,6 @@ import SprayParticles from './SprayParticles';
 import RainSystem from './RainSystem';
 import Pests3D from './Pests3D';
 import PowerUpSystem from './PowerUps';
-import { useAdvancedGestureControls, useKeyboardControls, useGamepadControls, useMotionControls } from '../controls/AdvancedGestureControls';
 
 function CameraController({ onPestKilled, activePests }) {
   const { camera } = useThree();
@@ -117,46 +125,49 @@ function CameraController({ onPestKilled, activePests }) {
 function GameLighting({ dayNightHour = 12, currentWeather = 'clear' }) {
   const sunRef = useRef();
   
-  const { sunColor, sunIntensity, ambientIntensity, skyParams } = useMemo(() => {
+  const { sunColor, sunIntensity, ambientIntensity, skyParams, timeOfDay } = useMemo(() => {
     const isDawn = dayNightHour >= 5 && dayNightHour < 7;
     const isDay = dayNightHour >= 7 && dayNightHour < 17;
     const isDusk = dayNightHour >= 17 && dayNightHour < 19;
+    const isNight = dayNightHour < 5 || dayNightHour >= 19;
     
-  // Derive a simple time-of-day label for post FX
-  const timeOfDay = (dayNightHour >= 6 && dayNightHour < 17)
-    ? 'day'
-    : (dayNightHour >= 17 && dayNightHour < 20)
-      ? 'sunset'
-      : 'night';
-const isNight = dayNightHour < 5 || dayNightHour >= 19;
+    const timeOfDay = (dayNightHour >= 6 && dayNightHour < 17)
+      ? 'day'
+      : (dayNightHour >= 17 && dayNightHour < 20)
+        ? 'sunset'
+        : 'night';
 
     if (isDawn) {
       return {
         sunColor: '#ff9966',
         sunIntensity: 1.2,
         ambientIntensity: 0.4,
-        skyParams: { turbidity: 8, rayleigh: 2, mieCoefficient: 0.005, mieDirectionalG: 0.8, elevation: 2, azimuth: 180 }
+        skyParams: { turbidity: 8, rayleigh: 2, mieCoefficient: 0.005, mieDirectionalG: 0.8, elevation: 2, azimuth: 180 },
+        timeOfDay
       };
     } else if (isDay) {
       return {
         sunColor: '#fffacd',
         sunIntensity: currentWeather === 'rain' ? 0.8 : currentWeather === 'fog' ? 0.6 : 2.0,
         ambientIntensity: currentWeather === 'rain' ? 0.5 : 0.7,
-        skyParams: { turbidity: 10, rayleigh: 3, mieCoefficient: 0.005, mieDirectionalG: 0.7, elevation: 30, azimuth: 180 }
+        skyParams: { turbidity: 10, rayleigh: 3, mieCoefficient: 0.005, mieDirectionalG: 0.7, elevation: 30, azimuth: 180 },
+        timeOfDay
       };
     } else if (isDusk) {
       return {
         sunColor: '#ff7733',
         sunIntensity: 1.0,
         ambientIntensity: 0.35,
-        skyParams: { turbidity: 10, rayleigh: 2, mieCoefficient: 0.005, mieDirectionalG: 0.82, elevation: -2, azimuth: 180 }
+        skyParams: { turbidity: 10, rayleigh: 2, mieCoefficient: 0.005, mieDirectionalG: 0.82, elevation: -2, azimuth: 180 },
+        timeOfDay
       };
     } else {
       return {
         sunColor: '#6a6aaa',
         sunIntensity: 0.3,
         ambientIntensity: 0.15,
-        skyParams: { turbidity: 2, rayleigh: 1, mieCoefficient: 0.005, mieDirectionalG: 0.8, elevation: -30, azimuth: 180 }
+        skyParams: { turbidity: 2, rayleigh: 1, mieCoefficient: 0.005, mieDirectionalG: 0.8, elevation: -30, azimuth: 180 },
+        timeOfDay
       };
     }
   }, [dayNightHour, currentWeather]);
@@ -235,6 +246,16 @@ export default function AAA_GameScene3D({
         <PerspectiveCamera makeDefault position={[0, 1.4, 2.2]} fov={75} near={0.01} far={100} />
         
         <GameLighting dayNightHour={dayNightHour} currentWeather={currentWeather} />
+        
+        {(function() {
+          const lightingData = useMemo(() => {
+            const isDawn = dayNightHour >= 5 && dayNightHour < 7;
+            const isDay = dayNightHour >= 7 && dayNightHour < 17;
+            const isDusk = dayNightHour >= 17 && dayNightHour < 19;
+            return (dayNightHour >= 6 && dayNightHour < 17) ? 'day' : (dayNightHour >= 17 && dayNightHour < 20) ? 'sunset' : 'night';
+          }, [dayNightHour]);
+          return null;
+        })()}
         
         <ProceduralTerrain windStrength={windStrength} />
         
