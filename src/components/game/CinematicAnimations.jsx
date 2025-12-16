@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { editable as e, SheetProvider, PerspectiveCamera as TheatreCamera } from '@theatre/r3f';
-import { getProject, types } from '@theatre/core';
+import { PerspectiveCamera } from '@react-three/drei';
+import { getProject } from '@theatre/core';
 import studio from '@theatre/studio';
 import gsap from 'gsap';
 import * as THREE from 'three';
@@ -23,18 +23,14 @@ export function CinematicCamera({
   const cameraRef = useRef();
 
   useEffect(() => {
-    if (isPlaying) {
-      const sequence = cinematicSheet.sequence;
-      sequence.position = 0;
-      sequence.play({ iterationCount: 1 }).then(() => {
-        if (onComplete) onComplete();
-      });
+    if (isPlaying && onComplete) {
+      setTimeout(() => onComplete(), 3000);
     }
   }, [isPlaying, onComplete]);
 
   return (
-    <TheatreCamera
-      theatreKey="Camera"
+    <PerspectiveCamera
+      ref={cameraRef}
       makeDefault={isPlaying}
       position={[0, 1.5, 3]}
       fov={75}

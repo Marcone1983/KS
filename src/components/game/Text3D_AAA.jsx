@@ -1,10 +1,8 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { extend, useFrame } from '@react-three/fiber';
-import { Text3D, Center } from '@react-three/drei';
-import { Text } from 'troika-three-text';
+import { Text3D, Center, Text as DreiText } from '@react-three/drei';
 import * as THREE from 'three';
-
-extend({ Text });
+import gsap from 'gsap';
 
 export function TroikaText3D({
   text = '',
@@ -16,36 +14,22 @@ export function TroikaText3D({
   anchorX = 'center',
   anchorY = 'middle',
   maxWidth = Infinity,
-  textAlign = 'center',
-  font = null,
-  onSync
+  textAlign = 'center'
 }) {
-  const textRef = useRef();
-
-  useFrame(() => {
-    if (textRef.current) {
-      textRef.current.sync();
-    }
-  });
-
   return (
-    <text
-      ref={textRef}
-      text={text}
+    <DreiText
+      position={position}
       fontSize={fontSize}
       color={color}
-      position={position}
       anchorX={anchorX}
       anchorY={anchorY}
       maxWidth={maxWidth}
       textAlign={textAlign}
-      font={font}
       outlineWidth={outlineWidth}
       outlineColor={outlineColor}
-      onSync={onSync}
     >
-      <meshStandardMaterial attach="material" color={color} />
-    </text>
+      {text}
+    </DreiText>
   );
 }
 
