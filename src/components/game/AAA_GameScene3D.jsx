@@ -230,6 +230,10 @@ export default function AAA_GameScene3D({
   onPowerUpCollect,
   postFxPreset = 'realistic'
 }) {
+  const timeOfDay = useMemo(() => {
+    return (dayNightHour >= 6 && dayNightHour < 17) ? 'day' : (dayNightHour >= 17 && dayNightHour < 20) ? 'sunset' : 'night';
+  }, [dayNightHour]);
+  
   return (
     <div className="w-full h-screen bg-black">
       <Canvas
@@ -246,16 +250,6 @@ export default function AAA_GameScene3D({
         <PerspectiveCamera makeDefault position={[0, 1.4, 2.2]} fov={75} near={0.01} far={100} />
         
         <GameLighting dayNightHour={dayNightHour} currentWeather={currentWeather} />
-        
-        {(function() {
-          const lightingData = useMemo(() => {
-            const isDawn = dayNightHour >= 5 && dayNightHour < 7;
-            const isDay = dayNightHour >= 7 && dayNightHour < 17;
-            const isDusk = dayNightHour >= 17 && dayNightHour < 19;
-            return (dayNightHour >= 6 && dayNightHour < 17) ? 'day' : (dayNightHour >= 17 && dayNightHour < 20) ? 'sunset' : 'night';
-          }, [dayNightHour]);
-          return null;
-        })()}
         
         <ProceduralTerrain windStrength={windStrength} />
         
