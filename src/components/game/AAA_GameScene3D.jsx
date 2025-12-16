@@ -256,7 +256,10 @@ export default function AAA_GameScene3D({
         <PerspectiveCamera makeDefault position={[0, 1.4, 2.2]} fov={75} near={0.01} far={100} />
         
         <GameLighting dayNightHour={dayNightHour} currentWeather={currentWeather} />
-        
+
+        <ambientLight intensity={0.4} color="#ffffff" />
+        <hemisphereLight args={['#87ceeb', '#2d5016', 0.5]} />
+
         <EnhancedProceduralTerrain windStrength={windStrength} timeOfDay={timeOfDay} weather={currentWeather} />
 
         <CannabisPlantR3F_AAA

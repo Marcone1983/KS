@@ -17,6 +17,8 @@ import GardenCustomization from './pages/GardenCustomization';
 import CommunityHub from './pages/CommunityHub';
 import Trading from './pages/Trading';
 import Codex from './pages/Codex';
+import Progression from './pages/Progression';
+import Challenges from './pages/Challenges';
 
 
 export const PAGES = {
@@ -39,6 +41,8 @@ export const PAGES = {
     "CommunityHub": CommunityHub,
     "Trading": Trading,
     "Codex": Codex,
+    "Progression": Progression,
+    "Challenges": Challenges,
 }
 
 export const pagesConfig = {

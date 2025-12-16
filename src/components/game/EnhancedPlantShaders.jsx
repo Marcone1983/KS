@@ -2,9 +2,15 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { SkeletonUtils } from 'three-stdlib';
 
 useGLTF.preload('/models/plant03.glb');
 useGLTF.preload('/models/plant04.glb');
+
+const plantModelsCache = {
+  '/models/plant03.glb': null,
+  '/models/plant04.glb': null
+};
 
 const advancedLeafShader = {
   vertexShader: `
@@ -108,19 +114,23 @@ const advancedLeafShader = {
   `
 };
 
-export function EnhancedPlantModel({ modelPath, position, rotation, scale, windStrength = 0.2, iridescence = 0.3 }) {
+export function EnhancedPlantModel({ modelPath, position, rotation, scale, windStrength = 0.2, iridescence = 0.3, enableShadows = true, distanceFromCamera = 0 }) {
   const groupRef = useRef();
   const { scene } = useGLTF(modelPath);
   const materialsRef = useRef([]);
   
   const clonedScene = useMemo(() => {
-    const clone = scene.clone(true);
+    if (!plantModelsCache[modelPath]) {
+      plantModelsCache[modelPath] = scene;
+    }
+    
+    const clone = SkeletonUtils.clone(scene);
     const materials = [];
     
     clone.traverse((child) => {
       if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+        child.castShadow = enableShadows && distanceFromCamera < 15;
+        child.receiveShadow = enableShadows && distanceFromCamera < 20;
         
         const originalColor = child.material.color ? child.material.color.clone() : new THREE.Color(0x3a7d3a);
         
@@ -135,8 +145,18 @@ export function EnhancedPlantModel({ modelPath, position, rotation, scale, windS
           vertexShader: advancedLeafShader.vertexShader,
           fragmentShader: advancedLeafShader.fragmentShader,
           side: THREE.DoubleSide,
-          transparent: true
+          transparent: true,
+          depthWrite: true,
+          depthTest: true
         });
+        
+        if (child.material.map) {
+          leafMaterial.uniforms.leafColor.value = new THREE.Color().setRGB(
+            originalColor.r * 0.9,
+            originalColor.g * 1.1,
+            originalColor.b * 0.9
+          );
+        }
         
         materials.push(leafMaterial);
         child.material = leafMaterial;
@@ -145,7 +165,7 @@ export function EnhancedPlantModel({ modelPath, position, rotation, scale, windS
     
     materialsRef.current = materials;
     return clone;
-  }, [scene, windStrength, iridescence]);
+  }, [scene, windStrength, iridescence, enableShadows, distanceFromCamera]);
 
   useFrame((state) => {
     materialsRef.current.forEach((material) => {
@@ -169,7 +189,7 @@ export function EnhancedPlantModel({ modelPath, position, rotation, scale, windS
   );
 }
 
-export function EnhancedScatteredPlants({ count = 25, areaRadius = 35, windStrength = 0.2 }) {
+export function EnhancedScatteredPlants({ count = 25, areaRadius = 35, windStrength = 0.2, cameraPosition = [0, 0, 0] }) {
   const plants = useMemo(() => {
     const instances = [];
     for (let i = 0; i < count; i++) {
@@ -177,20 +197,23 @@ export function EnhancedScatteredPlants({ count = 25, areaRadius = 35, windStren
       const distance = 15 + Math.random() * areaRadius;
       const modelPath = Math.random() > 0.5 ? '/models/plant03.glb' : '/models/plant04.glb';
       
+      const pos = [
+        Math.cos(angle) * distance,
+        0,
+        Math.sin(angle) * distance
+      ];
+      
       instances.push({
         modelPath,
-        position: [
-          Math.cos(angle) * distance,
-          0,
-          Math.sin(angle) * distance
-        ],
+        position: pos,
         rotation: [0, Math.random() * Math.PI * 2, 0],
         scale: 0.8 + Math.random() * 0.6,
-        iridescence: 0.2 + Math.random() * 0.4
+        iridescence: 0.2 + Math.random() * 0.4,
+        distance: Math.sqrt(Math.pow(pos[0] - cameraPosition[0], 2) + Math.pow(pos[2] - cameraPosition[2], 2))
       });
     }
     return instances;
-  }, [count, areaRadius]);
+  }, [count, areaRadius, cameraPosition[0], cameraPosition[2]]);
 
   return (
     <group>
@@ -203,6 +226,8 @@ export function EnhancedScatteredPlants({ count = 25, areaRadius = 35, windStren
           scale={plant.scale}
           windStrength={windStrength}
           iridescence={plant.iridescence}
+          enableShadows={plant.distance < 25}
+          distanceFromCamera={plant.distance}
         />
       ))}
     </group>

@@ -283,7 +283,7 @@ export default function EnhancedProceduralTerrain({ windStrength = 0.2, timeOfDa
         <primitive object={waterMaterial} attach="material" />
       </mesh>
 
-      <EnhancedScatteredPlants count={25} areaRadius={35} windStrength={windStrength} />
+      <EnhancedScatteredPlants count={25} areaRadius={35} windStrength={windStrength} cameraPosition={[0, 1.4, 2.2]} />
 
       <fog attach="fog" args={[weather === 'fog' ? '#b0b0b0' : '#87ceeb', 12, weather === 'fog' ? 20 : 40]} />
     </group>
