@@ -28,7 +28,8 @@ import ProceduralTerrain from './ProceduralTerrain';
 import SprayParticles from './SprayParticles';
 import RainSystem from './RainSystem';
 import Pests3D from './Pests3D';
-import { useAdvancedGestureControls, useKeyboardControls, useGamepadControls } from './GestureControls';
+import PowerUpSystem from './PowerUps';
+import { useAdvancedGestureControls, useKeyboardControls, useGamepadControls, useMotionControls } from '../controls/AdvancedGestureControls';
 
 function CameraController({ onPestKilled, activePests }) {
   const { camera } = useThree();
