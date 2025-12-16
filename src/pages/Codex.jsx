@@ -268,7 +268,6 @@ export default function Codex() {
               <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
                 <div className="text-sm text-green-400 font-bold mb-1">WEAKNESS</div>
                 <div className="text-white">Bacillus thuringiensis kurstaki (Btk) spray is highly effective. Target with consistent spray patterns to eliminate quickly.</div>
-              </div>Btk) spray is highly effective. Target with consistent spray patterns to eliminate quickly.</div>
               </div>
             </CardContent>
           </Card>
