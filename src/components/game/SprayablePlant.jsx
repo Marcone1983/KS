@@ -56,8 +56,12 @@ export default function SprayablePlant({
   useEffect(() => {
     console.log(`Spawned plant: ${modelPath} at [${position.join(', ')}]`);
     
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioContextRef.current && typeof window !== 'undefined') {
+      try {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        console.warn('AudioContext not available:', e);
+      }
     }
     
     const randomState = Math.random();
@@ -200,9 +204,9 @@ export default function SprayablePlant({
     oscillator.stop(ctx.currentTime + 0.3);
   };
 
-  useFrame((state, delta) => {
+  useFrame((threeState, delta) => {
     if (groupRef.current) {
-      const time = state.clock.elapsedTime;
+      const time = threeState.clock.elapsedTime;
       const baseRotation = Math.sin(time * 0.5) * 0.05;
       
       if (state === PLANT_STATES.INFESTED) {
@@ -223,7 +227,7 @@ export default function SprayablePlant({
       highlightRef.current.visible = isTargeted;
       if (isTargeted) {
         const pulseSpeed = state === PLANT_STATES.INFESTED ? 8 : 5;
-        highlightRef.current.material.opacity = 0.3 + Math.sin(state.clock.elapsedTime * pulseSpeed) * 0.15;
+        highlightRef.current.material.opacity = 0.3 + Math.sin(threeState.clock.elapsedTime * pulseSpeed) * 0.15;
       }
     }
 
