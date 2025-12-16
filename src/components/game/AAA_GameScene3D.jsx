@@ -27,8 +27,9 @@ import SprayBottleR3F from './SprayBottleR3F';
 import ProceduralTerrain from './ProceduralTerrain';
 import SprayParticles from './SprayParticles';
 import RainSystem from './RainSystem';
+import Pests3D from './Pests3D';
 
-function CameraController({ onPestKilled }) {
+function CameraController({ onPestKilled, activePests }) {
   const { camera } = useThree();
   const [mouseX, setMouseX] = useState(0);
   const [mouseY, setMouseY] = useState(0);
@@ -77,6 +78,33 @@ function CameraController({ onPestKilled }) {
     if (isSpraying && sprayParticlesRef.current && sprayBottleRef.current) {
       sprayParticlesRef.current.emit(camera);
       sprayBottleRef.current.triggerAnimation(true);
+
+      const sprayOrigin = new THREE.Vector3(0.6, 1.15, 1.5);
+      sprayOrigin.applyQuaternion(camera.quaternion);
+      sprayOrigin.add(camera.position);
+      
+      const sprayDirection = new THREE.Vector3(0, 0, -1);
+      sprayDirection.applyQuaternion(camera.quaternion);
+
+      const raycaster = new THREE.Raycaster(sprayOrigin, sprayDirection, 0, 4);
+
+      activePests.forEach((pest) => {
+        if (pest.health <= 0) return;
+        
+        const pestPos = new THREE.Vector3(pest.position.x, pest.position.y, pest.position.z);
+        const distance = sprayOrigin.distanceTo(pestPos);
+        
+        if (distance < 4) {
+          const toPest = pestPos.clone().sub(sprayOrigin).normalize();
+          const angle = sprayDirection.angleTo(toPest);
+          
+          if (angle < 0.3 && distance < 3.5) {
+            if (onPestKilled) {
+              onPestKilled(pest.id, 35);
+            }
+          }
+        }
+      });
     } else if (sprayBottleRef.current) {
       sprayBottleRef.current.triggerAnimation(false);
     }
@@ -84,7 +112,7 @@ function CameraController({ onPestKilled }) {
 
   return (
     <>
-      <SprayParticles ref={sprayParticlesRef} onPestKilled={onPestKilled} />
+      <SprayParticles ref={sprayParticlesRef} />
       <SprayBottleR3F ref={sprayBottleRef} camera={camera} />
     </>
   );
@@ -210,6 +238,8 @@ export default function AAA_GameScene3D({
           windStrength={windStrength}
         />
         
+        <Pests3D pests={activePests} onPestHit={onPestKilled} />
+        
         {rainIntensity > 0 && <RainSystem intensity={rainIntensity} windStrength={windStrength} />}
         
         {currentWeather === 'fog' && (
@@ -232,7 +262,7 @@ export default function AAA_GameScene3D({
           color="#000000"
         />
         
-        <CameraController onPestKilled={onPestKilled} />
+        <CameraController onPestKilled={onPestKilled} activePests={activePests} />
         
         <EffectComposer multisampling={8}>
           <Bloom 
