@@ -120,8 +120,12 @@ export default function Game() {
     mutationFn: ({ id, data }) => base44.entities.GameProgress.update(id, data)
   });
 
+  const levelLoadedRef = useRef(false);
+  
   useEffect(() => {
-    if (progress?.id && gameState === 'loading') {
+    if (progress?.id && gameState === 'loading' && !levelLoadedRef.current) {
+      levelLoadedRef.current = true;
+      
       const loadLevel = async () => {
         setCurrentSeason(progress.current_season || 'spring');
 
@@ -169,6 +173,10 @@ export default function Game() {
       };
 
       loadLevel();
+    }
+    
+    if (gameState === 'loading') {
+      levelLoadedRef.current = false;
     }
   }, [progress?.id, gameState]);
 
@@ -278,8 +286,10 @@ export default function Game() {
     }
   }, [plantHealth, gameState]);
 
+  const bossSpawnedRef = useRef(false);
+  
   useEffect(() => {
-    if (gameState === 'playing' && !isPaused && !activeBoss && allBosses?.length > 0 && level > 0) {
+    if (gameState === 'playing' && !isPaused && !activeBoss && allBosses?.length > 0 && level > 0 && !bossSpawnedRef.current) {
       if (proceduralLevelData?.boss) {
         const bossConfig = proceduralLevelData.boss;
         const bossData = allBosses.find(b => b.id === bossConfig.boss_id);
@@ -291,15 +301,23 @@ export default function Game() {
             damage_per_second: bossData.damage_per_second * (bossConfig.damage_multiplier || 1)
           };
           spawnBoss(enhancedBoss);
+          bossSpawnedRef.current = true;
         }
       } else if (level % 3 === 0) {
         const bossForLevel = allBosses.find(b => b.level_appearance === level);
         if (bossForLevel) {
           spawnBoss(bossForLevel);
+          bossSpawnedRef.current = true;
         }
       }
     }
-  }, [level, gameState, isPaused, activeBoss?.id, allBosses?.length]);
+    
+    if (activeBoss) {
+      bossSpawnedRef.current = true;
+    } else {
+      bossSpawnedRef.current = false;
+    }
+  }, [level, gameState, isPaused, activeBoss, allBosses, proceduralLevelData]);
 
   const spawnBoss = (bossData) => {
     const healthMultiplier = 1 + (level - bossData.level_appearance) * 0.2;
@@ -422,7 +440,7 @@ export default function Game() {
     return () => clearInterval(cleanupInterval);
   }, []);
 
-  const spawnPests = () => {
+  const spawnPests = React.useCallback(() => {
     if (!allPests || allPests?.length === 0 || !progress) return;
     
     const difficultyMultiplier = 1 + (level - 1) * 0.1;
@@ -538,7 +556,7 @@ export default function Game() {
     }
     
     setActivePests(prev => [...prev, ...newPests]);
-  };
+  }, [allPests, progress, level, plantHealth, proceduralLevelData, currentSeason, weatherEffects]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && !activeBoss && allPests?.length > 0) {
@@ -547,7 +565,7 @@ export default function Game() {
       spawnPests();
       return () => clearInterval(spawnInterval);
     }
-  }, [gameState, isPaused, level, allPests?.length, activeBoss?.id]);
+  }, [gameState, isPaused, activeBoss, allPests?.length, spawnPests]);
 
   const handleBossHit = (damage) => {
     if (!activeBoss) return;
@@ -751,42 +769,54 @@ export default function Game() {
       const damageReduction = 1 - (Math.min(resistanceBonus, 75) / 100);
       
       const damageInterval = setInterval(() => {
-        let totalDamage = 0;
+        setActivePests(currentPests => {
+          let totalDamage = 0;
 
-        const pestsNearPlant = activePests.filter(pest => {
-          const distanceToCenter = Math.sqrt(
-            Math.pow(pest.position.x, 2) + Math.pow(pest.position.z, 2)
-          );
-          return distanceToCenter < 2;
+          const pestsNearPlant = currentPests.filter(pest => {
+            const distanceToCenter = Math.sqrt(
+              Math.pow(pest.position.x, 2) + Math.pow(pest.position.z, 2)
+            );
+            return distanceToCenter < 2;
+          });
+          
+          if (pestsNearPlant.length > 0) {
+            totalDamage += pestsNearPlant.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
+          }
+          
+          return currentPests;
         });
         
-        if (pestsNearPlant.length > 0) {
-          totalDamage += pestsNearPlant.reduce((sum, pest) => sum + (pest.damage || 0.5), 0);
-        }
-
-        if (activeBoss) {
-          const bossDistToCenter = Math.sqrt(
-            Math.pow(activeBoss.position.x, 2) + Math.pow(activeBoss.position.z, 2)
-          );
-          if (bossDistToCenter < 3) {
-            totalDamage += activeBoss.damage_per_second || 2;
+        setActiveBoss(currentBoss => {
+          if (currentBoss) {
+            const bossDistToCenter = Math.sqrt(
+              Math.pow(currentBoss.position.x, 2) + Math.pow(currentBoss.position.z, 2)
+            );
+            if (bossDistToCenter < 3) {
+              setPlantHealth(prev => Math.max(0, prev - (currentBoss.damage_per_second || 2) * 0.3 * damageReduction));
+            }
           }
-        }
-
-        toxicClouds.forEach(cloud => {
-          const cloudAge = (Date.now() - cloud.timestamp) / 1000;
-          if (cloudAge < 10) {
-            totalDamage += cloud.damage;
-          }
+          return currentBoss;
         });
 
-        if (totalDamage > 0) {
-          setPlantHealth(prev => Math.max(0, prev - totalDamage * 0.3 * damageReduction));
-        }
+        setToxicClouds(currentClouds => {
+          let toxicDamage = 0;
+          currentClouds.forEach(cloud => {
+            const cloudAge = (Date.now() - cloud.timestamp) / 1000;
+            if (cloudAge < 10) {
+              toxicDamage += cloud.damage;
+            }
+          });
+          
+          if (toxicDamage > 0) {
+            setPlantHealth(prev => Math.max(0, prev - toxicDamage * 0.3 * damageReduction));
+          }
+          
+          return currentClouds;
+        });
       }, 500);
       return () => clearInterval(damageInterval);
     }
-  }, [gameState, isPaused, activePests.length, activeBoss?.id, toxicClouds.length, progress?.plant_stats?.resistance_bonus]);
+  }, [gameState, isPaused, progress?.plant_stats?.resistance_bonus]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress?.upgrades) {
@@ -968,7 +998,9 @@ export default function Game() {
   };
 
   const restartGame = () => {
-    setGameState('playing');
+    levelLoadedRef.current = false;
+    bossSpawnedRef.current = false;
+    setGameState('loading');
     setScore(0);
     setPlantHealth(100);
     setSprayAmmo(100);
@@ -982,6 +1014,8 @@ export default function Game() {
     setDiscoveredLore(null);
     setProceduralLevelData(null);
     setGameTime(0);
+    setWaveState('preparing');
+    setCurrentWave(1);
     gameStartTime.current = Date.now();
   };
 
@@ -1053,15 +1087,13 @@ export default function Game() {
   }, [activeBoss?.id, activeBoss?.type, gameState, isPaused]);
 
   useEffect(() => {
-    if (toxicClouds.length > 0) {
-      const cleanupInterval = setInterval(() => {
-        const now = Date.now();
-        setToxicClouds(prev => prev.filter(cloud => now - cloud.timestamp < 10000));
-      }, 1000);
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      setToxicClouds(prev => prev.filter(cloud => now - cloud.timestamp < 10000));
+    }, 1000);
 
-      return () => clearInterval(cleanupInterval);
-    }
-  }, [toxicClouds]);
+    return () => clearInterval(cleanupInterval);
+  }, []);
 
 
 
