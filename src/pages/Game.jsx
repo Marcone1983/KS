@@ -98,13 +98,15 @@ export default function Game() {
   const { data: allPests } = useQuery({
     queryKey: ['pests'],
     queryFn: () => base44.entities.Pest.list(),
-    initialData: []
+    initialData: [],
+    staleTime: 5 * 60 * 1000
   });
 
   const { data: allBosses } = useQuery({
     queryKey: ['bosses'],
     queryFn: () => base44.entities.Boss.list(),
-    initialData: []
+    initialData: [],
+    staleTime: 5 * 60 * 1000
   });
 
   const saveSessionMutation = useMutation({
