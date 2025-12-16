@@ -4,7 +4,7 @@ import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Text, Ht
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { Droplets, Sun, Wind, Thermometer, Heart, Zap, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Droplets, Sun, Wind, Thermometer, Heart, Zap, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
 import CannabisPlantR3F_AAA from '../game/CannabisPlantR3F_AAA';
 
 const GrowthTimelineMarker = ({ stage, isActive, position, label }) => {
@@ -523,46 +523,5 @@ export default function GrowingSimulator3D({
         </div>
       </div>
     </div>
-  );
-}
-
-function PlantPot3D({ potType, wetness }) {
-  const potColors = {
-    basic: 0x8b4513,
-    ceramic: 0xd4a574,
-    terracotta: 0xc44e3a,
-    smart: 0x2c3e50
-  };
-
-  const soilColor = new THREE.Color(0x3d2817).lerp(new THREE.Color(0x2a1a0a), 1 - wetness);
-
-  return (
-    <group>
-      <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.4, 0.35, 0.5, 32]} />
-        <meshStandardMaterial
-          color={potColors[potType] || potColors.basic}
-          roughness={0.75}
-          metalness={potType === 'smart' ? 0.3 : 0.05}
-        />
-      </mesh>
-      <mesh position={[0, 0.46, 0]} receiveShadow>
-        <cylinderGeometry args={[0.38, 0.38, 0.06, 32]} />
-        <meshStandardMaterial
-          color={soilColor}
-          roughness={0.95 - wetness * 0.3}
-          metalness={wetness * 0.1}
-        />
-      </mesh>
-      {potType === 'smart' && (
-        <>
-          <mesh position={[0.35, 0.25, 0]}>
-            <boxGeometry args={[0.05, 0.08, 0.02]} />
-            <meshStandardMaterial color={0x00ff00} emissive={0x00ff00} emissiveIntensity={0.5} />
-          </mesh>
-          <pointLight position={[0.35, 0.25, 0]} color={0x00ff00} intensity={0.3} distance={0.5} />
-        </>
-      )}
-    </group>
   );
 }
