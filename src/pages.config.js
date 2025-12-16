@@ -11,6 +11,9 @@ import PlantUpgrades from './pages/PlantUpgrades';
 import Crafting from './pages/Crafting';
 import GrowingLab from './pages/GrowingLab';
 import BreedingLab from './pages/BreedingLab';
+import Leaderboards from './pages/Leaderboards';
+import PlayerProgression from './pages/PlayerProgression';
+import GardenCustomization from './pages/GardenCustomization';
 
 
 export const PAGES = {
@@ -27,6 +30,9 @@ export const PAGES = {
     "Crafting": Crafting,
     "GrowingLab": GrowingLab,
     "BreedingLab": BreedingLab,
+    "Leaderboards": Leaderboards,
+    "PlayerProgression": PlayerProgression,
+    "GardenCustomization": GardenCustomization,
 }
 
 export const pagesConfig = {

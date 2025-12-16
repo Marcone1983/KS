@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna } from 'lucide-react';
+import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 export default function Home() {
@@ -187,6 +187,33 @@ export default function Home() {
           >
             <Sparkles className="h-8 w-8 mr-3" />
             Breeding Lab
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('Leaderboards'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-yellow-400 text-white hover:bg-yellow-500/20 text-xl px-12 py-8"
+          >
+            <Trophy className="h-8 w-8 mr-3" />
+            Leaderboards
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('PlayerProgression'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-indigo-400 text-white hover:bg-indigo-500/20 text-xl px-12 py-8"
+          >
+            <Award className="h-8 w-8 mr-3" />
+            Skills
+          </Button>
+          <Button 
+            onClick={() => navigate(createPageUrl('GardenCustomization'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-teal-400 text-white hover:bg-teal-500/20 text-xl px-12 py-8"
+          >
+            <Palette className="h-8 w-8 mr-3" />
+            Customize
           </Button>
           </div>
 

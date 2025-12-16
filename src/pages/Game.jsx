@@ -875,6 +875,27 @@ export default function Game() {
     await saveSessionMutation.mutateAsync(sessionData);
 
     const researchPointsEarned = completed ? Math.floor(level * 2 + score / 50) : Math.floor(score / 100);
+    
+    let skillPointsEarned = 0;
+    if (completed) {
+      skillPointsEarned = 1;
+      if (plantHealth >= 90) skillPointsEarned += 2;
+      if (score > 1000) skillPointsEarned += 1;
+      const totalPestsKilled = Object.values(pestsEliminated).reduce((sum, count) => sum + count, 0);
+      if (totalPestsKilled >= 50) skillPointsEarned += 1;
+    }
+    
+    if (skillPointsEarned > 0) {
+      const skillTrees = await base44.entities.PlayerSkillTree.list();
+      if (skillTrees.length > 0) {
+        const skillTree = skillTrees[0];
+        await base44.entities.PlayerSkillTree.update(skillTree.id, {
+          skill_points: skillTree.skill_points + skillPointsEarned,
+          total_points_earned: (skillTree.total_points_earned || 0) + skillPointsEarned
+        });
+        toast.success(`+${skillPointsEarned} Skill Points earned!`);
+      }
+    }
 
     if (proceduralLevelData && completed) {
       let bonusLeaf = proceduralLevelData.rewards.base_leaf;
@@ -938,6 +959,8 @@ export default function Game() {
       
       await updateProgressMutation.mutateAsync({ id: progress.id, data: updates });
     }
+    
+    queryClient.invalidateQueries({ queryKey: ['playerSkillTree'] });
   };
 
   const handleQuickUpgrade = async (category, upgradeId, cost) => {
