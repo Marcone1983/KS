@@ -53,6 +53,7 @@ export default function Game() {
   const [activePowerUps, setActivePowerUps] = useState([]);
   const [activeRandomEvent, setActiveRandomEvent] = useState(null);
   const [specialEnemies, setSpecialEnemies] = useState([]);
+  const [accuracyStats, setAccuracyStats] = useState({ hits: 0, shots: 0 });
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
@@ -98,9 +99,14 @@ export default function Game() {
   const pestBehaviorPredictions = useAIPestBehaviorPredictor({
     difficultyMultipliers,
     playerPerformance: {
-      accuracy: 0.7,
-      reactionTime: 1.0,
-      survivalRate: plantHealth / 100
+      accuracy: accuracyStats.shots > 0 ? accuracyStats.hits / accuracyStats.shots : 0.5,
+      reactionTime: Math.min(gameTime / (Object.values(pestsEliminated).reduce((a, b) => a + b, 0) + 1), 1.0),
+      survivalRate: plantHealth / (selectedPlantType?.stats?.baseHealth || 100)
+    },
+    gameContext: {
+      currentWave,
+      plantHealth,
+      powerUpsActive: activePowerUps.length
     }
   });
 
@@ -159,6 +165,15 @@ export default function Game() {
     staleTime: 5 * 60 * 1000
   });
 
+  const { data: activeChallenges } = useQuery({
+    queryKey: ['activeChallenges'],
+    queryFn: async () => {
+      const challenges = await base44.entities.PlayerChallenge.filter({ status: 'active' });
+      return challenges;
+    },
+    initialData: []
+  });
+
   const saveSessionMutation = useMutation({
     mutationFn: (sessionData) => base44.entities.GameSession.create(sessionData),
     onSuccess: () => {
@@ -168,6 +183,13 @@ export default function Game() {
 
   const updateProgressMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.GameProgress.update(id, data)
+  });
+
+  const updateChallengeMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.PlayerChallenge.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activeChallenges'] });
+    }
   });
 
   const levelLoadedRef = useRef(false);
@@ -683,6 +705,8 @@ export default function Game() {
   };
 
   const handlePestHit = (pestId, damage) => {
+    setAccuracyStats(prev => ({ ...prev, hits: prev.hits + 1 }));
+
     if (activeBoss && pestId === activeBoss.id) {
       handleBossHit(damage);
       return;
@@ -828,10 +852,102 @@ export default function Game() {
   const handleSpray = () => {
     if (sprayAmmo > 0) {
       setSprayAmmo(prev => Math.max(0, prev - 5));
+      setAccuracyStats(prev => ({ ...prev, shots: prev.shots + 1 }));
       return true;
     }
     return false;
   };
+
+  useEffect(() => {
+    if (!activeChallenges || activeChallenges.length === 0 || gameState !== 'playing') return;
+
+    activeChallenges.forEach(async (challenge) => {
+      let shouldUpdate = false;
+      let newProgress = { ...challenge.progress };
+
+      if (challenge.challenge_name.includes('Wave')) {
+        const waveTarget = challenge.progress.target || 10;
+        if (currentWave > (challenge.progress.current || 0)) {
+          newProgress.current = currentWave;
+          shouldUpdate = true;
+        }
+        if (currentWave >= waveTarget && plantHealth === 100) {
+          shouldUpdate = true;
+          await updateChallengeMutation.mutateAsync({
+            id: challenge.id,
+            data: { status: 'completed', completed_at: new Date().toISOString(), progress: newProgress }
+          });
+          toast.success(`Challenge "${challenge.challenge_name}" completed!`);
+          return;
+        }
+      }
+
+      if (challenge.challenge_name.includes('Accuracy')) {
+        const accuracy = accuracyStats.shots > 0 ? accuracyStats.hits / accuracyStats.shots : 0;
+        newProgress.current = Math.round(accuracy * 100);
+        newProgress.target = 90;
+        shouldUpdate = true;
+        
+        if (currentWave >= 5 && accuracy >= 0.9) {
+          await updateChallengeMutation.mutateAsync({
+            id: challenge.id,
+            data: { status: 'completed', completed_at: new Date().toISOString(), progress: newProgress }
+          });
+          toast.success(`Challenge "${challenge.challenge_name}" completed!`);
+          return;
+        }
+      }
+
+      if (challenge.challenge_name.includes('Survival')) {
+        newProgress.current = currentWave;
+        newProgress.target = 20;
+        shouldUpdate = true;
+
+        if (currentWave >= 20 && plantHealth >= 80) {
+          await updateChallengeMutation.mutateAsync({
+            id: challenge.id,
+            data: { status: 'completed', completed_at: new Date().toISOString(), progress: newProgress }
+          });
+          toast.success(`Challenge "${challenge.challenge_name}" completed!`);
+          return;
+        }
+      }
+
+      if (challenge.challenge_name.includes('pests') || challenge.challenge_name.includes('Pest')) {
+        const totalKilled = Object.values(pestsEliminated).reduce((sum, count) => sum + count, 0);
+        newProgress.current = totalKilled;
+        shouldUpdate = true;
+
+        if (totalKilled >= (challenge.progress.target || 50)) {
+          await updateChallengeMutation.mutateAsync({
+            id: challenge.id,
+            data: { status: 'completed', completed_at: new Date().toISOString(), progress: newProgress }
+          });
+          toast.success(`Challenge "${challenge.challenge_name}" completed!`);
+          return;
+        }
+      }
+
+      if (shouldUpdate && challenge.status === 'active') {
+        await updateChallengeMutation.mutateAsync({
+          id: challenge.id,
+          data: { progress: newProgress }
+        });
+      }
+    });
+  }, [currentWave, plantHealth, accuracyStats, pestsEliminated, activeChallenges, gameState]);
+
+  useEffect(() => {
+    if (gameState === 'playing') {
+      const accuracyResetInterval = setInterval(() => {
+        if (currentWave > 0 && currentWave % 5 === 0) {
+          setAccuracyStats({ hits: 0, shots: 0 });
+        }
+      }, 5000);
+
+      return () => clearInterval(accuracyResetInterval);
+    }
+  }, [gameState, currentWave]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused && progress?.upgrades) {
