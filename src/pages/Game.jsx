@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import HempSprayFPV_Realistic from '../components/game/HempSprayFPV_Realistic';
+import AAA_GameScene3D from '../components/game/AAA_GameScene3D';
 import GameUI from '../components/game/GameUI';
 import GameOver from '../components/game/GameOver';
 import PauseMenu from '../components/game/PauseMenu';
@@ -1009,14 +1009,18 @@ export default function Game() {
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
-      <HempSprayFPV_Realistic 
-        activePests={activePests}
+      <AAA_GameScene3D
+        gameLevel={level}
         plantHealth={plantHealth}
-        currentWeather={currentWeather}
-        dayNightHour={dayNightHour}
-        windStrength={currentWeather === 'wind' ? 0.5 : 0.2}
-        rainIntensity={currentWeather === 'rain' ? 0.8 : 0}
-        onPestKilled={(pestId) => handlePestHit(pestId, 100)}
+        plantGrowthStage={progress?.plant_stats?.growth_level / 10 || 0.5}
+        pestInfestation={Math.min((activePests.length / 20) * 100, 100)}
+        onPestKilled={(count) => {
+          const pestsToKill = activePests.slice(0, count);
+          pestsToKill.forEach(pest => handlePestHit(pest.id, 100));
+        }}
+        onPlantDamaged={(damage) => {
+          setPlantHealth(prev => Math.max(0, prev - damage));
+        }}
       />
 
       {activeBoss && (
