@@ -423,7 +423,7 @@ export default function Game() {
   }, []);
 
   const spawnPests = () => {
-    if (!allPests || allPests.length === 0 || !progress) return;
+    if (!allPests || allPests?.length === 0 || !progress) return;
     
     const difficultyMultiplier = 1 + (level - 1) * 0.1;
     const healthScaling = plantHealth < 50 ? 0.8 : plantHealth > 80 ? 1.2 : 1.0;
