@@ -4,11 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target, Users, Share2, Zap } from 'lucide-react';
+import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target, Users, Share2, Zap, Bug } from 'lucide-react';
 import { createPageUrl } from '../utils';
+import AssetChecker from '../components/debug/AssetChecker';
 
 export default function Home() {
   const navigate = useNavigate();
+  const [showAssetChecker, setShowAssetChecker] = React.useState(false);
 
   const { data: progress } = useQuery({
     queryKey: ['gameProgress'],
@@ -116,7 +118,7 @@ export default function Home() {
           </Card>
         </div>
 
-        <div className="flex justify-center gap-4 flex-wrap">
+        <div className="flex justify-center gap-4 flex-wrap mb-8">
           <Button 
             onClick={() => navigate(createPageUrl('SplashScreen'))}
             size="lg"
@@ -253,8 +255,29 @@ export default function Home() {
           >
             <BookOpen className="h-8 w-8 mr-3" />
             Codex
-          </Button>
-          </div>
+            </Button>
+
+            <Button 
+            onClick={() => setShowAssetChecker(!showAssetChecker)}
+            size="lg"
+            variant="outline"
+            className="border-2 border-red-400 bg-black/30 backdrop-blur text-white hover:bg-red-500/30 text-xl px-12 py-8 shadow-lg"
+            >
+            <Bug className="h-8 w-8 mr-3" />
+            Asset Check
+            </Button>
+            </div>
+
+            {showAssetChecker && (
+            <div className="mt-8 max-w-3xl mx-auto">
+            <AssetChecker assets={[
+              '/models/plant01.glb',
+              '/models/plant02.glb',
+              '/models/plant03.glb',
+              '/models/plant04.glb'
+            ]} />
+            </div>
+            )}
 
         {sessions.length > 0 && (
           <Card className="mt-8 bg-white/95 backdrop-blur">
