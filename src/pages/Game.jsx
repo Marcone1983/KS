@@ -989,7 +989,7 @@ export default function Game() {
     if (activeBoss?.type === 'swarm' && gameState === 'playing' && !isPaused && allPests?.length > 0) {
       bossSpawnTimerRef.current = setInterval(() => {
         const now = Date.now();
-        if (now - activeBoss.lastSpawnTime > 4000 && allPests.length > 0) {
+        if (now - activeBoss.lastSpawnTime > 4000 && allPests?.length > 0) {
           const minionPest = allPests[Math.floor(Math.random() * allPests.length)];
           const angle = Math.random() * Math.PI * 2;
           const distance = 2;
