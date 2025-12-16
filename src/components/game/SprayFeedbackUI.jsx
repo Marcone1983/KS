@@ -1,20 +1,46 @@
 import React from 'react';
 import { Target, Droplets } from 'lucide-react';
 
-export default function SprayFeedbackUI({ targetedPlant, sprayedCount, totalPlants }) {
+export default function SprayFeedbackUI({ targetedPlant, sprayedCount, totalPlants, targetedState }) {
+  const getTargetStateInfo = () => {
+    if (!targetedPlant) return null;
+    
+    const stateConfig = {
+      healthy: { label: 'HEALTHY', color: 'bg-green-500/80', border: 'border-green-400' },
+      infested: { label: 'INFESTED', color: 'bg-orange-500/80', border: 'border-orange-400' },
+      diseased: { label: 'DISEASED', color: 'bg-red-500/80', border: 'border-red-400' },
+      treating: { label: 'TREATING', color: 'bg-cyan-500/80', border: 'border-cyan-400' },
+      treated: { label: 'TREATED', color: 'bg-emerald-500/80', border: 'border-emerald-400' },
+      mature: { label: 'MATURE', color: 'bg-yellow-500/80', border: 'border-yellow-400' }
+    };
+    
+    return stateConfig[targetedState] || stateConfig.healthy;
+  };
+  
+  const stateInfo = getTargetStateInfo();
+  
   return (
     <>
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
         <div className={`w-8 h-8 border-2 rounded-full transition-all ${
-          targetedPlant ? 'border-green-400 scale-125' : 'border-white/50'
+          targetedPlant ? `${stateInfo?.border || 'border-green-400'} scale-125 shadow-lg` : 'border-white/50'
         }`}>
           <div className="w-1 h-1 bg-white rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          {targetedPlant && (
+            <>
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-white rounded-full animate-ping" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '0.15s' }} />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: '0.45s' }} />
+            </>
+          )}
         </div>
-        {targetedPlant && (
-          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-            <div className="bg-green-500/80 backdrop-blur text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-              <Target className="w-3 h-3" />
-              SPRAY NOW
+        {targetedPlant && stateInfo && (
+          <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
+            <div className={`${stateInfo.color} backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-lg border ${stateInfo.border}`}>
+              <Target className="w-4 h-4" />
+              <span>{stateInfo.label}</span>
+              <Droplets className="w-4 h-4 animate-pulse" />
             </div>
           </div>
         )}

@@ -3,13 +3,15 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import SprayablePlant, { PLANT_MODELS } from './SprayablePlant';
 
-export default function PlantTargetingSystem({ plantCount = 10, onPlantSprayed, debugMode = false }) {
+export default function PlantTargetingSystem({ plantCount = 10, onPlantSprayed, onTargetChange, debugMode = false }) {
   const { camera, scene } = useThree();
   const [plants, setPlants] = useState([]);
   const [targetedPlantId, setTargetedPlantId] = useState(null);
+  const [targetedPlantState, setTargetedPlantState] = useState(null);
   const [sprayedPlants, setSprayedPlants] = useState(new Set());
   const raycaster = useRef(new THREE.Raycaster());
   const centerPoint = useRef(new THREE.Vector2(0, 0));
+  const plantStatesRef = useRef(new Map());
 
   useEffect(() => {
     const plantInstances = [];
@@ -49,6 +51,9 @@ export default function PlantTargetingSystem({ plantCount = 10, onPlantSprayed, 
     scene.traverse((obj) => {
       if (obj.userData.isPlant && obj.isMesh) {
         allObjects.push(obj);
+        if (obj.userData.plantId && obj.userData.state) {
+          plantStatesRef.current.set(obj.userData.plantId, obj.userData.state);
+        }
       }
     });
 
@@ -57,20 +62,35 @@ export default function PlantTargetingSystem({ plantCount = 10, onPlantSprayed, 
     if (intersects.length > 0) {
       const hit = intersects[0];
       const plantId = hit.object.userData.plantId;
-      if (plantId && !sprayedPlants.has(plantId)) {
+      const plantState = plantStatesRef.current.get(plantId);
+      
+      if (plantId) {
         setTargetedPlantId(plantId);
+        setTargetedPlantState(plantState);
+        if (onTargetChange) {
+          onTargetChange(plantId, plantState);
+        }
       } else {
         setTargetedPlantId(null);
+        setTargetedPlantState(null);
+        if (onTargetChange) {
+          onTargetChange(null, null);
+        }
       }
     } else {
       setTargetedPlantId(null);
+      setTargetedPlantState(null);
+      if (onTargetChange) {
+        onTargetChange(null, null);
+      }
     }
   });
 
-  const handlePlantSpray = (plantId) => {
+  const handlePlantSpray = (plantId, previousState) => {
+    console.log(`💧 Plant sprayed: ${plantId}, was in state: ${previousState}`);
     setSprayedPlants(prev => new Set([...prev, plantId]));
     if (onPlantSprayed) {
-      onPlantSprayed(plantId);
+      onPlantSprayed(plantId, previousState);
     }
   };
 

@@ -240,6 +240,7 @@ export default function AAA_GameScene3D({
   const [metrics, setMetrics] = useState({ fps: 0, drawCalls: 0, triangles: 0 });
   const [sprayedPlantsCount, setSprayedPlantsCount] = useState(0);
   const [targetedPlant, setTargetedPlant] = useState(null);
+  const [targetedPlantState, setTargetedPlantState] = useState(null);
   const totalPlants = 11;
 
   useEffect(() => {
@@ -257,16 +258,22 @@ export default function AAA_GameScene3D({
     return (dayNightHour >= 6 && dayNightHour < 17) ? 'day' : (dayNightHour >= 17 && dayNightHour < 20) ? 'sunset' : 'night';
   }, [dayNightHour]);
 
-  const handlePlantSprayed = (plantId) => {
+  const handlePlantSprayed = (plantId, previousState) => {
     setSprayedPlantsCount(prev => prev + 1);
-    console.log(`Plant interaction: ${plantId} treated (Total: ${sprayedPlantsCount + 1}/${totalPlants})`);
+    console.log(`🎯 Plant interaction complete: ${plantId} (was: ${previousState}) → treated (Total: ${sprayedPlantsCount + 1}/${totalPlants})`);
+  };
+
+  const handleTargetChange = (plantId, plantState) => {
+    setTargetedPlant(plantId);
+    setTargetedPlantState(plantState);
   };
   
   return (
     <div className="w-full h-screen bg-black">
       <PerformanceOverlay metrics={metrics} visible={debugVisible} />
       <SprayFeedbackUI 
-        targetedPlant={targetedPlant} 
+        targetedPlant={targetedPlant}
+        targetedState={targetedPlantState}
         sprayedCount={sprayedPlantsCount} 
         totalPlants={totalPlants}
       />
@@ -299,6 +306,7 @@ export default function AAA_GameScene3D({
         <PlantTargetingSystem 
           plantCount={10}
           onPlantSprayed={handlePlantSprayed}
+          onTargetChange={handleTargetChange}
           debugMode={debugVisible}
         />
 
