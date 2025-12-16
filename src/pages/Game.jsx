@@ -1025,7 +1025,7 @@ export default function Game() {
         }
       };
     }
-  }, [activeBoss?.id, activeBoss?.type, gameState, isPaused, allPests.length]);
+  }, [activeBoss?.id, activeBoss?.type, gameState, isPaused, allPests?.length]);
 
   useEffect(() => {
     if (activeBoss?.type === 'toxic' && gameState === 'playing' && !isPaused) {
