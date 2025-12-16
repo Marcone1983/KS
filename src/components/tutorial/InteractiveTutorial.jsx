@@ -4,21 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, MousePointer, Zap, Trophy, CheckCircle, ArrowRight, Bug, Shield, Sparkles, AlertTriangle, Brain, X, Droplets, Move, Crosshair, Heart, Flame, Wind, Skull } from 'lucide-react';
+import { Target, MousePointer, Zap, Trophy, CheckCircle, ArrowRight, Bug, Shield, Sparkles, AlertTriangle, Brain, X, Droplets, Move, Crosshair, Heart, Flame, Wind, Skull, Leaf, BookOpen } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../../utils';
 
 const TUTORIAL_STEPS = [
-  { id: 'welcome', title: 'Benvenuto', description: 'Difendi la tua pianta dai parassiti!', icon: Trophy, task: null },
-  { id: 'movement', title: 'Controlli Base', description: 'Muovi il mouse per mirare, click o SPACE per spruzzare', icon: MousePointer, task: 'spray' },
-  { id: 'pests', title: 'I Parassiti', description: 'Elimina i parassiti prima che danneggino la pianta', icon: Bug, task: 'kill_pest' },
-  { id: 'powerups', title: 'Power-up', description: 'Raccogli power-up per abilità speciali', icon: Sparkles, task: 'collect_powerup' },
-  { id: 'special_enemies', title: 'Nemici Speciali', description: 'Attenzione ai nemici con abilità uniche!', icon: Skull, task: null },
-  { id: 'complete', title: 'Completato!', description: 'Ora sei pronto per giocare', icon: CheckCircle, task: null }
-];
-
-export default function InteractiveTutorial({ onComplete, onSkip }) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [taskProgress, setTaskProgress] = useState({});
-  const [isVisible, setIsVisible] = useState(true);
+  { 
+    id: 'welcome', 
+    title: 'Benvenuto in Kurstaki
 
   useEffect(() => {
     const step = TUTORIAL_STEPS[currentStep];
