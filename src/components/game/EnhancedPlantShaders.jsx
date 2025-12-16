@@ -116,7 +116,23 @@ const advancedLeafShader = {
 
 export function EnhancedPlantModel({ modelPath, position, rotation, scale, windStrength = 0.2, iridescence = 0.3, enableShadows = true, distanceFromCamera = 0 }) {
   const groupRef = useRef();
-  const { scene } = useGLTF(modelPath);
+  const loggedRef = useRef(false);
+  
+  if (!loggedRef.current) {
+    console.log('Plant GLB chosen:', modelPath);
+    loggedRef.current = true;
+  }
+  
+  const { scene, error } = useGLTF(modelPath, undefined, undefined, (err) => {
+    console.error('GLB Load Error:', modelPath, err);
+  });
+  
+  useEffect(() => {
+    if (scene) {
+      console.log('GLB Loaded successfully:', modelPath);
+    }
+  }, [scene, modelPath]);
+  
   const materialsRef = useRef([]);
   
   const clonedScene = useMemo(() => {
