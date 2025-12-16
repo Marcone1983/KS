@@ -133,7 +133,7 @@ export default function Game() {
             }
           });
 
-          if (response.data.success) {
+          if (response?.data?.success) {
             const levelData = response.data.level;
             setProceduralLevelData(levelData);
             setLevel(levelData.level_number);
