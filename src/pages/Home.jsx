@@ -129,7 +129,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Dashboard'))}
             size="lg"
             variant="outline"
-            className="border-2 border-white text-white hover:bg-white/10 text-xl px-12 py-8"
+            className="border-2 border-white bg-black/30 backdrop-blur text-white hover:bg-white/20 text-xl px-12 py-8 shadow-lg"
           >
             <Trophy className="h-8 w-8 mr-3" />
             Dashboard
@@ -138,7 +138,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Shop'))}
             size="lg"
             variant="outline"
-            className="border-2 border-purple-400 text-white hover:bg-purple-500/20 text-xl px-12 py-8"
+            className="border-2 border-purple-400 bg-black/30 backdrop-blur text-white hover:bg-purple-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Settings className="h-8 w-8 mr-3" />
             Shop
@@ -147,7 +147,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Encyclopedia'))}
             size="lg"
             variant="outline"
-            className="border-2 border-green-400 text-white hover:bg-green-500/20 text-xl px-12 py-8"
+            className="border-2 border-green-400 bg-black/30 backdrop-blur text-white hover:bg-green-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <BookOpen className="h-8 w-8 mr-3" />
             Enciclopedia
@@ -156,7 +156,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('ResearchTree'))}
             size="lg"
             variant="outline"
-            className="border-2 border-cyan-400 text-white hover:bg-cyan-500/20 text-xl px-12 py-8"
+            className="border-2 border-cyan-400 bg-black/30 backdrop-blur text-white hover:bg-cyan-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <FlaskConical className="h-8 w-8 mr-3" />
             Ricerca
@@ -165,7 +165,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('PlantUpgrades'))}
             size="lg"
             variant="outline"
-            className="border-2 border-emerald-400 text-white hover:bg-emerald-500/20 text-xl px-12 py-8"
+            className="border-2 border-emerald-400 bg-black/30 backdrop-blur text-white hover:bg-emerald-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <TrendingUp className="h-8 w-8 mr-3" />
             Potenzia Pianta
@@ -174,7 +174,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Crafting'))}
             size="lg"
             variant="outline"
-            className="border-2 border-pink-400 text-white hover:bg-pink-500/20 text-xl px-12 py-8"
+            className="border-2 border-pink-400 bg-black/30 backdrop-blur text-white hover:bg-pink-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Beaker className="h-8 w-8 mr-3" />
             Crafting
@@ -183,7 +183,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('BreedingLab'))}
             size="lg"
             variant="outline"
-            className="border-2 border-purple-400 text-white hover:bg-purple-500/20 text-xl px-12 py-8"
+            className="border-2 border-purple-400 bg-black/30 backdrop-blur text-white hover:bg-purple-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Sparkles className="h-8 w-8 mr-3" />
             Breeding Lab
@@ -192,7 +192,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Leaderboards'))}
             size="lg"
             variant="outline"
-            className="border-2 border-yellow-400 text-white hover:bg-yellow-500/20 text-xl px-12 py-8"
+            className="border-2 border-yellow-400 bg-black/30 backdrop-blur text-white hover:bg-yellow-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Trophy className="h-8 w-8 mr-3" />
             Leaderboards
@@ -201,7 +201,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('PlayerProgression'))}
             size="lg"
             variant="outline"
-            className="border-2 border-indigo-400 text-white hover:bg-indigo-500/20 text-xl px-12 py-8"
+            className="border-2 border-indigo-400 bg-black/30 backdrop-blur text-white hover:bg-indigo-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Award className="h-8 w-8 mr-3" />
             Skills
@@ -210,7 +210,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('GardenCustomization'))}
             size="lg"
             variant="outline"
-            className="border-2 border-teal-400 text-white hover:bg-teal-500/20 text-xl px-12 py-8"
+            className="border-2 border-teal-400 bg-black/30 backdrop-blur text-white hover:bg-teal-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Palette className="h-8 w-8 mr-3" />
             Customize
@@ -219,7 +219,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('GrowingLab'))}
             size="lg"
             variant="outline"
-            className="border-2 border-emerald-400 text-white hover:bg-emerald-500/20 text-xl px-12 py-8"
+            className="border-2 border-emerald-400 bg-black/30 backdrop-blur text-white hover:bg-emerald-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Leaf className="h-8 w-8 mr-3" />
             Growing Lab
@@ -229,7 +229,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Progression'))}
             size="lg"
             variant="outline"
-            className="border-2 border-purple-400 text-white hover:bg-purple-500/20 text-xl px-12 py-8"
+            className="border-2 border-purple-400 bg-black/30 backdrop-blur text-white hover:bg-purple-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Trophy className="h-8 w-8 mr-3" />
             Progression
@@ -239,7 +239,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Challenges'))}
             size="lg"
             variant="outline"
-            className="border-2 border-orange-400 text-white hover:bg-orange-500/20 text-xl px-12 py-8"
+            className="border-2 border-orange-400 bg-black/30 backdrop-blur text-white hover:bg-orange-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <Target className="h-8 w-8 mr-3" />
             Challenges
@@ -249,7 +249,7 @@ export default function Home() {
             onClick={() => navigate(createPageUrl('Codex'))}
             size="lg"
             variant="outline"
-            className="border-2 border-green-400 text-white hover:bg-green-500/20 text-xl px-12 py-8"
+            className="border-2 border-green-400 bg-black/30 backdrop-blur text-white hover:bg-green-500/30 text-xl px-12 py-8 shadow-lg"
           >
             <BookOpen className="h-8 w-8 mr-3" />
             Codex

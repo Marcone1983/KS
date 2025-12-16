@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, X } from 'lucide-react';
+import { Trophy, X, CheckCircle } from 'lucide-react';
 
 export default function InteractiveTutorial({ onComplete, onSkip }) {
   const [isVisible, setIsVisible] = useState(true);
@@ -48,7 +48,35 @@ export default function InteractiveTutorial({ onComplete, onSkip }) {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
-                <p><strong className="text-white">🎮 Obiettivo:</strong> Proteggi la tua pianta di cannabis eliminando i parassiti prima che la danneggino.</p>
-                <p><strong className="text-white">🖱️ Controlli:</strong> Muovi il mouse per mirare, CLICK o SPACE per spruzzare il Btk.</p>
-                <p><strong className="text-white">⚡ Power-ups:</strong> Raccogli power-up per abilità speciali che ti aiu
+              <div className="space-y-4 text-gray-300 text-base leading-relaxed bg-black/20 p-6 rounded-lg border border-white/10">
+                <p className="text-white font-semibold text-lg mb-4">Come Giocare:</p>
+                <p><span className="text-green-400 font-bold">🎮 Obiettivo:</span> Proteggi la tua pianta di cannabis eliminando i parassiti prima che la danneggino.</p>
+                <p><span className="text-cyan-400 font-bold">🖱️ Controlli:</span> Muovi il mouse per mirare, CLICK o SPACE per spruzzare il Btk.</p>
+                <p><span className="text-purple-400 font-bold">⚡ Power-ups:</span> Raccogli power-up colorati per abilità speciali che ti aiuteranno in battaglia.</p>
+                <p><span className="text-red-400 font-bold">🐛 Parassiti:</span> Ogni parassita ha abilità uniche - studia i loro comportamenti!</p>
+                <p><span className="text-yellow-400 font-bold">💰 Leaf Token:</span> Guadagna Leaf giocando per sbloccare skin, vasi e potenziamenti nello shop.</p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleSkip}
+                  variant="outline"
+                  className="flex-1 border-gray-500 text-white hover:bg-gray-800"
+                >
+                  Salta Tutorial
+                </Button>
+                <Button
+                  onClick={handleComplete}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold"
+                >
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Ho Capito, Iniziamo!
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

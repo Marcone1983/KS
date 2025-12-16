@@ -10,6 +10,7 @@ import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import PlantCarePanel from '../components/plant/PlantCarePanel';
 import { useNavigate as useNav } from 'react-router-dom';
+import PotVisualization from '../components/shop/PotVisualization';
 
 const SKINS = [
   { id: 'default', name: 'Classico', price: 0, description: 'Spruzzino base', color: '#00BFFF' },
@@ -530,12 +531,7 @@ export default function Shop() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div 
-                      className="w-full h-32 rounded-lg mb-4 flex items-center justify-center"
-                      style={{ backgroundColor: pot.color || '#8B4513' }}
-                    >
-                      <Box className="h-16 w-16 text-white/30" />
-                    </div>
+                    <PotVisualization color={pot.color || '#8B4513'} type={pot.id} />
                     <p className="text-gray-300 text-sm mb-3">{pot.description}</p>
 
                     <div className="space-y-1 mb-4 text-xs">
