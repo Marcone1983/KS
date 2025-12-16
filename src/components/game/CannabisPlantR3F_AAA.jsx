@@ -268,9 +268,11 @@ export default function CannabisPlantR3F_AAA({
   const diseaseLevel = infestationFactor;
 
   const leafMaterial = useMemo(() => {
-    const baseLeafColor = customColors?.leaf ? new THREE.Color(customColors.leaf) : new THREE.Color(0x3a7d3a);
+    const baseColor = customColors?.leaf 
+      ? new THREE.Color(customColors.leaf) 
+      : new THREE.Color(0x3a7d3a);
     const infectedColor = new THREE.Color(0x8b7d3a);
-    const leafColor = baseLeafColor.clone().lerp(infectedColor, infestationFactor * 0.6);
+    const leafColor = baseColor.clone().lerp(infectedColor, infestationFactor * 0.6);
     
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -289,7 +291,7 @@ export default function CannabisPlantR3F_AAA({
       side: THREE.DoubleSide,
       transparent: true
     });
-  }, [healthFactor, infestationFactor, windStrength, growthStage]);
+  }, [healthFactor, infestationFactor, windStrength, growthStage, customColors]);
 
   useFrame((state) => {
     if (leafMaterial) {
@@ -299,7 +301,7 @@ export default function CannabisPlantR3F_AAA({
       if (rainbow) {
         const hue = (state.clock.elapsedTime * 0.1) % 1;
         const rainbowColor = new THREE.Color().setHSL(hue, 0.8, 0.5);
-        leafMaterial.uniforms.leafColor.value.copy(rainbowColor);
+        leafMaterial.uniforms.leafColor.value = rainbowColor;
       }
     }
     
@@ -311,7 +313,9 @@ export default function CannabisPlantR3F_AAA({
   });
 
   const stemMaterial = useMemo(() => {
-    const baseStemColor = customColors?.stem ? new THREE.Color(customColors.stem) : new THREE.Color(0x5a7d4a);
+    const baseStemColor = customColors?.stem 
+      ? new THREE.Color(customColors.stem) 
+      : new THREE.Color(0x5a7d4a);
     return new THREE.MeshStandardMaterial({
       color: baseStemColor.clone().lerp(new THREE.Color(0x4a3a2a), diseaseLevel * 0.4),
       roughness: 0.85,
