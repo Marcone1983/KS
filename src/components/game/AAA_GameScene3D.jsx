@@ -20,14 +20,13 @@ import PowerUpSystem from './PowerUps';
 import { FogParticles, VolumetricLight, DynamicWater, Butterflies, Fireflies, EnhancedRainSystem } from '../environment/AtmosphericEffects';
 import PerformanceMonitor, { PerformanceOverlay } from './PerformanceMonitor';
 
-function CameraController({ onPestKilled, activePests }) {
+function CameraController({ onPestKilled, activePests, activePowerUps = [] }) {
   const { camera } = useThree();
   const [mouseX, setMouseX] = useState(0);
   const [mouseY, setMouseY] = useState(0);
   const [isSpraying, setIsSpraying] = useState(false);
   const sprayParticlesRef = useRef();
   const sprayBottleRef = useRef();
-  const { activePowerUps: powerUpsFromParent = [] } = { activePowerUps };
 
   useEffect(() => {
     camera.position.set(0, 1.4, 2.2);
@@ -329,7 +328,7 @@ export default function AAA_GameScene3D({
           color="#000000"
         />
         
-        <CameraController onPestKilled={onPestKilled} activePests={activePests} />
+        <CameraController onPestKilled={onPestKilled} activePests={activePests} activePowerUps={activePowerUps} />
         
         {/* KS-style post FX: cleaner + quality presets (mobile-friendly) */}
           <PostProcessingEffects

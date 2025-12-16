@@ -31,7 +31,15 @@ export default function Challenges() {
     queryKey: ['playerProgression'],
     queryFn: async () => {
       const list = await base44.entities.PlayerProgression.list();
-      return list[0] || null;
+      return list.length > 0 ? list[0] : null;
+    }
+  });
+
+  const { data: gameProgress } = useQuery({
+    queryKey: ['gameProgress'],
+    queryFn: async () => {
+      const list = await base44.entities.GameProgress.list();
+      return list.length > 0 ? list[0] : null;
     }
   });
 
@@ -66,22 +74,21 @@ export default function Challenges() {
           current_xp: progression.current_xp + (rewards.xp || 0)
         };
 
-        if (updates.current_xp >= progression.xp_to_next_level) {
-          updates.player_level = progression.player_level + 1;
-          updates.current_xp = updates.current_xp - progression.xp_to_next_level;
-          updates.xp_to_next_level = Math.floor(progression.xp_to_next_level * 1.5);
-          updates.skill_points = progression.skill_points + 1;
+        if (updates.current_xp >= (progression.xp_to_next_level || 100)) {
+          updates.player_level = (progression.player_level || 1) + 1;
+          updates.current_xp = updates.current_xp - (progression.xp_to_next_level || 100);
+          updates.xp_to_next_level = Math.floor((progression.xp_to_next_level || 100) * 1.5);
+          updates.skill_points = (progression.skill_points || 0) + 1;
         }
 
         await base44.entities.PlayerProgression.update(progression.id, updates);
-      }
+        }
 
-      const gameProgress = await base44.entities.GameProgress.list();
-      if (gameProgress.length > 0) {
-        await base44.entities.GameProgress.update(gameProgress[0].id, {
-          leaf_currency: gameProgress[0].leaf_currency + (rewards.leaf || 0)
+        if (gameProgress?.id && rewards.leaf) {
+        await base44.entities.GameProgress.update(gameProgress.id, {
+          leaf_currency: (gameProgress.leaf_currency || 0) + rewards.leaf
         });
-      }
+        }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['playerChallenges'] });
