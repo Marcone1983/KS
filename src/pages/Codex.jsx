@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Bug, Sparkles, Leaf, Lock, BookOpen, Target, Shield, Zap } from 'lucide-react';
+import { Search, Bug, Sparkles, Leaf, Lock, BookOpen, Target, Shield, Zap, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { POWERUP_EFFECTS } from '../components/game/PowerUps';
@@ -28,12 +28,6 @@ export default function Codex() {
   const { data: allPests } = useQuery({
     queryKey: ['pests'],
     queryFn: () => base44.entities.Pest.list(),
-    initialData: []
-  });
-
-  const { data: allBosses } = useQuery({
-    queryKey: ['bosses'],
-    queryFn: () => base44.entities.Boss.list(),
     initialData: []
   });
 
