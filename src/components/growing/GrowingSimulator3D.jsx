@@ -120,7 +120,6 @@ export default function GrowingSimulator3D({
   onUpdate,
   activeSeed = null
 }) {
-  const [plantHealth, setPlantHealth] = useState(100);
   const [plantGrowth, setPlantGrowth] = useState((progress?.plant_stats?.growth_level || 1) / 10);
   const [waterLevel, setWaterLevel] = useState(progress?.plant_stats?.water_level || 100);
   const [nutritionLevel, setNutritionLevel] = useState(progress?.plant_stats?.nutrition_level || 100);

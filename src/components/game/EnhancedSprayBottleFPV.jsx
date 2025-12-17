@@ -18,7 +18,11 @@ const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [], useGLB
   
   let sprayGLB = null;
   try {
-    const loaded = useGLTF('https://raw.githubusercontent.com/base44dev/
+    const loaded = useGLTF('https://raw.githubusercontent.com/base44dev/kurstaki-strikev1/main/public/models/spray.glb', true);
+    if (loaded?.scene) sprayGLB = loaded.scene;
+  } catch (e) {
+    console.warn('spray.glb not available, using procedural model');
+  }
 
   useImperativeHandle(ref, () => ({
     triggerAnimation: (isActive) => {
