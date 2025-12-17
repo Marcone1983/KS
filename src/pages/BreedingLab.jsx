@@ -154,7 +154,7 @@ export default function BreedingLab() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4 w-full">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"

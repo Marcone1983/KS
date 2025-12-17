@@ -11,8 +11,6 @@ import { createPageUrl } from '../utils';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import CannabisPlantR3F_AAA from '../components/game/CannabisPlantR3F_AAA';
-import GardenDesignAI from '../components/ai/GardenDesignAI';
-import CosmeticShop from '../components/cosmetics/CosmeticShop';
 
 const POT_SKINS = [
   { id: 'classic', name: 'Classic Terra Cotta', price: 0, color: '#8b4513', material: 'clay' },
@@ -346,40 +344,39 @@ export default function GardenCustomization() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-800 to-cyan-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-800 to-cyan-900 p-4 md:p-6 w-full overflow-x-hidden">
+      <div className="max-w-full md:max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="ghost"
               onClick={() => navigate(createPageUrl('Home'))}
               className="text-white hover:bg-white/10"
+              size="sm"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Back
+              <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
+              <span className="hidden md:inline">Back</span>
             </Button>
-            <h1 className="text-5xl font-black text-white flex items-center gap-3">
-              <Palette className="w-12 h-12 text-emerald-400" />
-              Garden Customization
-            </h1>
+            <Palette className="w-8 h-8 md:w-12 md:h-12 text-emerald-400" />
+            <h1 className="text-2xl md:text-5xl font-black text-white">Customize</h1>
           </div>
 
-          <div className="bg-black/50 backdrop-blur rounded-lg px-6 py-3 flex items-center gap-3">
-            <Leaf className="h-6 w-6 text-green-400" />
+          <div className="bg-black/50 backdrop-blur rounded-lg px-4 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-3">
+            <Leaf className="h-5 w-5 md:h-6 md:w-6 text-green-400" />
             <div>
-              <div className="text-sm text-gray-400">Your Leaf</div>
-              <div className="text-2xl font-bold text-white">{progress?.leaf_currency || 0}</div>
+              <div className="text-xs md:text-sm text-gray-400">Leaf</div>
+              <div className="text-lg md:text-2xl font-bold text-white">{progress?.leaf_currency || 0}</div>
             </div>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card className="bg-black/40 backdrop-blur border-emerald-500/30 h-[500px]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 w-full">
+          <div className="lg:col-span-2 w-full">
+            <Card className="bg-black/40 backdrop-blur border-emerald-500/30 h-[300px] md:h-[500px] w-full">
               <CardHeader>
                 <CardTitle className="text-white">Live Preview</CardTitle>
               </CardHeader>
-              <CardContent className="h-[400px]">
+              <CardContent className="h-[240px] md:h-[400px] w-full">
                 <CustomPlantPreview
                   potSkin={customization?.active_pot_skin || 'classic'}
                   plantSkin={customization?.active_plant_skin || 'default'}
@@ -390,84 +387,24 @@ export default function GardenCustomization() {
             </Card>
           </div>
 
-          <div>
-            <div className="flex gap-2 mb-4">
+          <div className="w-full">
+            <div className="flex gap-1 md:gap-2 mb-4 flex-wrap overflow-x-auto">
               <Button
                 onClick={() => setSelectedTab('pots')}
                 variant={selectedTab === 'pots' ? 'default' : 'outline'}
-                className={selectedTab === 'pots' ? 'bg-orange-600' : 'border-orange-600 text-white'}
+                className={selectedTab === 'pots' ? 'bg-orange-600' : 'border-orange-600 text-white text-xs md:text-sm'}
                 size="sm"
               >
-                <Box className="w-4 h-4 mr-1" />
-                Pots
+                <Box className="w-3 h-3 md:w-4 md:h-4 md:mr-1" />
+                <span className="hidden sm:inline">Pots</span>
               </Button>
-              <Button
-                onClick={() => setSelectedTab('plants')}
-                variant={selectedTab === 'plants' ? 'default' : 'outline'}
-                className={selectedTab === 'plants' ? 'bg-green-600' : 'border-green-600 text-white'}
-                size="sm"
-              >
-                <Leaf className="w-4 h-4 mr-1" />
-                Plants
-              </Button>
-              <Button
-                onClick={() => setSelectedTab('decor')}
-                variant={selectedTab === 'decor' ? 'default' : 'outline'}
-                className={selectedTab === 'decor' ? 'bg-purple-600' : 'border-purple-600 text-white'}
-                size="sm"
-              >
-                <Sparkles className="w-4 h-4 mr-1" />
-                Decor
-              </Button>
-              <Button
-                onClick={() => setSelectedTab('lighting')}
-                variant={selectedTab === 'lighting' ? 'default' : 'outline'}
-                className={selectedTab === 'lighting' ? 'bg-yellow-600' : 'border-yellow-600 text-white'}
-                size="sm"
-              >
-                <Sun className="w-4 h-4 mr-1" />
-                Light
-              </Button>
-              <Button
-                onClick={() => setSelectedTab('ai_designer')}
-                variant={selectedTab === 'ai_designer' ? 'default' : 'outline'}
-                className={selectedTab === 'ai_designer' ? 'bg-pink-600' : 'border-pink-600 text-white'}
-                size="sm"
-              >
-                <Wand2 className="w-4 h-4 mr-1" />
-                AI
-              </Button>
-              <Button
-                onClick={() => setSelectedTab('terrain')}
-                variant={selectedTab === 'terrain' ? 'default' : 'outline'}
-                className={selectedTab === 'terrain' ? 'bg-amber-600' : 'border-amber-600 text-white'}
-                size="sm"
-              >
-                <Layers className="w-4 h-4 mr-1" />
-                Terrain
-              </Button>
-              <Button
-                onClick={() => setSelectedTab('ambient')}
-                variant={selectedTab === 'ambient' ? 'default' : 'outline'}
-                className={selectedTab === 'ambient' ? 'bg-teal-600' : 'border-teal-600 text-white'}
-                size="sm"
-              >
-                <Cloud className="w-4 h-4 mr-1" />
-                Ambient
-              </Button>
-              <Button
-                onClick={() => setSelectedTab('spray')}
-                variant={selectedTab === 'spray' ? 'default' : 'outline'}
-                className={selectedTab === 'spray' ? 'bg-cyan-600' : 'border-cyan-600 text-white'}
-                size="sm"
-              >
-                <Zap className="w-4 h-4 mr-1" />
-                Spray FX
-              </Button>
+              <Button onClick={() => setSelectedTab('plants')} variant={selectedTab === 'plants' ? 'default' : 'outline'} className={selectedTab === 'plants' ? 'bg-green-600' : 'border-green-600 text-white text-xs md:text-sm'} size="sm"><Leaf className="w-3 h-3 md:w-4 md:h-4" /><span className="hidden sm:inline ml-1">Plants</span></Button>
+              <Button onClick={() => setSelectedTab('decor')} variant={selectedTab === 'decor' ? 'default' : 'outline'} className={selectedTab === 'decor' ? 'bg-purple-600' : 'border-purple-600 text-white text-xs md:text-sm'} size="sm"><Sparkles className="w-3 h-3 md:w-4 md:h-4" /><span className="hidden sm:inline ml-1">Decor</span></Button>
+              <Button onClick={() => setSelectedTab('lighting')} variant={selectedTab === 'lighting' ? 'default' : 'outline'} className={selectedTab === 'lighting' ? 'bg-yellow-600' : 'border-yellow-600 text-white text-xs md:text-sm'} size="sm"><Sun className="w-3 h-3 md:w-4 md:h-4" /><span className="hidden sm:inline ml-1">Light</span></Button>
             </div>
 
-            <Card className="bg-black/40 backdrop-blur border-cyan-500/30">
-              <CardContent className="p-4 space-y-3 max-h-[440px] overflow-y-auto">
+            <Card className="bg-black/40 backdrop-blur border-cyan-500/30 w-full">
+              <CardContent className="p-3 md:p-4 space-y-2 md:space-y-3 max-h-[300px] md:max-h-[440px] overflow-y-auto w-full">
                 {selectedTab === 'pots' && POT_SKINS.map(skin => {
                   const isUnlocked = customization?.unlocked_pot_skins?.includes(skin.id);
                   const isActive = customization?.active_pot_skin === skin.id;
@@ -587,59 +524,7 @@ export default function GardenCustomization() {
                   );
                 })}
 
-                {selectedTab === 'ai_designer' && (
-                  <div className="p-4">
-                    <GardenDesignAI
-                      currentProgress={progress}
-                      availableSeeds={allSeeds}
-                      onApplyDesign={(design) => {
-                        if (customization) {
-                          updateCustomizationMutation.mutate({
-                            id: customization.id,
-                            data: {
-                              ...customization,
-                              background_theme: design.aesthetic,
-                              decorative_items: design.decorations || []
-                            }
-                          });
-                        }
-                      }}
-                    />
-                  </div>
-                )}
 
-                {selectedTab === 'terrain' && (
-                  <CosmeticShop
-                    category="terrain"
-                    customization={customization}
-                    progress={progress}
-                    progression={progression}
-                    onPurchase={handleCosmeticPurchase}
-                    onEquip={handleCosmeticEquip}
-                  />
-                )}
-
-                {selectedTab === 'ambient' && (
-                  <CosmeticShop
-                    category="ambient"
-                    customization={customization}
-                    progress={progress}
-                    progression={progression}
-                    onPurchase={handleCosmeticPurchase}
-                    onEquip={handleCosmeticEquip}
-                  />
-                )}
-
-                {selectedTab === 'spray' && (
-                  <CosmeticShop
-                    category="spray"
-                    customization={customization}
-                    progress={progress}
-                    progression={progression}
-                    onPurchase={handleCosmeticPurchase}
-                    onEquip={handleCosmeticEquip}
-                  />
-                )}
               </CardContent>
             </Card>
           </div>

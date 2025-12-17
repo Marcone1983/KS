@@ -128,8 +128,8 @@ export default function Encyclopedia() {
     const entry = getEntry(selectedPest.id);
 
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto">
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto p-4 md:p-6">
+        <div className="max-w-full md:max-w-4xl mx-auto">
           <Card className="bg-gray-900 border-green-500/30">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -142,8 +142,8 @@ export default function Encyclopedia() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-4 md:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-semibold text-green-400 mb-2">CARATTERISTICHE</h3>
                   <div className="space-y-2 text-sm">
@@ -275,49 +275,51 @@ export default function Encyclopedia() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-gray-900 p-4 md:p-6 w-full overflow-x-hidden">
+      <div className="max-w-full md:max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap">
             <Button
               variant="ghost"
               onClick={() => navigate(createPageUrl('Home'))}
               className="text-white hover:bg-white/10"
+              size="sm"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Indietro
+              <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
+              <span className="hidden md:inline">Indietro</span>
             </Button>
-            <BookOpen className="h-8 w-8 text-green-400" />
-            <h1 className="text-4xl font-bold text-white">Enciclopedia Parassiti</h1>
+            <BookOpen className="h-6 w-6 md:h-8 md:w-8 text-green-400" />
+            <h1 className="text-2xl md:text-4xl font-bold text-white">Enciclopedia</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap w-full md:w-auto">
             <Button
               onClick={() => navigate(createPageUrl('LoreArchive'))}
               variant="outline"
-              className="border-indigo-500 text-white hover:bg-indigo-500/20"
+              size="sm"
+              className="border-indigo-500 text-white hover:bg-indigo-500/20 text-xs md:text-sm"
             >
-              <BookMarked className="h-5 w-5 mr-2" />
-              Archivio Lore
+              <BookMarked className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
+              <span className="hidden sm:inline">Archivio</span>
             </Button>
-            <Badge className="bg-green-600 text-lg px-4 py-2">
-              {discoveredPests.length} / {allPests.length} Scoperti
+            <Badge className="bg-green-600 text-sm md:text-lg px-3 md:px-4 py-1 md:py-2">
+              {discoveredPests.length} / {allPests.length}
             </Badge>
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div className="mb-4 md:mb-6 w-full">
+          <div className="relative max-w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400" />
             <Input
-              placeholder="Cerca parassita per nome o nome scientifico..."
+              placeholder="Cerca parassita..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-black/40 border-green-500/30 text-white"
+              className="pl-9 md:pl-10 bg-black/40 border-green-500/30 text-white text-sm md:text-base w-full"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 w-full">
           {filteredPests.map(pest => renderPestCard(pest))}
         </div>
 

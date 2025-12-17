@@ -3,11 +3,9 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Text, Html } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
-import gsap from 'gsap';
 import { Droplets, Sun, Wind, Thermometer, Heart, Zap, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
 import CannabisPlantR3F_AAA from '../game/CannabisPlantR3F_AAA';
 import DynamicWeatherSystem, { useWeatherEffects } from '../environment/DynamicWeatherSystem';
-import PlantCareAI, { AIInsightPanel } from '../ai/PlantCareAI';
 
 const GrowthTimelineMarker = ({ stage, isActive, position, label }) => {
   const markerRef = useRef();
@@ -224,11 +222,6 @@ export default function GrowingSimulator3D({
   const handleWater = () => {
     const newLevel = Math.min(100, waterLevel + 35);
     setWaterLevel(newLevel);
-    
-    gsap.fromTo('#water-indicator', 
-      { scale: 1, backgroundColor: '#3498db' },
-      { scale: 1.2, backgroundColor: '#2ecc71', duration: 0.3, yoyo: true, repeat: 1 }
-    );
   };
 
   const handleFertilize = () => {
@@ -236,11 +229,6 @@ export default function GrowingSimulator3D({
     
     const newLevel = Math.min(100, nutritionLevel + 45);
     setNutritionLevel(newLevel);
-    
-    gsap.fromTo('#nutrition-indicator',
-      { scale: 1, backgroundColor: '#2ecc71' },
-      { scale: 1.2, backgroundColor: '#f39c12', duration: 0.3, yoyo: true, repeat: 1 }
-    );
   };
 
   const handleLightAdjust = (delta) => {
@@ -255,22 +243,17 @@ export default function GrowingSimulator3D({
     if (plantGrowth >= 0.85 && trichStage.ready) {
       const harvestYield = Math.floor(plantGrowth * 100 + trichomeMaturity * 50);
       
-      gsap.timeline()
-        .to('.plant-container', { scale: 1.1, duration: 0.3 })
-        .to('.plant-container', { scale: 0, opacity: 0, duration: 0.5 })
-        .call(() => {
-          setPlantGrowth(0);
-          setTrichomeMaturity(0);
-          if (onUpdate && progress) {
-            onUpdate({
-              leaf_currency: progress.leaf_currency + harvestYield,
-              plant_stats: {
-                ...progress.plant_stats,
-                growth_level: 0
-              }
-            });
+      setPlantGrowth(0);
+      setTrichomeMaturity(0);
+      if (onUpdate && progress) {
+        onUpdate({
+          leaf_currency: progress.leaf_currency + harvestYield,
+          plant_stats: {
+            ...progress.plant_stats,
+            growth_level: 0
           }
         });
+      }
     }
   };
 
@@ -284,7 +267,7 @@ export default function GrowingSimulator3D({
   };
 
   return (
-    <div className="w-full h-screen bg-gradient-to-br from-emerald-900 via-green-800 to-teal-900 p-6 overflow-hidden">
+    <div className="w-full h-screen bg-gradient-to-br from-emerald-900 via-green-800 to-teal-900 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
       <DynamicWeatherSystem
         currentSeason={currentSeason}
         onWeatherChange={handleWeatherChange}
@@ -309,40 +292,40 @@ export default function GrowingSimulator3D({
         position="bottom-right"
       />
       
-      <div className="max-w-7xl mx-auto h-full flex flex-col">
+      <div className="max-w-full md:max-w-7xl mx-auto h-full flex flex-col">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6"
+          className="text-center mb-4 md:mb-6"
         >
-          <h1 className="text-5xl font-black text-white mb-2 flex items-center justify-center gap-3">
-            <Sparkles className="w-12 h-12 text-green-400" />
-            Growing Simulator 3D
+          <h1 className="text-2xl md:text-5xl font-black text-white mb-2 flex items-center justify-center gap-2 md:gap-3">
+            <Sparkles className="w-8 h-8 md:w-12 md:h-12 text-green-400" />
+            Growing Lab
           </h1>
-          <p className="text-xl text-emerald-200">Watch your plant grow in real-time with AAA graphics</p>
+          <p className="text-sm md:text-xl text-emerald-200">Real-time plant growth</p>
         </motion.div>
 
-        <div className="flex-1 grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-black/40 backdrop-blur-sm rounded-2xl border-2 border-green-500/50 h-full flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-white/10">
-                <div className="flex items-center gap-4">
-                  <div className={`text-3xl ${stage.color}`}>{stage.emoji}</div>
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 w-full">
+          <div className="lg:col-span-2 space-y-3 md:space-y-4 w-full">
+            <div className="bg-black/40 backdrop-blur-sm rounded-xl md:rounded-2xl border-2 border-green-500/50 h-full flex flex-col w-full">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-3 md:p-4 border-b border-white/10 gap-3">
+                <div className="flex items-center gap-2 md:gap-4">
+                  <div className={`text-2xl md:text-3xl ${stage.color}`}>{stage.emoji}</div>
                   <div>
-                    <div className="text-2xl font-bold text-white">{stage.name}</div>
-                    <div className="text-sm text-gray-400">Growth: {Math.round(plantGrowth * 100)}%</div>
+                    <div className="text-lg md:text-2xl font-bold text-white">{stage.name}</div>
+                    <div className="text-xs md:text-sm text-gray-400">Growth: {Math.round(plantGrowth * 100)}%</div>
                   </div>
                 </div>
                 
                 <button
                   onClick={() => setAutoGrow(!autoGrow)}
-                  className={`px-6 py-3 rounded-xl font-bold transition-all ${
+                  className={`px-4 md:px-6 py-2 md:py-3 rounded-xl font-bold transition-all text-sm md:text-base ${
                     autoGrow 
                       ? 'bg-gradient-to-r from-green-600 to-green-700 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
-                  {autoGrow ? '⏸️ Pause Auto-Grow' : '▶️ Start Auto-Grow'}
+                  {autoGrow ? '⏸️ Pause' : '▶️ Start'}
                 </button>
               </div>
 
@@ -441,7 +424,7 @@ export default function GrowingSimulator3D({
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4 w-full">
             <div className="bg-black/40 backdrop-blur-sm rounded-2xl border-2 border-cyan-500/50 p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -584,18 +567,7 @@ export default function GrowingSimulator3D({
               </div>
             )}
             
-            <div className="bg-black/40 backdrop-blur-sm rounded-2xl border-2 border-purple-500/50 p-4">
-              <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-400" />
-                AI Insights
-              </h3>
-              <AIInsightPanel
-                plantStats={{ water_level: waterLevel, nutrition_level: nutritionLevel, plant_health: plantHealth }}
-                currentWeather={currentWeather}
-                currentSeason={currentSeason}
-                pestTypes={[]}
-              />
-            </div>
+
           </div>
         </div>
       </div>
