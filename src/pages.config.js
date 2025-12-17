@@ -19,6 +19,7 @@ import Trading from './pages/Trading';
 import Codex from './pages/Codex';
 import Progression from './pages/Progression';
 import Challenges from './pages/Challenges';
+import GardenBuilder from './pages/GardenBuilder';
 
 
 export const PAGES = {
@@ -43,6 +44,7 @@ export const PAGES = {
     "Codex": Codex,
     "Progression": Progression,
     "Challenges": Challenges,
+    "GardenBuilder": GardenBuilder,
 }
 
 export const pagesConfig = {
