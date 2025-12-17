@@ -1,8 +1,11 @@
 import React, { useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
-const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [] }, ref) => {
+useGLTF.preload('/models/spray.glb');
+
+const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [], useGLBModel = true }, ref) => {
   const bottleGroupRef = useRef();
   const triggerRef = useRef();
   const handGroupRef = useRef();
@@ -12,6 +15,14 @@ const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [] }, ref)
   const swayRef = useRef({ x: 0, y: 0 });
   const prevMousePos = useRef({ x: 0, y: 0 });
   const pulseRef = useRef(0);
+  
+  let sprayGLB = null;
+  try {
+    const loaded = useGLTF('/models/spray.glb', true);
+    if (loaded?.scene) sprayGLB = loaded.scene;
+  } catch (e) {
+    console.warn('spray.glb not available, using procedural model');
+  }
 
   useImperativeHandle(ref, () => ({
     triggerAnimation: (isActive) => {
@@ -179,9 +190,13 @@ const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [] }, ref)
       ))}
 
       <group ref={bottleGroupRef} position={[0, 0.06, 0.07]} rotation={[0.18, 0.05, 0]}>
-        <mesh material={glassMaterial} castShadow receiveShadow>
-          <cylinderGeometry args={[0.1, 0.11, 0.45, 24]} />
-        </mesh>
+        {useGLBModel && sprayGLB ? (
+          <primitive object={sprayGLB.clone()} scale={0.15} />
+        ) : (
+          <>
+            <mesh material={glassMaterial} castShadow receiveShadow>
+              <cylinderGeometry args={[0.1, 0.11, 0.45, 24]} />
+            </mesh>
         
         <mesh position-y={-0.06} material={liquidMaterial}>
           <cylinderGeometry args={[0.095, 0.105, 0.35, 24]} />
@@ -226,6 +241,8 @@ const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [] }, ref)
         )}
         {activePowerUps.some(p => p.type === 'multishot') && (
           <pointLight position={[0, 0, 0]} intensity={1.3} distance={2} color="#ff00ff" />
+        )}
+          </>
         )}
       </group>
 
