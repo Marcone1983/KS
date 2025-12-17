@@ -257,58 +257,60 @@ export default function PlayerProgression() {
   const treeData = SKILL_TREE_DATA[selectedTree] || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 p-4 md:p-6 w-full overflow-x-hidden">
+      <div className="max-w-full md:max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4 w-full">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="ghost"
               onClick={() => navigate(createPageUrl('Home'))}
               className="text-white hover:bg-white/10"
+              size="sm"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Back
+              <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
+              <span className="hidden md:inline">Back</span>
             </Button>
-            <h1 className="text-5xl font-black text-white flex items-center gap-3">
-              <Award className="w-12 h-12 text-purple-400" />
-              Player Progression
-            </h1>
+            <Award className="w-8 h-8 md:w-12 md:h-12 text-purple-400" />
+            <h1 className="text-2xl md:text-5xl font-black text-white">Skills</h1>
           </div>
 
-          <div className="bg-black/50 backdrop-blur rounded-lg px-6 py-3">
-            <div className="text-sm text-gray-400">Available Skill Points</div>
-            <div className="text-3xl font-black text-white">{skillTree?.skill_points || 0}</div>
+          <div className="bg-black/50 backdrop-blur rounded-lg px-4 md:px-6 py-2 md:py-3">
+            <div className="text-xs md:text-sm text-gray-400">Skill Points</div>
+            <div className="text-xl md:text-3xl font-black text-white">{skillTree?.skill_points || 0}</div>
           </div>
         </div>
 
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-2 md:gap-3 mb-4 md:mb-6 flex-wrap">
           <Button
             onClick={() => setSelectedTree('combat')}
             variant={selectedTree === 'combat' ? 'default' : 'outline'}
-            className={selectedTree === 'combat' ? 'bg-red-600' : 'border-red-600 text-white'}
+            className={selectedTree === 'combat' ? 'bg-red-600' : 'border-red-600 text-white text-xs md:text-sm'}
+            size="sm"
           >
-            <Zap className="h-4 w-4 mr-2" />
-            Combat
+            <Zap className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+            <span className="hidden sm:inline">Combat</span>
           </Button>
           <Button
             onClick={() => setSelectedTree('cultivation')}
             variant={selectedTree === 'cultivation' ? 'default' : 'outline'}
-            className={selectedTree === 'cultivation' ? 'bg-green-600' : 'border-green-600 text-white'}
+            className={selectedTree === 'cultivation' ? 'bg-green-600' : 'border-green-600 text-white text-xs md:text-sm'}
+            size="sm"
           >
-            <Leaf className="h-4 w-4 mr-2" />
-            Cultivation
+            <Leaf className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+            <span className="hidden sm:inline">Cultivation</span>
           </Button>
           <Button
             onClick={() => setSelectedTree('utility')}
             variant={selectedTree === 'utility' ? 'default' : 'outline'}
-            className={selectedTree === 'utility' ? 'bg-cyan-600' : 'border-cyan-600 text-white'}
+            className={selectedTree === 'utility' ? 'bg-cyan-600' : 'border-cyan-600 text-white text-xs md:text-sm'}
+            size="sm"
           >
-            <Clock className="h-4 w-4 mr-2" />
-            Utility
+            <Clock className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+            <span className="hidden sm:inline">Utility</span>
           </Button>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 w-full">
           <Card className="bg-black/40 backdrop-blur border-purple-500/30">
             <CardHeader>
               <CardTitle className="text-white text-2xl capitalize">{selectedTree} Skills</CardTitle>

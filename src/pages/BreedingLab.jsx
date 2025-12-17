@@ -152,55 +152,56 @@ export default function BreedingLab() {
   const unlockedSeeds = allSeeds.filter(s => progress?.unlocked_seeds?.includes(s.id));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-4 md:p-6 w-full overflow-x-hidden">
+      <div className="max-w-full md:max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4 w-full">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="ghost"
               onClick={() => navigate(createPageUrl('Shop'))}
               className="text-white hover:bg-white/10"
+              size="sm"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Back
+              <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
+              <span className="hidden md:inline">Back</span>
             </Button>
-            <h1 className="text-5xl font-black text-white flex items-center gap-3">
-              <Dna className="w-12 h-12 text-purple-400" />
-              Breeding Laboratory
-            </h1>
+            <Dna className="w-8 h-8 md:w-12 md:h-12 text-purple-400" />
+            <h1 className="text-2xl md:text-5xl font-black text-white">Breeding Lab</h1>
           </div>
 
-          <div className="bg-black/50 backdrop-blur rounded-lg px-6 py-3 flex items-center gap-3">
-            <Leaf className="h-6 w-6 text-green-400" />
+          <div className="bg-black/50 backdrop-blur rounded-lg px-4 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-3">
+            <Leaf className="h-5 w-5 md:h-6 md:w-6 text-green-400" />
             <div>
-              <div className="text-sm text-gray-400">Your Leaf</div>
-              <div className="text-2xl font-bold text-white">{progress?.leaf_currency || 0}</div>
+              <div className="text-xs md:text-sm text-gray-400">Leaf</div>
+              <div className="text-lg md:text-2xl font-bold text-white">{progress?.leaf_currency || 0}</div>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-2 md:gap-3 mb-4 md:mb-6 flex-wrap">
           <Button
             onClick={() => setSelectedTab('breeding')}
             variant={selectedTab === 'breeding' ? 'default' : 'outline'}
-            className={selectedTab === 'breeding' ? 'bg-purple-600' : 'border-purple-600 text-white'}
+            className={selectedTab === 'breeding' ? 'bg-purple-600' : 'border-purple-600 text-white text-xs md:text-sm'}
+            size="sm"
           >
-            <Beaker className="h-4 w-4 mr-2" />
-            Breeding Chamber
+            <Beaker className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+            <span className="hidden sm:inline">Breeding</span>
           </Button>
           <Button
             onClick={() => setSelectedTab('history')}
             variant={selectedTab === 'history' ? 'default' : 'outline'}
-            className={selectedTab === 'history' ? 'bg-cyan-600' : 'border-cyan-600 text-white'}
+            className={selectedTab === 'history' ? 'bg-cyan-600' : 'border-cyan-600 text-white text-xs md:text-sm'}
+            size="sm"
           >
-            <Award className="h-4 w-4 mr-2" />
-            Breeding History
+            <Award className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+            <span className="hidden sm:inline">History</span>
           </Button>
         </div>
 
         {selectedTab === 'breeding' && (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-4 md:space-y-6 w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full">
               <Card className="bg-black/40 backdrop-blur border-cyan-500/30">
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
@@ -420,7 +421,7 @@ export default function BreedingLab() {
         )}
 
         {selectedTab === 'history' && (
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
             {breedingHistory.map((record) => (
               <Card key={record.id} className="bg-black/40 backdrop-blur border-purple-500/30">
                 <CardHeader>

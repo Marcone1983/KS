@@ -409,35 +409,35 @@ export default function Codex() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-4 md:p-6 w-full overflow-x-hidden">
+      <div className="max-w-full md:max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
           <div>
-            <h1 className="text-5xl font-black bg-gradient-to-r from-green-400 to-emerald-600 bg-clip-text text-transparent mb-2">
-              Knowledge Codex
+            <h1 className="text-2xl md:text-5xl font-black bg-gradient-to-r from-green-400 to-emerald-600 bg-clip-text text-transparent mb-2">
+              Codex
             </h1>
-            <p className="text-gray-400">Comprehensive encyclopedia of pests, power-ups, and plant types</p>
+            <p className="text-sm md:text-base text-gray-400">Encyclopedia pests & power-ups</p>
           </div>
           <Link to={createPageUrl('Home')}>
-            <Button variant="outline" className="bg-gray-800 border-gray-700 hover:bg-gray-700">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
+            <Button variant="outline" size="sm" className="bg-gray-800 border-gray-700 hover:bg-gray-700">
+              <ArrowLeft className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Back</span>
             </Button>
           </Link>
         </div>
 
-        <div className="relative mb-8">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <div className="relative mb-6 md:mb-8 w-full">
+          <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-400" />
           <Input
-            placeholder="Search pests, power-ups, or plant types..."
-            className="pl-12 bg-gray-800 border-gray-700 text-white text-lg h-14"
+            placeholder="Search..."
+            className="pl-9 md:pl-12 bg-gray-800 border-gray-700 text-white text-sm md:text-lg h-12 md:h-14 w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         <Tabs defaultValue="pests" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8 bg-gray-800">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-6 md:mb-8 bg-gray-800 text-xs md:text-sm">
             <TabsTrigger value="pests" className="data-[state=active]:bg-green-600">
               <Bug className="w-4 h-4 mr-2" />
               Pests ({encounteredPests.length}/{allPests.length})
@@ -457,7 +457,7 @@ export default function Codex() {
           </TabsList>
 
           <TabsContent value="pests">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full">
               {filteredPests.map(pest => {
                 const isLocked = !progress?.pests_encountered?.includes(pest.type);
                 return renderPestCard(pest, isLocked);

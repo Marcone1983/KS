@@ -3,9 +3,10 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Text, Html } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
-import { Droplets, Sun, Wind, Thermometer, Heart, Zap, TrendingUp, AlertTriangle, Sparkles } from 'lucide-react';
+import { Droplets, Sun, Thermometer, Heart, Zap, AlertTriangle, Sparkles } from 'lucide-react';
 import CannabisPlantR3F_AAA from '../game/CannabisPlantR3F_AAA';
 import DynamicWeatherSystem, { useWeatherEffects } from '../environment/DynamicWeatherSystem';
+import { toast } from 'sonner';
 
 const GrowthTimelineMarker = ({ stage, isActive, position, label }) => {
   const markerRef = useRef();
@@ -119,6 +120,7 @@ export default function GrowingSimulator3D({
   onUpdate,
   activeSeed = null
 }) {
+  const [plantHealth, setPlantHealth] = useState(100);
   const [plantGrowth, setPlantGrowth] = useState((progress?.plant_stats?.growth_level || 1) / 10);
   const [waterLevel, setWaterLevel] = useState(progress?.plant_stats?.water_level || 100);
   const [nutritionLevel, setNutritionLevel] = useState(progress?.plant_stats?.nutrition_level || 100);
@@ -245,15 +247,17 @@ export default function GrowingSimulator3D({
       
       setPlantGrowth(0);
       setTrichomeMaturity(0);
+      setPlantHealth(100);
       if (onUpdate && progress) {
         onUpdate({
-          leaf_currency: progress.leaf_currency + harvestYield,
+          leaf_currency: (progress.leaf_currency || 0) + harvestYield,
           plant_stats: {
             ...progress.plant_stats,
             growth_level: 0
           }
         });
       }
+      toast.success(`Harvested! +${harvestYield} Leaf`);
     }
   };
 
@@ -402,7 +406,7 @@ export default function GrowingSimulator3D({
               </div>
             </div>
 
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 w-full">
               {[
                 { stage: 'Seedling', threshold: 0.15 },
                 { stage: 'Vegetative', threshold: 0.35 },
@@ -412,13 +416,13 @@ export default function GrowingSimulator3D({
               ].map((s, i) => (
                 <div
                   key={i}
-                  className={`p-2 rounded-lg text-center transition-all ${
+                  className={`p-1 md:p-2 rounded-lg text-center transition-all ${
                     plantGrowth >= (i > 0 ? [0, 0.15, 0.35, 0.65, 0.85][i] : 0)
                       ? 'bg-green-600 text-white'
                       : 'bg-gray-700 text-gray-400'
                   }`}
                 >
-                  <div className="text-xs font-bold">{s.stage}</div>
+                  <div className="text-xs font-bold truncate">{s.stage}</div>
                 </div>
               ))}
             </div>
