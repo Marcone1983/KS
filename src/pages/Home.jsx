@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target, Users, Share2, Zap, Bug } from 'lucide-react';
+import { Play, Trophy, Settings, Leaf, Shield, BookOpen, FlaskConical, TrendingUp, Beaker, Sparkles, Dna, Award, Palette, Target, Users, Share2, Zap, Bug, Box } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import AssetChecker from '../components/debug/AssetChecker';
 
@@ -255,6 +255,16 @@ export default function Home() {
           >
             <BookOpen className="h-8 w-8 mr-3" />
             Codex
+            </Button>
+
+            <Button 
+            onClick={() => navigate(createPageUrl('GardenBuilder'))}
+            size="lg"
+            variant="outline"
+            className="border-2 border-blue-400 bg-black/30 backdrop-blur text-white hover:bg-blue-500/30 text-xl px-12 py-8 shadow-lg"
+          >
+            <Box className="h-8 w-8 mr-3" />
+            Garden Builder
             </Button>
 
             <Button 

@@ -18,9 +18,12 @@ import PlantCareAI from '../components/ai/PlantCareAI';
 import PlantTypeSelector from '../components/game/PlantTypeSelector';
 import { useDynamicDifficulty } from '../components/game/DynamicDifficultyScaler';
 import { useAIPlantGrowth, useAIPestBehaviorPredictor } from '../components/ai/AIPlantGrowthEngine';
+import { useGeneticMutations, usePlantInteractions, calculateTreatmentEffectiveness } from '../components/ai/PlantGeneticsEngine';
+import { useDynamicEvents, applyEventEffects } from '../components/events/DynamicEventSystem';
 import { toast } from 'sonner';
 import InteractiveTutorial from '../components/tutorial/InteractiveTutorial';
 import ContextualHints from '../components/tutorial/ContextualHints';
+import EventNotification from '../components/events/EventNotification';
 
 export default function Game() {
   const [showUpgradePanel, setShowUpgradePanel] = useState(false);
@@ -58,6 +61,9 @@ export default function Game() {
   const [activeRandomEvent, setActiveRandomEvent] = useState(null);
   const [specialEnemies, setSpecialEnemies] = useState([]);
   const [accuracyStats, setAccuracyStats] = useState({ hits: 0, shots: 0 });
+  const [plantGenetics, setPlantGenetics] = useState(null);
+  const [plantInteractions, setPlantInteractions] = useState([]);
+  const [environmentalStress, setEnvironmentalStress] = useState({});
   const gameStartTime = useRef(null);
   const bossSpawnTimerRef = useRef(null);
   const toxicCloudTimerRef = useRef(null);
@@ -111,6 +117,49 @@ export default function Game() {
       currentWave,
       plantHealth,
       powerUpsActive: activePowerUps.length
+    }
+  });
+
+  const { currentGenetics } = useGeneticMutations({
+    plantId: 'main_plant',
+    plantGenetics,
+    environmentalStress,
+    onMutation: (mutation, updatedGenetics) => {
+      setPlantGenetics(updatedGenetics);
+      toast.success(`🧬 Mutazione: ${mutation.type}`, {
+        description: mutation.visual_impact ? 'Aspetto visivo cambiato!' : 'Statistiche modificate'
+      });
+    }
+  });
+
+  const { activeInteractions } = usePlantInteractions({
+    plants: [],
+    onInteractionDetected: (interaction) => {
+      console.log('Plant interaction detected:', interaction);
+    }
+  });
+
+  const { activeEvent } = useDynamicEvents({
+    gameLevel: level,
+    currentSeason,
+    currentWeather,
+    playerPerformance: {
+      accuracy: accuracyStats.shots > 0 ? accuracyStats.hits / accuracyStats.shots : 0.5
+    },
+    onEventTriggered: (event) => {
+      setActiveRandomEvent(event);
+      setEnvironmentalStress({
+        radiation: event.event_type === 'genetic_mutation' ? 1.0 : 0,
+        toxicity: event.event_type === 'disease_outbreak' ? 0.8 : 0,
+        extremeWeather: ['storm', 'heatwave', 'frost'].includes(event.event_type),
+        diseasePresent: event.event_type === 'disease_outbreak'
+      });
+    },
+    onEventEnded: (event) => {
+      if (activeRandomEvent?.event_name === event.event_name) {
+        setActiveRandomEvent(null);
+        setEnvironmentalStress({});
+      }
     }
   });
 
@@ -168,6 +217,55 @@ export default function Game() {
     initialData: [],
     staleTime: 5 * 60 * 1000
   });
+
+  const { data: existingGenetics } = useQuery({
+    queryKey: ['plantGenetics'],
+    queryFn: async () => {
+      const genetics = await base44.entities.PlantGenetics.list();
+      if (genetics.length === 0) {
+        const newGenetics = await base44.entities.PlantGenetics.create({
+          genome_id: `genome_${Date.now()}`,
+          parent_genomes: [],
+          mutation_history: [],
+          base_traits: {
+            height_multiplier: 1.0,
+            leaf_size: 1.0,
+            finger_count: 7,
+            stem_thickness: 1.0,
+            bud_density: 1.0,
+            trichome_production: 1.0,
+            root_strength: 1.0
+          },
+          resistance_genes: {
+            pest_resistance: 0,
+            disease_resistance: 0,
+            drought_tolerance: 0,
+            cold_tolerance: 0,
+            heat_tolerance: 0
+          },
+          visual_genes: {
+            leaf_color_hex: '#3a7d3a',
+            stem_color_hex: '#5a7d4a',
+            pistil_color_hex: '#ff8040',
+            has_purple_trait: false,
+            variegation: false
+          },
+          mutation_rate: 0.05,
+          stability: 0.8,
+          generation: 0
+        });
+        return newGenetics;
+      }
+      return genetics[0];
+    },
+    enabled: gameState === 'playing'
+  });
+
+  useEffect(() => {
+    if (existingGenetics) {
+      setPlantGenetics(existingGenetics);
+    }
+  }, [existingGenetics]);
 
   const { data: activeChallenges } = useQuery({
     queryKey: ['activeChallenges'],
@@ -625,9 +723,19 @@ export default function Game() {
 
       const mods = behaviorModifiers[behavior] || behaviorModifiers.normal;
 
-      const finalHealth = Math.floor((pestConfig.health || pestType.health * healthMultiplier * mods.healthMult * seasonalMods.healthMult) * difficultyMultipliers.pestHealth);
-      const finalSpeed = (pestConfig.speed || pestType.speed * speedMultiplier) * mods.speedMult * speedBoost * seasonalMods.speedMult * difficultyMultipliers.pestSpeed;
-      const finalDamage = (pestConfig.damage || pestType.damage_per_second * damageMultiplier) * seasonalMods.damageMult;
+      let finalHealth = Math.floor((pestConfig.health || pestType.health * healthMultiplier * mods.healthMult * seasonalMods.healthMult) * difficultyMultipliers.pestHealth);
+      let finalSpeed = (pestConfig.speed || pestType.speed * speedMultiplier) * mods.speedMult * speedBoost * seasonalMods.speedMult * difficultyMultipliers.pestSpeed;
+      let finalDamage = (pestConfig.damage || pestType.damage_per_second * damageMultiplier) * seasonalMods.damageMult;
+
+      if (plantGenetics?.resistance_genes?.pest_resistance) {
+        const resistanceModifier = 1 - (plantGenetics.resistance_genes.pest_resistance * 0.005);
+        finalDamage *= Math.max(0.5, resistanceModifier);
+      }
+
+      if (activeEvent?.effects?.pest_spawn_multiplier) {
+        finalHealth *= activeEvent.effects.pest_spawn_multiplier;
+        finalSpeed *= activeEvent.effects.pest_spawn_multiplier;
+      }
 
       const pest = {
         id: `pest_${Date.now()}_${i}`,
@@ -1362,6 +1470,7 @@ export default function Game() {
 
   return (
     <div className="h-screen w-full relative overflow-hidden">
+      <EventNotification activeEvent={activeEvent} />
       <ContextualHints gameState={hintState} />
 
       <DynamicWeatherSystem
@@ -1411,15 +1520,27 @@ export default function Game() {
         activePowerUps={activePowerUps}
         currentWeather={currentWeather}
         dayNightHour={dayNightHour}
-        windStrength={0.2}
-        rainIntensity={currentWeather === 'rain' ? 0.8 : 0}
+        windStrength={activeEvent?.event_type === 'storm' ? 0.6 : 0.2}
+        rainIntensity={currentWeather === 'rain' || activeEvent?.event_type === 'storm' ? 0.8 : 0}
         spawnedPowerUps={spawnedPowerUps}
-        onPestKilled={(pestId, damage) => {
+        plantGenetics={plantGenetics}
+onPestKilled={(pestId, damage) => {
           const hasLifesteal = activePowerUps.some(p => p.type === 'lifesteal');
           if (hasLifesteal) {
             setPlantHealth(prev => Math.min(100, prev + damage * 0.2));
           }
-          handlePestHit(pestId, damage);
+          
+          const pest = activePests.find(p => p.id === pestId);
+          const effectiveness = calculateTreatmentEffectiveness({
+            plantHealth,
+            pestType: pest?.type,
+            diseaseType: null,
+            treatmentType: 'organic_spray',
+            plantGenetics
+          });
+          
+          const modifiedDamage = damage * effectiveness;
+          handlePestHit(pestId, modifiedDamage);
         }}
         onPlantDamaged={(damage) => {
           const hasDefense = activePowerUps.some(p => p.type === 'defense');
