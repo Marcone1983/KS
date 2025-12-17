@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
-useGLTF.preload('/models/spray.glb');
+useGLTF.preload('https://raw.githubusercontent.com/base44dev/kurstaki-strikev1/main/public/models/spray.glb');
 
 const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [], useGLBModel = true }, ref) => {
   const bottleGroupRef = useRef();
@@ -18,11 +18,7 @@ const EnhancedSprayBottleFPV = forwardRef(({ camera, activePowerUps = [], useGLB
   
   let sprayGLB = null;
   try {
-    const loaded = useGLTF('/models/spray.glb', true);
-    if (loaded?.scene) sprayGLB = loaded.scene;
-  } catch (e) {
-    console.warn('spray.glb not available, using procedural model');
-  }
+    const loaded = useGLTF('https://raw.githubusercontent.com/base44dev/
 
   useImperativeHandle(ref, () => ({
     triggerAnimation: (isActive) => {

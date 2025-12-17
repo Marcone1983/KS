@@ -4,10 +4,10 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 
-const PLANT_MODELS = ['/models/plant03.glb', '/models/plant04.glb'];
+const PLANT_MODELS = ['https://raw.githubusercontent.com/base44dev/kurstaki-strikev1/main/public/models/plant03.glb', 'https://raw.githubusercontent.com/base44dev/kurstaki-strikev1/main/public/models/plant04.glb'];
 
-useGLTF.preload('/models/plant03.glb');
-useGLTF.preload('/models/plant04.glb');
+useGLTF.preload('https://raw.githubusercontent.com/base44dev/kurstaki-strikev1/main/public/models/plant03.glb');
+useGLTF.preload('https://raw.githubusercontent.com/base44dev/kurstaki-strikev1/main/public/models/plant04.glb');
 
 const PLANT_STATES = {
   HEALTHY: 'healthy',
