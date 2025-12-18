@@ -8,7 +8,9 @@ import {
   Switch,
   Alert,
   Linking,
+  Platform,
 } from "react-native";
+import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
@@ -18,6 +20,7 @@ import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useSounds } from "@/hooks/use-sounds";
 
 interface Settings {
   soundEnabled: boolean;
@@ -40,6 +43,14 @@ export default function SettingsScreen() {
   const colors = Colors[colorScheme ?? "dark"];
   
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const { 
+    settings: soundSettings, 
+    setSoundEnabled, 
+    setMusicEnabled, 
+    setSoundVolume, 
+    setMusicVolume,
+    play 
+  } = useSounds();
 
   useEffect(() => {
     loadSettings();
@@ -64,12 +75,59 @@ export default function SettingsScreen() {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     
+    // Sync with sound system
+    if (key === 'soundEnabled') {
+      setSoundEnabled(value);
+      if (value) play('ui_toggle_on');
+    } else if (key === 'musicEnabled') {
+      setMusicEnabled(value);
+      if (value) play('ui_toggle_on');
+    }
+    
     try {
       await AsyncStorage.setItem("settings", JSON.stringify(newSettings));
     } catch (error) {
       console.error("Error saving settings:", error);
     }
   };
+
+  const handleSoundVolumeChange = (value: number) => {
+    setSoundVolume(value);
+  };
+
+  const handleMusicVolumeChange = (value: number) => {
+    setMusicVolume(value);
+  };
+
+  const VolumeSlider = ({ 
+    label, 
+    value, 
+    onValueChange,
+    icon,
+  }: { 
+    label: string; 
+    value: number; 
+    onValueChange: (value: number) => void;
+    icon: any;
+  }) => (
+    <View style={styles.volumeRow}>
+      <View style={styles.volumeHeader}>
+        <IconSymbol name={icon} size={22} color={colors.tint} />
+        <ThemedText style={styles.settingLabel}>{label}</ThemedText>
+        <ThemedText style={styles.volumeValue}>{Math.round(value * 100)}%</ThemedText>
+      </View>
+      <Slider
+        style={styles.slider}
+        minimumValue={0}
+        maximumValue={1}
+        value={value}
+        onValueChange={onValueChange}
+        minimumTrackTintColor={colors.tint}
+        maximumTrackTintColor={colors.border}
+        thumbTintColor={colors.tint}
+      />
+    </View>
+  );
 
   const handleResetProgress = () => {
     Alert.alert(
@@ -172,6 +230,17 @@ export default function SettingsScreen() {
             value={settings.soundEnabled}
             onValueChange={(v) => updateSetting("soundEnabled", v)}
           />
+          {settings.soundEnabled && (
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <VolumeSlider
+                icon="speaker.wave.2.fill"
+                label="Volume Effetti"
+                value={soundSettings.soundVolume}
+                onValueChange={handleSoundVolumeChange}
+              />
+            </>
+          )}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <SettingRow
             icon="sparkles"
@@ -179,6 +248,17 @@ export default function SettingsScreen() {
             value={settings.musicEnabled}
             onValueChange={(v) => updateSetting("musicEnabled", v)}
           />
+          {settings.musicEnabled && (
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <VolumeSlider
+                icon="speaker.wave.3.fill"
+                label="Volume Musica"
+                value={soundSettings.musicVolume}
+                onValueChange={handleMusicVolumeChange}
+              />
+            </>
+          )}
         </View>
 
         {/* Notifications Section */}
@@ -310,5 +390,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: Spacing.xl,
     fontSize: 12,
+  },
+  volumeRow: {
+    padding: Spacing.md,
+  },
+  volumeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  volumeValue: {
+    marginLeft: "auto",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  slider: {
+    width: "100%",
+    height: 40,
   },
 });

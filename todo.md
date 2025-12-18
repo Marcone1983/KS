@@ -340,6 +340,7 @@
 - [x] Integrare suoni Shop (buy, denied, equip)
 - [x] Integrare suoni Spray nel gioco
 - [x] Integrare suoni Pests nel gioco
-- [ ] Integrare suoni Breeding
-- [ ] Integrare ambient loops
+- [x] Integrare suoni Breeding
+- [x] Integrare ambient loops
+- [x] Creare pagina Settings audio con slider volume
 

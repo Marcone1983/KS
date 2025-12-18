@@ -11,6 +11,7 @@ import { PerspectiveCamera, OrbitControls, Text as DreiText } from '@react-three
 import * as THREE from 'three';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence, Easing } from 'react-native-reanimated';
+import { useSounds } from '@/hooks/use-sounds';
 
 const { width } = Dimensions.get('window');
 
@@ -247,6 +248,7 @@ const TUTOR_TIPS: TutorMessage[] = [
 export default function GrowingLabScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { play, playLoop, stopLoop } = useSounds();
   const [plant, setPlant] = useState<Plant>({
     id: '1',
     name: 'Cannabis Classica',
@@ -310,7 +312,11 @@ export default function GrowingLabScreen() {
 
   const handleWater = () => {
     setIsWatering(true);
+    play('spray_start');
+    playLoop('spray_loop');
     setTimeout(() => {
+      stopLoop('spray_loop');
+      play('spray_refill');
       setPlant(prev => ({ ...prev, water: Math.min(100, prev.water + 30), lastWatered: Date.now() }));
       setIsWatering(false);
     }, 2000);
@@ -318,7 +324,9 @@ export default function GrowingLabScreen() {
 
   const handleFeed = () => {
     setIsFeeding(true);
+    play('inv_add_item');
     setTimeout(() => {
+      play('plant_levelup');
       setPlant(prev => ({ ...prev, nutrients: Math.min(100, prev.nutrients + 25), lastFed: Date.now() }));
       setIsFeeding(false);
     }, 2000);

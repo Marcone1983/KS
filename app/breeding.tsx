@@ -11,6 +11,7 @@ import { Canvas, useFrame } from '@react-three/fiber/native';
 import { PerspectiveCamera, OrbitControls } from '@react-three/drei/native';
 import * as THREE from 'three';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import { useSounds } from '@/hooks/use-sounds';
 
 const { width } = Dimensions.get('window');
 
@@ -167,6 +168,7 @@ function GeneticsBar({ label, value, color }: { label: string; value: number; co
 export default function BreedingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { play, playLoop, stopLoop } = useSounds();
   const [selectedParent1, setSelectedParent1] = useState<PlantVariety | null>(null);
   const [selectedParent2, setSelectedParent2] = useState<PlantVariety | null>(null);
   const [isBreeding, setIsBreeding] = useState(false);
@@ -210,14 +212,30 @@ export default function BreedingScreen() {
     setBreedingProgress(0);
     setOffspring(null);
     
+    // Play breeding sounds
+    play('breed_start');
+    playLoop('breed_loop');
+    
     const interval = setInterval(() => {
       setBreedingProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval);
           setIsBreeding(false);
+          stopLoop('breed_loop');
           const newOffspring = calculateOffspring(selectedParent1, selectedParent2);
           setOffspring(newOffspring);
+          
+          // Play completion sound based on rarity
+          if (newOffspring.rarity === 'legendary' || newOffspring.rarity === 'epic') {
+            play('strain_unlock');
+          } else {
+            play('breed_complete');
+          }
           return 100;
+        }
+        // Play tick sound every 10%
+        if (prev % 10 === 0) {
+          play('growth_tick');
         }
         return prev + 2;
       });

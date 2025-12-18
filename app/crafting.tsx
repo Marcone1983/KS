@@ -11,6 +11,7 @@ import { Canvas, useFrame } from '@react-three/fiber/native';
 import { PerspectiveCamera, OrbitControls } from '@react-three/drei/native';
 import * as THREE from 'three';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withRepeat, withSequence, Easing } from 'react-native-reanimated';
+import { useSounds } from '@/hooks/use-sounds';
 
 const { width } = Dimensions.get('window');
 
@@ -276,6 +277,7 @@ function RecipeCard({ recipe, canCraft, onCraft }: { recipe: Recipe; canCraft: b
 export default function CraftingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { play, playLoop, stopLoop } = useSounds();
   const [ingredients, setIngredients] = useState<Ingredient[]>(INGREDIENTS);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isCrafting, setIsCrafting] = useState(false);
@@ -296,6 +298,10 @@ export default function CraftingScreen() {
     setIsCrafting(true);
     setCraftingProgress(0);
     
+    // Play crafting sounds
+    play('breed_start');
+    playLoop('breed_loop');
+    
     // Deduct ingredients
     setIngredients(prev => prev.map(ing => {
       const required = recipe.ingredients.find(x => x.id === ing.id);
@@ -310,10 +316,16 @@ export default function CraftingScreen() {
       setCraftingProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval);
+          stopLoop('breed_loop');
           setIsCrafting(false);
           setCraftedItems(prev => [...prev, recipe.id]);
+          play('strain_unlock');
           Alert.alert('Crafting Completato!', `Hai creato ${recipe.result.name}!`);
           return 100;
+        }
+        // Play tick sound every 20%
+        if (prev % 20 === 0) {
+          play('growth_tick');
         }
         return prev + (100 / (recipe.craftTime / 100));
       });
