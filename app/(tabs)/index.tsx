@@ -1,278 +1,325 @@
-import { Image } from "expo-image";
-import { useRouter, Link } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet } from "react-native";
+import { 
+  StyleSheet, 
+  View, 
+  Pressable, 
+  ScrollView,
+  Dimensions,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
 
-import { HelloWave } from "@/components/hello-wave";
-import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { getLoginUrl } from "@/constants/oauth";
-import { useAuth } from "@/hooks/use-auth";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+
+const { width } = Dimensions.get("window");
+
+interface GameStats {
+  level: number;
+  score: number;
+  gleaf: number;
+  highScore: number;
+  isPremium: boolean;
+}
+
+const DEFAULT_STATS: GameStats = {
+  level: 1,
+  score: 0,
+  gleaf: 100,
+  highScore: 0,
+  isPremium: false,
+};
 
 export default function HomeScreen() {
-  const { user, loading, isAuthenticated, logout } = useAuth();
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? "dark"];
+  
+  const [stats, setStats] = useState<GameStats>(DEFAULT_STATS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("[HomeScreen] Auth state:", {
-      hasUser: !!user,
-      loading,
-      isAuthenticated,
-      user: user ? { id: user.id, openId: user.openId, name: user.name, email: user.email } : null,
-    });
-  }, [user, loading, isAuthenticated]);
+    loadStats();
+  }, []);
 
-  const handleLogin = async () => {
+  const loadStats = async () => {
     try {
-      console.log("[Auth] Login button clicked");
-      setIsLoggingIn(true);
-      const loginUrl = getLoginUrl();
-      console.log("[Auth] Generated login URL:", loginUrl);
-
-      // On web, use direct redirect in same tab
-      // On mobile, use WebBrowser to open OAuth in a separate context
-      if (Platform.OS === "web") {
-        console.log("[Auth] Web platform: redirecting to OAuth in same tab...");
-        window.location.href = loginUrl;
-        return;
-      }
-
-      // Mobile: Open OAuth URL in browser
-      // The OAuth server will redirect to our deep link (manusapp://oauth/callback?code=...&state=...)
-      console.log("[Auth] Opening OAuth URL in browser...");
-      const result = await WebBrowser.openAuthSessionAsync(
-        loginUrl,
-        undefined, // Deep link is already configured in getLoginUrl, so no need to specify here
-        {
-          preferEphemeralSession: false,
-          showInRecents: true,
-        },
-      );
-
-      console.log("[Auth] WebBrowser result:", result);
-      if (result.type === "cancel") {
-        console.log("[Auth] OAuth cancelled by user");
-      } else if (result.type === "dismiss") {
-        console.log("[Auth] OAuth dismissed");
-      } else if (result.type === "success" && result.url) {
-        console.log("[Auth] OAuth session successful, navigating to callback:", result.url);
-        // Extract code and state from the URL
-        try {
-          // Parse the URL - it might be exp:// or a regular URL
-          let url: URL;
-          if (result.url.startsWith("exp://") || result.url.startsWith("exps://")) {
-            // For exp:// URLs, we need to parse them differently
-            // Format: exp://192.168.31.156:8081/--/oauth/callback?code=...&state=...
-            const urlStr = result.url.replace(/^exp(s)?:\/\//, "http://");
-            url = new URL(urlStr);
-          } else {
-            url = new URL(result.url);
-          }
-
-          const code = url.searchParams.get("code");
-          const state = url.searchParams.get("state");
-          const error = url.searchParams.get("error");
-
-          console.log("[Auth] Extracted params from callback URL:", {
-            code: code?.substring(0, 20) + "...",
-            state: state?.substring(0, 20) + "...",
-            error,
-          });
-
-          if (error) {
-            console.error("[Auth] OAuth error in callback:", error);
-            return;
-          }
-
-          if (code && state) {
-            // Navigate to callback route with params
-            console.log("[Auth] Navigating to callback route with params...");
-            router.push({
-              pathname: "/oauth/callback" as any,
-              params: { code, state },
-            });
-          } else {
-            console.error("[Auth] Missing code or state in callback URL");
-          }
-        } catch (err) {
-          console.error("[Auth] Failed to parse callback URL:", err, result.url);
-          // Fallback: try parsing with regex
-          const codeMatch = result.url.match(/[?&]code=([^&]+)/);
-          const stateMatch = result.url.match(/[?&]state=([^&]+)/);
-
-          if (codeMatch && stateMatch) {
-            const code = decodeURIComponent(codeMatch[1]);
-            const state = decodeURIComponent(stateMatch[1]);
-            console.log("[Auth] Fallback: extracted params via regex, navigating...");
-            router.push({
-              pathname: "/oauth/callback" as any,
-              params: { code, state },
-            });
-          } else {
-            console.error("[Auth] Could not extract code/state from URL");
-          }
-        }
+      const savedStats = await AsyncStorage.getItem("gameStats");
+      if (savedStats) {
+        setStats(JSON.parse(savedStats));
       }
     } catch (error) {
-      console.error("[Auth] Login error:", error);
+      console.error("Error loading stats:", error);
     } finally {
-      setIsLoggingIn(false);
+      setLoading(false);
     }
   };
 
+  const handlePlayPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push("/(tabs)/game");
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
-      headerImage={
-        <Image
-          source={require("@/assets/images/partial-react-logo.png")}
-          style={styles.reactLogo}
-        />
-      }
-    >
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.authContainer}>
-        {loading ? (
-          <ActivityIndicator />
-        ) : isAuthenticated && user ? (
-          <ThemedView style={styles.userInfo}>
-            <ThemedText type="subtitle">Logged in as</ThemedText>
-            <ThemedText type="defaultSemiBold">{user.name || user.email || user.openId}</ThemedText>
-            <Pressable onPress={logout} style={styles.logoutButton}>
-              <ThemedText style={styles.logoutText}>Logout</ThemedText>
-            </Pressable>
-          </ThemedView>
-        ) : (
-          <Pressable
-            onPress={handleLogin}
-            disabled={isLoggingIn}
-            style={[styles.loginButton, isLoggingIn && styles.loginButtonDisabled]}
+    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <ThemedText type="title" style={styles.title}>KannaSprout</ThemedText>
+            <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Difendi il tuo giardino
+            </ThemedText>
+          </View>
+          {stats.isPremium && (
+            <View style={[styles.premiumBadge, { backgroundColor: colors.gold }]}>
+              <IconSymbol name="crown.fill" size={16} color="#000" />
+              <ThemedText style={styles.premiumText}>PRO</ThemedText>
+            </View>
+          )}
+        </View>
+
+        {/* Stats Bar */}
+        <View style={[styles.statsBar, { backgroundColor: colors.card }]}>
+          <View style={styles.statItem}>
+            <IconSymbol name="trophy.fill" size={20} color={colors.gold} />
+            <ThemedText style={styles.statValue}>{stats.level}</ThemedText>
+            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>Livello</ThemedText>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.statItem}>
+            <IconSymbol name="leaf.fill" size={20} color={colors.success} />
+            <ThemedText style={styles.statValue}>{stats.gleaf}</ThemedText>
+            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>GLeaf</ThemedText>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.statItem}>
+            <IconSymbol name="star.fill" size={20} color={colors.warning} />
+            <ThemedText style={styles.statValue}>{stats.highScore}</ThemedText>
+            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>Record</ThemedText>
+          </View>
+        </View>
+
+        {/* Garden Preview Card */}
+        <View style={[styles.gardenCard, { backgroundColor: colors.card }]}>
+          <View style={styles.gardenPreview}>
+            <View style={[styles.plantIcon, { backgroundColor: colors.tint + "30" }]}>
+              <IconSymbol name="leaf.fill" size={64} color={colors.tint} />
+            </View>
+          </View>
+          <View style={styles.gardenInfo}>
+            <ThemedText type="subtitle">Il Tuo Giardino</ThemedText>
+            <ThemedText style={{ color: colors.textSecondary }}>
+              {stats.isPremium 
+                ? "Accesso completo a tutti i livelli" 
+                : `Livello ${stats.level} - ${stats.level === 1 ? "Completa per sbloccare" : "In corso"}`
+              }
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Play Button */}
+        <Pressable
+          onPress={handlePlayPress}
+          style={({ pressed }) => [
+            styles.playButton,
+            { backgroundColor: colors.tint },
+            pressed && styles.playButtonPressed,
+          ]}
+        >
+          <IconSymbol name="gamecontroller.fill" size={28} color="#FFF" />
+          <ThemedText style={styles.playButtonText}>GIOCA ORA</ThemedText>
+        </Pressable>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <Pressable 
+            style={[styles.actionCard, { backgroundColor: colors.card }]}
+            onPress={() => router.push("/(tabs)/shop")}
           >
-            {isLoggingIn ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText style={styles.loginText}>Login</ThemedText>
-            )}
+            <IconSymbol name="cart.fill" size={24} color={colors.tint} />
+            <ThemedText style={styles.actionText}>Shop</ThemedText>
+          </Pressable>
+          <Pressable 
+            style={[styles.actionCard, { backgroundColor: colors.card }]}
+            onPress={() => router.push("/encyclopedia")}
+          >
+            <IconSymbol name="info.circle.fill" size={24} color={colors.tint} />
+            <ThemedText style={styles.actionText}>Guida</ThemedText>
+          </Pressable>
+          <Pressable 
+            style={[styles.actionCard, { backgroundColor: colors.card }]}
+            onPress={() => router.push("/settings")}
+          >
+            <IconSymbol name="gearshape.fill" size={24} color={colors.tint} />
+            <ThemedText style={styles.actionText}>Opzioni</ThemedText>
+          </Pressable>
+        </View>
+
+        {/* Premium Banner (if not premium) */}
+        {!stats.isPremium && (
+          <Pressable 
+            style={[styles.premiumBanner, { backgroundColor: colors.gold + "20", borderColor: colors.gold }]}
+            onPress={() => router.push("/paywall")}
+          >
+            <View style={styles.premiumBannerContent}>
+              <IconSymbol name="crown.fill" size={32} color={colors.gold} />
+              <View style={styles.premiumBannerText}>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.gold }}>
+                  Sblocca Premium
+                </ThemedText>
+                <ThemedText style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  $10 una tantum - Tutti i livelli sbloccati
+                </ThemedText>
+              </View>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.gold} />
           </Pressable>
         )}
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{" "}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: "cmd + d",
-              android: "cmd + m",
-              web: "F12",
-            })}
-          </ThemedText>{" "}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert("Action pressed")} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert("Share pressed")}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert("Delete pressed")}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{" "}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{" "}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{" "}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </ScrollView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: Spacing.lg,
+  },
+  title: {
+    fontSize: 28,
+  },
+  subtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  premiumBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    gap: 4,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  premiumText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#000",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
+  statsBar: {
+    flexDirection: "row",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  authContainer: {
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
   },
-  userInfo: {
-    gap: 8,
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: 12,
+  },
+  statDivider: {
+    width: 1,
+    marginVertical: 4,
+  },
+  gardenCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.lg,
+  },
+  gardenPreview: {
+    height: 160,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(45, 125, 70, 0.1)",
+  },
+  plantIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
     alignItems: "center",
   },
-  loginButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+  gardenInfo: {
+    padding: Spacing.md,
+    gap: 4,
+  },
+  playButton: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 44,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
-  loginButtonDisabled: {
-    opacity: 0.6,
+  playButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
-  loginText: {
-    color: "#fff",
-    fontSize: 16,
+  playButtonText: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  quickActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  actionCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.xs,
+  },
+  actionText: {
+    fontSize: 12,
     fontWeight: "600",
   },
-  logoutButton: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
+  premiumBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
   },
-  logoutText: {
-    color: "#FF3B30",
-    fontSize: 14,
-    fontWeight: "500",
+  premiumBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  premiumBannerText: {
+    gap: 2,
   },
 });

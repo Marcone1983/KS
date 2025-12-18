@@ -1,0 +1,31 @@
+# Cloudflare Workers configuration for KannaSprout API
+name = "kannasprout-api"
+main = "workers/index.ts"
+compatibility_date = "2024-01-01"
+
+# Environment variables (set in Cloudflare dashboard)
+[vars]
+NODE_ENV = "production"
+
+# KV Namespace for caching (optional)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+
+# D1 Database (optional - alternative to MySQL)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "kannasprout"
+# database_id = "your-d1-database-id"
+
+# Secrets (set via wrangler secret put)
+# - PAYPAL_CLIENT_ID
+# - PAYPAL_CLIENT_SECRET
+# - DATABASE_URL
+# - COOKIE_SECRET
+
+[env.production]
+name = "kannasprout-api-prod"
+
+[env.staging]
+name = "kannasprout-api-staging"
