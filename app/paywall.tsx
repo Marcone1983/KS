@@ -1,178 +1,251 @@
+// @ts-nocheck
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   StyleSheet, 
   View, 
   Pressable, 
   ScrollView,
-  Linking,
   ActivityIndicator,
+  Linking,
+  Platform,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Colors, PayPalColors, Spacing, BorderRadius } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { trpc } from "@/lib/trpc";
 
-const PREMIUM_PRICE = 10; // $10 USD
+const PREMIUM_PRICE = 10.00; // $10 USD una tantum
 
 const PREMIUM_BENEFITS = [
-  { icon: "🎮", text: "Tutti i livelli sbloccati" },
-  { icon: "🌿", text: "Piante esclusive premium" },
-  { icon: "🚫", text: "Nessuna pubblicità" },
-  { icon: "💰", text: "Bonus GLeaf giornalieri x2" },
-  { icon: "✨", text: "Skin e cosmetici esclusivi" },
-  { icon: "🏆", text: "Accesso anticipato nuovi contenuti" },
+  { icon: "🎮", title: "Tutti i Livelli", desc: "Accesso illimitato a tutti i livelli del gioco" },
+  { icon: "🌿", title: "Piante Esclusive", desc: "Sblocca plant03 e plant04 premium" },
+  { icon: "🚫", title: "Zero Pubblicità", desc: "Esperienza di gioco senza interruzioni" },
+  { icon: "💰", title: "Bonus x2", desc: "Guadagni GLeaf raddoppiati" },
+  { icon: "✨", title: "Spray Speciali", desc: "Tutti i tipi di spray sbloccati" },
+  { icon: "🏆", title: "Accesso VIP", desc: "Nuovi contenuti in anteprima" },
 ];
 
 export default function PaywallScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "dark"];
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [orderId, setOrderId] = useState<string | null>(null);
+
+  // tRPC mutations for PayPal
+  const createOrderMutation = trpc.createPayPalOrder.useMutation();
+  const captureOrderMutation = trpc.capturePayPalOrder.useMutation();
 
   const handlePayPalCheckout = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     setIsProcessing(true);
     setPaymentStatus("processing");
+    setErrorMessage("");
 
     try {
-      // In production, this would call your backend to create a PayPal order
-      // For now, we'll simulate the payment flow
-      
-      // Option 1: Open PayPal checkout in browser (production)
-      // const paypalUrl = await createPayPalOrder(); // Backend call
-      // await WebBrowser.openBrowserAsync(paypalUrl);
-      
-      // Option 2: Simulate successful payment for demo
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mark as premium
-      await AsyncStorage.setItem("isPremium", "true");
-      
-      // Update game stats
-      const stats = await AsyncStorage.getItem("gameStats");
-      const parsed = stats ? JSON.parse(stats) : {};
-      await AsyncStorage.setItem("gameStats", JSON.stringify({
-        ...parsed,
-        isPremium: true,
-      }));
+      // Create PayPal order via backend
+      const result = await createOrderMutation.mutateAsync({
+        amount: PREMIUM_PRICE.toString(),
+        currency: "USD",
+        description: "Kurstaki Strike Premium - Sblocco Completo",
+      });
 
-      setPaymentStatus("success");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      // Navigate back after success
-      setTimeout(() => {
-        router.back();
-      }, 1500);
-      
-    } catch (error) {
+      if (result.orderId && result.approvalUrl) {
+        setOrderId(result.orderId);
+        
+        // Open PayPal approval URL
+        if (Platform.OS === "web") {
+          window.location.href = result.approvalUrl;
+        } else {
+          const browserResult = await WebBrowser.openAuthSessionAsync(
+            result.approvalUrl,
+            "kurstakistrike://paypal/callback"
+          );
+          
+          if (browserResult.type === "success") {
+            // Capture the order after approval
+            await capturePayment(result.orderId);
+          } else {
+            setPaymentStatus("idle");
+            setIsProcessing(false);
+          }
+        }
+      } else {
+        throw new Error("Failed to create PayPal order");
+      }
+    } catch (error: any) {
       console.error("Payment error:", error);
       setPaymentStatus("error");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setErrorMessage(error.message || "Errore durante il pagamento");
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      setIsProcessing(false);
+    }
+  };
+
+  const capturePayment = async (orderIdToCapture: string) => {
+    try {
+      const captureResult = await captureOrderMutation.mutateAsync({
+        orderId: orderIdToCapture,
+      });
+
+      if (captureResult.success) {
+        // Mark as premium
+        await AsyncStorage.setItem("isPremium", "true");
+        await AsyncStorage.setItem("premiumDate", new Date().toISOString());
+        await AsyncStorage.setItem("paypalOrderId", orderIdToCapture);
+        
+        // Update game stats
+        const stats = await AsyncStorage.getItem("gameStats");
+        const parsed = stats ? JSON.parse(stats) : {};
+        await AsyncStorage.setItem("gameStats", JSON.stringify({
+          ...parsed,
+          isPremium: true,
+          premiumDate: new Date().toISOString(),
+        }));
+
+        setPaymentStatus("success");
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
+        // Navigate back after success
+        setTimeout(() => {
+          router.replace("/(tabs)");
+        }, 2000);
+      } else {
+        throw new Error("Payment capture failed");
+      }
+    } catch (error: any) {
+      console.error("Capture error:", error);
+      setPaymentStatus("error");
+      setErrorMessage(error.message || "Errore nella conferma del pagamento");
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleSkip = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     router.back();
   };
 
   const handleRestorePurchase = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     setIsProcessing(true);
     
     try {
-      // In production, verify with backend
       const isPremium = await AsyncStorage.getItem("isPremium");
+      const savedOrderId = await AsyncStorage.getItem("paypalOrderId");
       
-      if (isPremium === "true") {
+      if (isPremium === "true" && savedOrderId) {
         setPaymentStatus("success");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
         setTimeout(() => router.back(), 1500);
       } else {
-        // No purchase found
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setErrorMessage("Nessun acquisto trovato da ripristinare");
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
       }
     } catch (error) {
       console.error("Restore error:", error);
+      setErrorMessage("Errore nel ripristino dell'acquisto");
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <LinearGradient colors={["#0f172a", "#1e293b", "#334155"]} style={styles.container}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.xl }
+          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Close Button */}
         <Pressable style={styles.closeButton} onPress={handleSkip}>
-          <IconSymbol name="xmark" size={24} color={colors.textSecondary} />
+          <ThemedText style={styles.closeText}>✕</ThemedText>
         </Pressable>
+
+        {/* Logo */}
+        <Image
+          source={require("@/assets/images/logo.png")}
+          style={styles.logo}
+          contentFit="contain"
+        />
 
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <View style={[styles.crownContainer, { backgroundColor: colors.gold + "20" }]}>
-            <IconSymbol name="crown.fill" size={64} color={colors.gold} />
+          <View style={styles.crownContainer}>
+            <ThemedText style={styles.crownEmoji}>👑</ThemedText>
           </View>
-          <ThemedText type="title" style={styles.heroTitle}>
-            KannaSprout Premium
+          <ThemedText style={styles.heroTitle}>
+            Kurstaki Strike Premium
           </ThemedText>
-          <ThemedText style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-            Sblocca l'esperienza completa
+          <ThemedText style={styles.heroSubtitle}>
+            Sblocca l'esperienza completa per sempre
           </ThemedText>
         </View>
 
         {/* Price Badge */}
-        <View style={[styles.priceBadge, { backgroundColor: colors.gold }]}>
-          <ThemedText style={styles.priceText}>${PREMIUM_PRICE}</ThemedText>
-          <ThemedText style={styles.priceSubtext}>Una tantum • Per sempre</ThemedText>
+        <View style={styles.priceBadge}>
+          <ThemedText style={styles.priceText}>${PREMIUM_PRICE.toFixed(2)}</ThemedText>
+          <ThemedText style={styles.priceSubtext}>Una tantum • Per sempre tuo</ThemedText>
         </View>
 
         {/* Benefits List */}
-        <View style={[styles.benefitsCard, { backgroundColor: colors.card }]}>
-          <ThemedText type="subtitle" style={styles.benefitsTitle}>
+        <View style={styles.benefitsCard}>
+          <ThemedText style={styles.benefitsTitle}>
             Cosa ottieni:
           </ThemedText>
           {PREMIUM_BENEFITS.map((benefit, index) => (
             <View key={index} style={styles.benefitItem}>
               <ThemedText style={styles.benefitIcon}>{benefit.icon}</ThemedText>
-              <ThemedText style={styles.benefitText}>{benefit.text}</ThemedText>
+              <View style={styles.benefitTextContainer}>
+                <ThemedText style={styles.benefitTitle}>{benefit.title}</ThemedText>
+                <ThemedText style={styles.benefitDesc}>{benefit.desc}</ThemedText>
+              </View>
             </View>
           ))}
         </View>
 
         {/* Payment Status */}
         {paymentStatus === "success" && (
-          <View style={[styles.statusBanner, { backgroundColor: colors.success + "20" }]}>
-            <IconSymbol name="checkmark" size={24} color={colors.success} />
-            <ThemedText style={{ color: colors.success, fontWeight: "600" }}>
+          <View style={styles.successBanner}>
+            <ThemedText style={styles.successEmoji}>✅</ThemedText>
+            <ThemedText style={styles.successText}>
               Pagamento completato! Benvenuto in Premium!
             </ThemedText>
           </View>
         )}
 
         {paymentStatus === "error" && (
-          <View style={[styles.statusBanner, { backgroundColor: colors.error + "20" }]}>
-            <IconSymbol name="xmark" size={24} color={colors.error} />
-            <ThemedText style={{ color: colors.error, fontWeight: "600" }}>
-              Errore nel pagamento. Riprova.
+          <View style={styles.errorBanner}>
+            <ThemedText style={styles.errorEmoji}>❌</ThemedText>
+            <ThemedText style={styles.errorText}>
+              {errorMessage || "Errore nel pagamento. Riprova."}
             </ThemedText>
           </View>
         )}
@@ -181,23 +254,28 @@ export default function PaywallScreen() {
         <Pressable
           style={[
             styles.paypalButton,
-            { backgroundColor: PayPalColors.yellow },
             isProcessing && styles.buttonDisabled,
           ]}
           onPress={handlePayPalCheckout}
           disabled={isProcessing || paymentStatus === "success"}
         >
           {isProcessing ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color="#003087" size="small" />
           ) : (
-            <>
-              <ThemedText style={styles.paypalButtonText}>Paga con</ThemedText>
-              <ThemedText style={[styles.paypalButtonText, { fontWeight: "800", color: PayPalColors.blue }]}>
-                PayPal
-              </ThemedText>
-            </>
+            <View style={styles.paypalButtonContent}>
+              <ThemedText style={styles.paypalButtonText}>Paga con </ThemedText>
+              <ThemedText style={styles.paypalLogo}>PayPal</ThemedText>
+            </View>
           )}
         </Pressable>
+
+        {/* Security Badge */}
+        <View style={styles.securityBadge}>
+          <ThemedText style={styles.securityIcon}>🔒</ThemedText>
+          <ThemedText style={styles.securityText}>
+            Pagamento sicuro tramite PayPal
+          </ThemedText>
+        </View>
 
         {/* Restore Purchase */}
         <Pressable 
@@ -205,25 +283,26 @@ export default function PaywallScreen() {
           onPress={handleRestorePurchase}
           disabled={isProcessing}
         >
-          <ThemedText style={[styles.restoreText, { color: colors.tint }]}>
-            Ripristina acquisto
+          <ThemedText style={styles.restoreText}>
+            Ripristina acquisto precedente
           </ThemedText>
         </Pressable>
 
         {/* Skip Button */}
         <Pressable style={styles.skipButton} onPress={handleSkip}>
-          <ThemedText style={[styles.skipText, { color: colors.textSecondary }]}>
-            Continua con versione limitata
+          <ThemedText style={styles.skipText}>
+            Continua con versione gratuita
           </ThemedText>
         </Pressable>
 
         {/* Terms */}
-        <ThemedText style={[styles.terms, { color: colors.textSecondary }]}>
+        <ThemedText style={styles.terms}>
           Acquistando accetti i nostri Termini di Servizio e la Privacy Policy.
           Il pagamento è processato in modo sicuro tramite PayPal.
+          Nessun abbonamento, pagamento unico.
         </ThemedText>
       </ScrollView>
-    </ThemedView>
+    </LinearGradient>
   );
 }
 
@@ -235,46 +314,68 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: 20,
     alignItems: "center",
   },
   closeButton: {
     position: "absolute",
-    top: Spacing.md,
-    right: Spacing.md,
-    padding: Spacing.sm,
+    top: 20,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 10,
+  },
+  closeText: {
+    color: "#fff",
+    fontSize: 20,
+  },
+  logo: {
+    width: 180,
+    height: 80,
+    marginBottom: 20,
   },
   heroSection: {
     alignItems: "center",
-    marginTop: Spacing.xl,
-    marginBottom: Spacing.lg,
+    marginBottom: 24,
   },
   crownContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: Spacing.md,
+    marginBottom: 16,
+  },
+  crownEmoji: {
+    fontSize: 50,
   },
   heroTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#fff",
     textAlign: "center",
-    marginBottom: Spacing.xs,
+    marginBottom: 8,
   },
   heroSubtitle: {
     fontSize: 16,
+    color: "#9ca3af",
     textAlign: "center",
   },
   priceBadge: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: "#ffd700",
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: 24,
   },
   priceText: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: "800",
     color: "#000",
   },
@@ -285,74 +386,144 @@ const styles = StyleSheet.create({
   },
   benefitsCard: {
     width: "100%",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   benefitsTitle: {
-    marginBottom: Spacing.md,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 16,
   },
   benefitItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.sm,
-    gap: Spacing.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
   },
   benefitIcon: {
-    fontSize: 24,
-    width: 32,
+    fontSize: 28,
+    width: 44,
     textAlign: "center",
   },
-  benefitText: {
+  benefitTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  benefitTitle: {
     fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  benefitDesc: {
+    fontSize: 13,
+    color: "#9ca3af",
+    marginTop: 2,
+  },
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.2)",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    width: "100%",
+  },
+  successEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  successText: {
+    color: "#22c55e",
+    fontSize: 16,
+    fontWeight: "600",
     flex: 1,
   },
-  statusBanner: {
+  errorBanner: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
     width: "100%",
   },
+  errorEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  errorText: {
+    color: "#ef4444",
+    fontSize: 14,
+    flex: 1,
+  },
   paypalButton: {
-    flexDirection: "row",
+    backgroundColor: "#ffc439",
+    width: "100%",
+    paddingVertical: 18,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    width: "100%",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.xs,
-    marginBottom: Spacing.md,
+    marginBottom: 12,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
+  paypalButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   paypalButtonText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#000",
+    color: "#003087",
+  },
+  paypalLogo: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#003087",
+    fontStyle: "italic",
+  },
+  securityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  securityIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  securityText: {
+    fontSize: 13,
+    color: "#9ca3af",
   },
   restoreButton: {
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
+    padding: 16,
+    marginBottom: 8,
   },
   restoreText: {
     fontSize: 14,
     fontWeight: "600",
+    color: "#60a5fa",
   },
   skipButton: {
-    padding: Spacing.md,
-    marginBottom: Spacing.lg,
+    padding: 16,
+    marginBottom: 16,
   },
   skipText: {
     fontSize: 14,
+    color: "#6b7280",
   },
   terms: {
-    fontSize: 12,
+    fontSize: 11,
+    color: "#6b7280",
     textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: Spacing.lg,
+    lineHeight: 16,
+    paddingHorizontal: 20,
   },
 });

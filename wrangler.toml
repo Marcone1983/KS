@@ -1,31 +1,54 @@
-# Cloudflare Workers configuration for KannaSprout API
-name = "kannasprout-api"
-main = "workers/index.ts"
-compatibility_date = "2024-01-01"
+# Kurstaki Strike - Cloudflare Workers Configuration
+# Enterprise-grade deployment settings
 
-# Environment variables (set in Cloudflare dashboard)
+name = "kurstaki-strike-api"
+main = "workers/paypal-api.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables (set via Cloudflare dashboard or wrangler secret)
 [vars]
+PAYPAL_MODE = "sandbox"
 NODE_ENV = "production"
 
-# KV Namespace for caching (optional)
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "your-kv-namespace-id"
+# D1 Database binding
+[[d1_databases]]
+binding = "KS_DB"
+database_name = "kurstaki-strike-db"
+database_id = "TO_BE_CREATED"
 
-# D1 Database (optional - alternative to MySQL)
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "kannasprout"
-# database_id = "your-d1-database-id"
+# KV Namespace binding
+[[kv_namespaces]]
+binding = "KS_KV"
+id = "TO_BE_CREATED"
+
+# R2 Storage for assets (optional)
+# [[r2_buckets]]
+# binding = "KS_ASSETS"
+# bucket_name = "kurstaki-strike-assets"
 
 # Secrets (set via wrangler secret put)
 # - PAYPAL_CLIENT_ID
 # - PAYPAL_CLIENT_SECRET
-# - DATABASE_URL
-# - COOKIE_SECRET
 
+# Production environment
 [env.production]
-name = "kannasprout-api-prod"
+name = "kurstaki-strike-api-prod"
+[env.production.vars]
+PAYPAL_MODE = "live"
+NODE_ENV = "production"
 
+# Staging environment
 [env.staging]
-name = "kannasprout-api-staging"
+name = "kurstaki-strike-api-staging"
+[env.staging.vars]
+PAYPAL_MODE = "sandbox"
+NODE_ENV = "staging"
+
+# Build configuration
+[build]
+command = ""
+
+# Observability
+[observability]
+enabled = true

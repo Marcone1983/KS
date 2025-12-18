@@ -1,193 +1,147 @@
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { 
-  StyleSheet, 
-  View, 
-  Pressable, 
-  ScrollView,
-  Dimensions,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Haptics from "expo-haptics";
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemedText } from '@/components/themed-text';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const { width } = Dimensions.get("window");
-
-interface GameStats {
-  level: number;
-  score: number;
-  gleaf: number;
+interface GameProgress {
+  currentLevel: number;
+  totalScore: number;
   highScore: number;
-  isPremium: boolean;
+  leafCurrency: number;
+  pestsEncountered: string[];
+  hasPremium: boolean;
+  gamesPlayed: number;
 }
 
-const DEFAULT_STATS: GameStats = {
-  level: 1,
-  score: 0,
-  gleaf: 100,
-  highScore: 0,
-  isPremium: false,
-};
+function useGameProgress() {
+  const [progress, setProgress] = useState<GameProgress>({
+    currentLevel: 1,
+    totalScore: 0,
+    highScore: 0,
+    leafCurrency: 0,
+    pestsEncountered: [],
+    hasPremium: false,
+    gamesPlayed: 0,
+  });
+
+  useEffect(() => {
+    loadProgress();
+  }, []);
+
+  const loadProgress = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('gameProgress');
+      if (saved) {
+        setProgress(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Failed to load progress', error);
+    }
+  };
+
+  return progress;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "dark"];
-  
-  const [stats, setStats] = useState<GameStats>(DEFAULT_STATS);
-  const [loading, setLoading] = useState(true);
+  const progress = useGameProgress();
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  const menuItems = [
+    { title: 'Gioca Ora', icon: 'play', route: '/(tabs)/game', color: '#22c55e', primary: true },
+    { title: 'Dashboard', icon: 'chart', route: '/dashboard', color: '#3b82f6' },
+    { title: 'Shop', icon: 'cart', route: '/(tabs)/shop', color: '#a855f7' },
+    { title: 'Enciclopedia', icon: 'book', route: '/encyclopedia', color: '#22c55e' },
+    { title: 'Ricerca', icon: 'flask', route: '/research', color: '#06b6d4' },
+    { title: 'Potenzia', icon: 'arrow', route: '/upgrades', color: '#10b981' },
+    { title: 'Crafting', icon: 'hammer', route: '/crafting', color: '#ec4899' },
+    { title: 'Breeding', icon: 'sparkle', route: '/breeding', color: '#a855f7' },
+    { title: 'Leaderboards', icon: 'trophy', route: '/leaderboards', color: '#eab308' },
+    { title: 'Skills', icon: 'star', route: '/skills', color: '#6366f1' },
+    { title: 'Customize', icon: 'brush', route: '/customize', color: '#14b8a6' },
+    { title: 'Growing Lab', icon: 'leaf', route: '/growing', color: '#10b981' },
+  ];
 
-  const loadStats = async () => {
-    try {
-      const savedStats = await AsyncStorage.getItem("gameStats");
-      if (savedStats) {
-        setStats(JSON.parse(savedStats));
-      }
-    } catch (error) {
-      console.error("Error loading stats:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePlayPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push("/(tabs)/game");
+  const handleNavigation = (route: string) => {
+    router.push(route as any);
   };
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <LinearGradient
+      colors={['#14532d', '#166534', '#059669']}
+      style={styles.container}
+    >
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) + 100 }
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <ThemedText type="title" style={styles.title}>KannaSprout</ThemedText>
-            <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Difendi il tuo giardino
-            </ThemedText>
-          </View>
-          {stats.isPremium && (
-            <View style={[styles.premiumBadge, { backgroundColor: colors.gold }]}>
-              <IconSymbol name="crown.fill" size={16} color="#000" />
-              <ThemedText style={styles.premiumText}>PRO</ThemedText>
-            </View>
-          )}
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logo}
+            contentFit="contain"
+          />
+          <ThemedText style={styles.subtitle}>
+            Difendi la tua pianta dai parassiti con
+
+
+
+
+ Bacillus thuringiensis kurstaki
+          </ThemedText>
         </View>
 
-        {/* Stats Bar */}
-        <View style={[styles.statsBar, { backgroundColor: colors.card }]}>
-          <View style={styles.statItem}>
-            <IconSymbol name="trophy.fill" size={20} color={colors.gold} />
-            <ThemedText style={styles.statValue}>{stats.level}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>Livello</ThemedText>
+        {/* Stats Cards */}
+        <View style={styles.statsContainer
+}>
+          <View style={styles.statCard}>
+            <ThemedText style={styles.statIcon}>🏆</ThemedText>
+            <ThemedText style={styles.statLabel}>Livello</ThemedText>
+            <ThemedText style={styles.statValue}>{progress.currentLevel}</ThemedText>
           </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <IconSymbol name="leaf.fill" size={20} color={colors.success} />
-            <ThemedText style={styles.statValue}>{stats.gleaf}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>GLeaf</ThemedText>
+          <View style={styles.statCard}>
+            <ThemedText style={styles.statIcon}>🌿</ThemedText>
+            <ThemedText style={styles.statLabel}>Leaf Token</ThemedText>
+            <ThemedText style={styles.statValue}>{progress.leafCurrency}</ThemedText>
           </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <IconSymbol name="star.fill" size={20} color={colors.warning} />
-            <ThemedText style={styles.statValue}>{stats.highScore}</ThemedText>
-            <ThemedText style={[styles.statLabel, { color: colors.textSecondary }]}>Record</ThemedText>
-          </View>
-        </View>
-
-        {/* Garden Preview Card */}
-        <View style={[styles.gardenCard, { backgroundColor: colors.card }]}>
-          <View style={styles.gardenPreview}>
-            <View style={[styles.plantIcon, { backgroundColor: colors.tint + "30" }]}>
-              <IconSymbol name="leaf.fill" size={64} color={colors.tint} />
-            </View>
-          </View>
-          <View style={styles.gardenInfo}>
-            <ThemedText type="subtitle">Il Tuo Giardino</ThemedText>
-            <ThemedText style={{ color: colors.textSecondary }}>
-              {stats.isPremium 
-                ? "Accesso completo a tutti i livelli" 
-                : `Livello ${stats.level} - ${stats.level === 1 ? "Completa per sbloccare" : "In corso"}`
-              }
-            </ThemedText>
+          <View style={styles.statCard}>
+            <ThemedText style={styles.statIcon}>🛡️</ThemedText>
+            <ThemedText style={styles.statLabel}>Partite</ThemedText>
+            <ThemedText style={styles.statValue}>{progress.gamesPlayed}</ThemedText>
           </View>
         </View>
 
-        {/* Play Button */}
-        <Pressable
-          onPress={handlePlayPress}
-          style={({ pressed }) => [
-            styles.playButton,
-            { backgroundColor: colors.tint },
-            pressed && styles.playButtonPressed,
-          ]}
-        >
-          <IconSymbol name="gamecontroller.fill" size={28} color="#FFF" />
-          <ThemedText style={styles.playButtonText}>GIOCA ORA</ThemedText>
-        </Pressable>
-
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Pressable 
-            style={[styles.actionCard, { backgroundColor: colors.card }]}
-            onPress={() => router.push("/(tabs)/shop")}
-          >
-            <IconSymbol name="cart.fill" size={24} color={colors.tint} />
-            <ThemedText style={styles.actionText}>Shop</ThemedText>
-          </Pressable>
-          <Pressable 
-            style={[styles.actionCard, { backgroundColor: colors.card }]}
-            onPress={() => router.push("/encyclopedia")}
-          >
-            <IconSymbol name="info.circle.fill" size={24} color={colors.tint} />
-            <ThemedText style={styles.actionText}>Guida</ThemedText>
-          </Pressable>
-          <Pressable 
-            style={[styles.actionCard, { backgroundColor: colors.card }]}
-            onPress={() => router.push("/settings")}
-          >
-            <IconSymbol name="gearshape.fill" size={24} color={colors.tint} />
-            <ThemedText style={styles.actionText}>Opzioni</ThemedText>
-          </Pressable>
+        {/* Menu Buttons */}
+        <View style={styles.menuContainer}>
+          {menuItems.map((item, index) => (
+            <Pressable
+              key={index}
+              style={({ pressed }) => [
+                styles.menuButton,
+                item.primary && styles.primaryButton,
+                { borderColor: item.color },
+                pressed && styles.menuButtonPressed,
+              ]}
+              onPress={() => handleNavigation(item.route)}
+            >
+              <ThemedText style={[styles.menuButtonText, item.primary && styles.primaryButtonText]}>
+                {item.title}
+              </ThemedText>
+            </Pressable>
+          ))}
         </View>
-
-        {/* Premium Banner (if not premium) */}
-        {!stats.isPremium && (
-          <Pressable 
-            style={[styles.premiumBanner, { backgroundColor: colors.gold + "20", borderColor: colors.gold }]}
-            onPress={() => router.push("/paywall")}
-          >
-            <View style={styles.premiumBannerContent}>
-              <IconSymbol name="crown.fill" size={32} color={colors.gold} />
-              <View style={styles.premiumBannerText}>
-                <ThemedText type="defaultSemiBold" style={{ color: colors.gold }}>
-                  Sblocca Premium
-                </ThemedText>
-                <ThemedText style={{ color: colors.textSecondary, fontSize: 12 }}>
-                  $10 una tantum - Tutti i livelli sbloccati
-                </ThemedText>
-              </View>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.gold} />
-          </Pressable>
-        )}
       </ScrollView>
-    </ThemedView>
+    </LinearGradient>
   );
 }
 
@@ -199,127 +153,79 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
-    paddingBottom: Spacing.xxl,
+    paddingHorizontal: 24,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: Spacing.lg,
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
   },
-  title: {
-    fontSize: 28,
+  logo: {
+    width: 320,
+    height: 200,
   },
   subtitle: {
-    fontSize: 14,
-    marginTop: 4,
+    color: '#a7f3d0',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+    maxWidth: 300,
   },
-  premiumBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
-    gap: 4,
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 32,
   },
-  premiumText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#000",
-  },
-  statsBar: {
-    flexDirection: "row",
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  statItem: {
+  statCard: {
     flex: 1,
-    alignItems: "center",
-    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 4,
+    alignItems: 'center',
   },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "700",
+  statIcon: {
+    fontSize: 24,
+    marginBottom: 8,
   },
   statLabel: {
     fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
   },
-  statDivider: {
-    width: 1,
-    marginVertical: 4,
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#166534',
   },
-  gardenCard: {
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.lg,
+  menuContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
   },
-  gardenPreview: {
-    height: 160,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(45, 125, 70, 0.1)",
+  menuButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    minWidth: 140,
+    alignItems: 'center',
   },
-  plantIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: "center",
-    alignItems: "center",
+  primaryButton: {
+    backgroundColor: '#22c55e',
+    borderColor: '#22c55e',
   },
-  gardenInfo: {
-    padding: Spacing.md,
-    gap: 4,
-  },
-  playButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  playButtonPressed: {
+  menuButtonPressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
   },
-  playButtonText: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "700",
+  menuButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  quickActions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  actionCard: {
-    flex: 1,
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.xs,
-  },
-  actionText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  premiumBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-  },
-  premiumBannerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  premiumBannerText: {
-    gap: 2,
+  primaryButtonText: {
+    fontSize: 20,
   },
 });

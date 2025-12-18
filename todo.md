@@ -75,3 +75,48 @@
 - [ ] Test progressione livelli
 - [ ] Test persistenza dati
 - [x] Audit finale codice
+
+
+## Correzioni Richieste dall'Utente
+- [x] Rinominare app da "KannaSprout" a "Kurstaki Strike"
+- [x] Usare il logo fornito (1000240992.png) in ogni pagina
+- [x] Creare splash screen con background fornito (1000241000.jpg)
+- [x] Implementare barra di caricamento animata con spruzzino che spruzza acqua
+- [ ] Replicare esattamente le funzionalità del repository KS originale
+- [ ] Non cancellare codice esistente, solo correggere errori
+
+
+## Richieste Critiche - Grafica 3D AAA
+- [ ] Installare pacchetti 3D: expo-three, three, @react-three/fiber, @react-three/drei, expo-gl
+- [ ] Copiare modelli GLB in assets: plant03.glb, plant04.glb, spray.glb + textures
+- [ ] Creare componente Game3D con rendering modelli GLB
+- [ ] Implementare piante 3D (plant03.glb, plant04.glb) come fulcro del gioco
+- [ ] Implementare spruzzino 3D (spray.glb) con textures
+- [ ] Animazioni parassiti che attaccano le piante
+- [ ] Effetto spray con particelle 3D
+
+## Tutte le 25+ Sezioni da Creare (identiche al repository)
+- [ ] SplashScreen - splash con barra caricamento spruzzino
+- [ ] Game - gioco 3D principale
+- [ ] Home - menu principale
+- [ ] Dashboard - statistiche giocatore
+- [ ] Shop - negozio in-app
+- [ ] Encyclopedia - enciclopedia parassiti/piante
+- [ ] Breeding - incrocio piante base
+- [ ] LoreArchive - archivio storia/lore
+- [ ] ResearchTree - albero ricerca
+- [ ] PlantUpgrades - potenziamenti piante
+- [ ] Crafting - creazione oggetti
+- [ ] GrowingLab - laboratorio crescita
+- [ ] BreedingLab - laboratorio breeding avanzato
+- [ ] Leaderboards - classifiche
+- [ ] PlayerProgression - progressione giocatore
+- [ ] GardenCustomization - personalizzazione giardino
+- [ ] CommunityHub - hub community
+- [ ] Trading - scambio oggetti
+- [ ] Codex - codice/guida
+- [ ] Progression - sistema progressione
+- [ ] Challenges - sfide giornaliere/settimanali
+- [ ] GardenBuilder - costruttore giardino
+- [ ] SeasonalEvents - eventi stagionali
+- [ ] Achievements - achievement/trofei

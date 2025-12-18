@@ -23,7 +23,7 @@ const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
 // Web iframe previewer cannot infer safe-area; default to zero until container sends metrics.
 
 export const unstable_settings = {
-  anchor: "(tabs)",
+  anchor: "splash",
 };
 
 export default function RootLayout() {
@@ -77,6 +77,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <Stack>
+              <Stack.Screen name="splash" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
               <Stack.Screen name="paywall" options={{ presentation: "modal", headerShown: false }} />

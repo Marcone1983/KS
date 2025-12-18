@@ -12,10 +12,10 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: 'KannaSprout',
+  appName: 'Kurstaki Strike',
   appSlug: 'ks-mobile',
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
-  logoUrl: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663065009604/oNgqSImaVAXaEtKM.png',
+  logoUrl: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663065009604/hMwJDiaAUwIDUZHD.png',
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
