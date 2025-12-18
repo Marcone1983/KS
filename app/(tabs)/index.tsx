@@ -81,6 +81,8 @@ export default function HomeScreen() {
     { title: 'Prestige', icon: 'crown', route: '/prestige', color: '#a855f7' },
     { title: 'Daily Rewards', icon: 'gift', route: '/daily-rewards', color: '#22c55e' },
     { title: 'Missioni', icon: 'scroll', route: '/quests', color: '#fbbf24' },
+    { title: 'Gacha', icon: 'slot', route: '/gacha', color: '#a855f7' },
+    { title: 'Collezione', icon: 'book', route: '/collection', color: '#06b6d4' },
   ];
 
   const handleNavigation = (route: string) => {
