@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import { useSounds } from "@/hooks/use-sounds";
 import { Canvas, useFrame } from '@react-three/fiber/native';
 import { PerspectiveCamera, OrbitControls, useGLTF } from '@react-three/drei/native';
 import * as THREE from 'three';
@@ -294,11 +295,11 @@ function PreviewModal({
     </Modal>
   );
 }
-
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "dark"];
+  const colors = Colors[colorScheme ?? "light"];
+  const { play } = useSounds();
   
   const [gleaf, setGleaf] = useState(1000); // Starting with some GLeaf for testing
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -329,6 +330,7 @@ export default function ShopScreen() {
   const handlePurchase = async (item: ShopItem) => {
     if (gleaf < item.price) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      play('shop_denied');
       return;
     }
 
@@ -338,6 +340,12 @@ export default function ShopScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Play sound based on rarity
+    if (item.rarity === 'legendary' || item.rarity === 'epic') {
+      play('shop_buy_rare');
+    } else {
+      play('shop_buy');
+    }
 
     const newGleaf = gleaf - item.price;
     const newOwnedItems = [...ownedItems, item.id];

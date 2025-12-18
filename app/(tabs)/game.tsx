@@ -49,6 +49,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { useSounds } from '@/hooks/use-sounds';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -781,6 +782,7 @@ function GameScene({ plants, pests, sprayPosition, isSpraying, onPestDeath }: Ga
 export default function GameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { play, playLoop, stopLoop } = useSounds();
   
   // Stato del gioco
   const [isLoading, setIsLoading] = useState(true);
@@ -860,6 +862,7 @@ export default function GameScreen() {
       setIsSpraying(true);
       setAmmo(prev => prev - 1);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      play('spray_start');
       
       // Colpisci parassiti nel raggio
       setPests(prev => prev.map(pest => {
@@ -874,14 +877,20 @@ export default function GameScreen() {
         return pest;
       }));
       
-      setTimeout(() => setIsSpraying(false), 500);
+      setTimeout(() => {
+        setIsSpraying(false);
+        play('spray_stop');
+      }, 500);
+    } else if (ammo <= 0) {
+      play('spray_empty');
     }
-  }, [ammo, gameOver, sprayPosition]);
+  }, [ammo, gameOver, sprayPosition, play]);
 
   // Gestione morte parassita
   const handlePestDeath = useCallback((id: string) => {
     setScore(prev => prev + 100 * (combo + 1));
     setCombo(prev => prev + 1);
+    play('pest_die_fall');
     
     // Animazione score
     scoreScale.value = withSequence(
@@ -896,7 +905,7 @@ export default function GameScreen() {
     );
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [combo]);
+  }, [combo, play]);
 
   // Reset combo dopo inattività
   useEffect(() => {
@@ -910,6 +919,7 @@ export default function GameScreen() {
     if (allPlantsDead) {
       setGameOver(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      play('challenge_fail');
     }
   }, [plants]);
 

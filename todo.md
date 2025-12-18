@@ -332,3 +332,14 @@
 - [x] Progress (xp_tick, challenge_start, challenge_complete, challenge_fail)
 - [x] Ambiente (day_loop, night_loop, wind_gust, leaves_rustle)
 
+
+## INTEGRAZIONE AUDIO
+
+- [x] Creare hook useSounds per gestione audio centralizzata
+- [x] Integrare suoni UI (tap, back, open, close, toggle)
+- [x] Integrare suoni Shop (buy, denied, equip)
+- [x] Integrare suoni Spray nel gioco
+- [x] Integrare suoni Pests nel gioco
+- [ ] Integrare suoni Breeding
+- [ ] Integrare ambient loops
+
