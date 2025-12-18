@@ -84,6 +84,8 @@ export default function HomeScreen() {
     { title: 'Gacha', icon: 'slot', route: '/gacha', color: '#a855f7' },
     { title: 'Collezione', icon: 'book', route: '/collection', color: '#06b6d4' },
     { title: 'Pet', icon: 'paw', route: '/pets', color: '#f97316' },
+    { title: 'Crafting Pro', icon: 'anvil', route: '/crafting-advanced', color: '#ec4899' },
+    { title: 'Mappa Mondo', icon: 'globe', route: '/world-map', color: '#3b82f6' },
   ];
 
   const handleNavigation = (route: string) => {
