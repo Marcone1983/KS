@@ -311,3 +311,11 @@
 - [x] Trofeo Campione (trophy_champion.glb)
 - [x] Corona Premium (crown_premium.glb)
 
+
+
+## INTEGRAZIONE ASSET 3D
+
+- [x] Integrare asset GLB nello Shop come prodotti acquistabili
+- [x] Usare parassiti 3D (aphid.glb, spider_mite.glb, etc.) nel gioco
+- [ ] Visualizzare preview 3D dei prodotti nello shop
+

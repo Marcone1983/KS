@@ -470,97 +470,139 @@ function SprayBottle3D({ position, isSpraying, targetPosition }: SprayBottle3DPr
 }
 
 // ============================================
-// COMPONENTE PARASSITA 3D
+// COMPONENTE PARASSITA 3D CON MODELLI GLB
 // ============================================
+
+// Mapping dei modelli GLB per ogni tipo di parassita
+const PEST_MODELS = {
+  caterpillar: require('@/assets/models/pests/caterpillar.glb'),
+  spider: require('@/assets/models/pests/spider_mite.glb'),
+  aphid: require('@/assets/models/pests/aphid.glb'),
+  beetle: require('@/assets/models/pests/mealybug.glb'),
+  whitefly: require('@/assets/models/pests/whitefly.glb'),
+  thrip: require('@/assets/models/pests/thrip.glb'),
+  locust_boss: require('@/assets/models/pests/locust_boss.glb'),
+};
 
 interface Pest3DProps {
   id: string;
   position: [number, number, number];
-  type: 'caterpillar' | 'spider' | 'aphid' | 'beetle';
+  type: 'caterpillar' | 'spider' | 'aphid' | 'beetle' | 'whitefly' | 'thrip' | 'locust_boss';
   health: number;
   onDeath: (id: string) => void;
+  isBoss?: boolean;
 }
 
-function Pest3D({ id, position, type, health, onDeath }: Pest3DProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
+function PestModel3D({ type, scale = 1 }: { type: string; scale?: number }) {
+  try {
+    const modelPath = PEST_MODELS[type as keyof typeof PEST_MODELS];
+    if (!modelPath) {
+      // Fallback per tipi non supportati
+      return (
+        <mesh>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          <meshStandardMaterial color="#ff0000" />
+        </mesh>
+      );
+    }
+    const { scene } = useGLTF(modelPath);
+    return <primitive object={scene.clone()} scale={scale} />;
+  } catch (e) {
+    // Fallback se il modello non carica
+    return (
+      <mesh>
+        <sphereGeometry args={[0.1, 16, 16]} />
+        <meshStandardMaterial color="#ff0000" />
+      </mesh>
+    );
+  }
+}
+
+function Pest3D({ id, position, type, health, onDeath, isBoss = false }: Pest3DProps) {
+  const groupRef = useRef<THREE.Group>(null);
   const [isDead, setIsDead] = useState(false);
+  const [currentPos, setCurrentPos] = useState(position);
   
-  // Colori per tipo di parassita
-  const pestColors = {
-    caterpillar: '#8BC34A',
-    spider: '#795548',
-    aphid: '#4CAF50',
-    beetle: '#3E2723'
-  };
+  // Scale basato sul tipo (boss più grande)
+  const pestScale = useMemo(() => {
+    if (isBoss || type === 'locust_boss') return 2.5;
+    switch (type) {
+      case 'caterpillar': return 1.2;
+      case 'spider': return 1.0;
+      case 'aphid': return 0.8;
+      case 'beetle': return 1.0;
+      case 'whitefly': return 0.7;
+      case 'thrip': return 0.6;
+      default: return 1.0;
+    }
+  }, [type, isBoss]);
 
   useFrame((state, delta) => {
-    if (meshRef.current && !isDead) {
-      // Movimento ondulatorio
-      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 3 + position[0]) * 0.1;
-      meshRef.current.rotation.y += delta * 0.5;
+    if (groupRef.current && !isDead) {
+      // Movimento ondulatorio verticale
+      groupRef.current.position.y = currentPos[1] + Math.sin(state.clock.elapsedTime * 3 + currentPos[0]) * 0.15;
       
-      // Movimento verso la pianta
-      meshRef.current.position.z -= delta * 0.2;
+      // Rotazione
+      groupRef.current.rotation.y += delta * (isBoss ? 0.3 : 0.5);
+      
+      // Movimento verso la pianta (asse Z negativo)
+      const speed = isBoss ? 0.1 : 0.2;
+      groupRef.current.position.z -= delta * speed;
+      
+      // Aggiorna posizione corrente
+      setCurrentPos([groupRef.current.position.x, currentPos[1], groupRef.current.position.z]);
     }
   });
 
   useEffect(() => {
     if (health <= 0 && !isDead) {
       setIsDead(true);
-      onDeath(id);
+      // Effetto morte con delay
+      setTimeout(() => onDeath(id), 300);
     }
   }, [health, isDead, id, onDeath]);
 
   if (isDead) return null;
 
   return (
-    <Float speed={2} rotationIntensity={0.3} floatIntensity={0.5}>
-      <mesh ref={meshRef} position={position} castShadow>
-        {type === 'caterpillar' && (
-          <>
-            <capsuleGeometry args={[0.1, 0.4, 8, 16]} />
-            <MeshDistortMaterial
-              color={pestColors[type]}
-              speed={2}
-              distort={0.2}
-              radius={1}
+    <Float speed={isBoss ? 1 : 2} rotationIntensity={0.3} floatIntensity={isBoss ? 0.3 : 0.5}>
+      <group ref={groupRef} position={position}>
+        {/* Modello GLB del parassita */}
+        <Suspense fallback={
+          <mesh>
+            <sphereGeometry args={[0.1, 8, 8]} />
+            <meshBasicMaterial color="#ff6b6b" wireframe />
+          </mesh>
+        }>
+          <PestModel3D type={type} scale={pestScale} />
+        </Suspense>
+        
+        {/* Barra salute sopra il parassita */}
+        <group position={[0, 0.5, 0]}>
+          {/* Background barra */}
+          <mesh position={[0, 0, 0]}>
+            <planeGeometry args={[0.4, 0.06]} />
+            <meshBasicMaterial color="#1a1a1a" transparent opacity={0.8} />
+          </mesh>
+          {/* Barra salute */}
+          <mesh position={[(health / 100 - 1) * 0.18, 0, 0.001]}>
+            <planeGeometry args={[0.36 * (health / 100), 0.04]} />
+            <meshBasicMaterial 
+              color={health > 50 ? '#22c55e' : health > 25 ? '#eab308' : '#ef4444'} 
             />
-          </>
+          </mesh>
+        </group>
+        
+        {/* Glow per boss */}
+        {isBoss && (
+          <pointLight 
+            position={[0, 0, 0]} 
+            color="#ff4444" 
+            intensity={2} 
+            distance={3} 
+          />
         )}
-        {type === 'spider' && (
-          <>
-            <sphereGeometry args={[0.15, 16, 16]} />
-            <meshPhysicalMaterial
-              color={pestColors[type]}
-              roughness={0.3}
-              metalness={0.1}
-            />
-          </>
-        )}
-        {type === 'aphid' && (
-          <>
-            <sphereGeometry args={[0.08, 12, 12]} />
-            <MeshTransmissionMaterial
-              color={pestColors[type]}
-              transmission={0.5}
-              thickness={0.2}
-              roughness={0.1}
-            />
-          </>
-        )}
-        {type === 'beetle' && (
-          <>
-            <boxGeometry args={[0.2, 0.1, 0.25]} />
-            <meshPhysicalMaterial
-              color={pestColors[type]}
-              roughness={0.2}
-              metalness={0.8}
-              clearcoat={1}
-              clearcoatRoughness={0.1}
-            />
-          </>
-        )}
-      </mesh>
+      </group>
     </Float>
   );
 }
