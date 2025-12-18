@@ -77,6 +77,9 @@ export default function HomeScreen() {
     { title: 'Sfide', icon: 'target', route: '/challenges', color: '#f43f5e' },
     { title: 'Statistiche', icon: 'stats', route: '/stats', color: '#06b6d4' },
     { title: 'Boss Arena', icon: 'skull', route: '/boss-arena', color: '#ef4444' },
+    { title: 'Skill Tree', icon: 'tree', route: '/skill-tree', color: '#6366f1' },
+    { title: 'Prestige', icon: 'crown', route: '/prestige', color: '#a855f7' },
+    { title: 'Daily Rewards', icon: 'gift', route: '/daily-rewards', color: '#22c55e' },
   ];
 
   const handleNavigation = (route: string) => {

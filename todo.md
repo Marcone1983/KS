@@ -405,3 +405,7 @@
 - [x] Sistema Prestige con 10 perk permanenti e bonus moltiplicatore
 - [x] Daily Login Rewards con ciclo 30 giorni e streak bonus
 - [x] Boss Arena 3D con HUD completo
+
+- [x] Schermata Skill Tree con nodi interattivi, filtri categoria, modal dettaglio
+- [x] Schermata Prestige con orb animato, stats run, perk shop
+- [x] Schermata Daily Rewards con calendario 30 giorni, countdown, streak bonus
