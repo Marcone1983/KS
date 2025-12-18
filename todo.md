@@ -123,12 +123,12 @@
 
 
 ## CORREZIONE CRITICA - Rendering 3D (NO EMOJI!)
-- [ ] RIMUOVERE tutte le emoji dal gioco (🐛, 🕷️, 🌿, etc.)
-- [ ] Implementare rendering 3D REALE con Three.js/expo-three
-- [ ] Caricare e renderizzare plant03.glb come pianta principale
-- [ ] Caricare e renderizzare plant04.glb come pianta secondaria
-- [ ] Caricare e renderizzare spray.glb come spruzzino del giocatore
-- [ ] Applicare le textures ai modelli 3D
+- [x] RIMUOVERE tutte le emoji dal gioco (🐛, 🕷️, 🌿, etc.)
+- [x] Implementare rendering 3D REALE con Three.js/expo-three
+- [x] Caricare e renderizzare plant03.glb come pianta principale
+- [x] Caricare e renderizzare plant04.glb come pianta secondaria
+- [x] Caricare e renderizzare spray.glb come spruzzino del giocatore
+- [x] Applicare le textures ai modelli 3D
 - [ ] Copiare ESATTAMENTE il codice Game.jsx dal repository KS originale
-- [ ] Animazioni 3D per parassiti che attaccano le piante
-- [ ] Effetto spray 3D con particelle
+- [x] Animazioni 3D per parassiti che attaccano le piante
+- [x] Effetto spray 3D con particelle

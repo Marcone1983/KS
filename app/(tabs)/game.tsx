@@ -1,902 +1,1074 @@
 // @ts-nocheck
 /**
- * Kurstaki Strike - Game Screen
- * 3D Plant Defense Game with GLB Models
- * Uses expo-three and expo-gl for 3D rendering
+ * Kurstaki Strike - AAA 3D Game Screen
+ * Rendering iperrealistica con Three.js, PBR, IBL, Post-processing
+ * Modelli GLB: plant03.glb, plant04.glb, spray.glb
  */
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+
+import React, { Suspense, useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  StyleSheet, 
   View, 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
   Dimensions,
-  PanResponder,
   Platform,
   ActivityIndicator,
+  Pressable,
+  Image
 } from 'react-native';
-import { GLView } from 'expo-gl';
-import { Renderer, THREE } from 'expo-three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { Asset } from 'expo-asset';
-import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
+import { 
+  useGLTF, 
+  Environment, 
+  OrbitControls,
+  PerspectiveCamera,
+  useTexture,
+  Html,
+  ContactShadows,
+  Sparkles,
+  Float,
+  MeshTransmissionMaterial,
+  MeshDistortMaterial,
+  useAnimations
+} from '@react-three/drei/native';
+import { 
+  EffectComposer, 
+  Bloom, 
+  DepthOfField,
+  Vignette,
+  ChromaticAberration,
+  ToneMapping,
+  SMAA,
+  BrightnessContrast,
+  HueSaturation
+} from '@react-three/postprocessing';
+import { BlendFunction, ToneMappingMode } from 'postprocessing';
+import * as THREE from 'three';
 import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+  interpolate,
+  runOnJS
+} from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Game Constants
-const GAME_CONFIG = {
-  INITIAL_PLANT_HEALTH: 100,
-  INITIAL_AMMO: 99,
-  SPRAY_DAMAGE: 15,
-  SPRAY_RANGE: 4,
-  PEST_SPAWN_INTERVAL: 2000,
-  PEST_DAMAGE: 5,
-  PEST_SPEED: 0.02,
-  WAVE_PEST_COUNT: 5,
-  BOSS_SPAWN_WAVE: 5,
-};
+// ============================================
+// CUSTOM SHADERS PER PIANTE FOTOREALISTICHE
+// ============================================
 
-// Pest Types
-const PEST_TYPES = {
-  caterpillar: { health: 30, speed: 0.015, damage: 5, color: 0x8BC34A, scale: 0.3 },
-  spider: { health: 20, speed: 0.025, damage: 3, color: 0x607D8B, scale: 0.25 },
-  aphid: { health: 15, speed: 0.03, damage: 2, color: 0x4CAF50, scale: 0.15 },
-  beetle: { health: 50, speed: 0.01, damage: 8, color: 0x795548, scale: 0.35 },
-};
+const leafVertexShader = `
+  varying vec3 vNormal;
+  varying vec2 vUv;
+  varying vec3 vWorldPosition;
+  varying vec3 vViewPosition;
+  uniform float time;
+  uniform float windStrength;
+  uniform float windFrequency;
+  
+  // Simplex noise per vento realistico
+  vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+  vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+  
+  float snoise(vec3 v) {
+    const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+    const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+    vec3 i = floor(v + dot(v, C.yyy));
+    vec3 x0 = v - i + dot(i, C.xxx);
+    vec3 g = step(x0.yzx, x0.xyz);
+    vec3 l = 1.0 - g;
+    vec3 i1 = min(g.xyz, l.zxy);
+    vec3 i2 = max(g.xyz, l.zxy);
+    vec3 x1 = x0 - i1 + C.xxx;
+    vec3 x2 = x0 - i2 + C.yyy;
+    vec3 x3 = x0 - D.yyy;
+    i = mod289(i);
+    vec4 p = permute(permute(permute(
+      i.z + vec4(0.0, i1.z, i2.z, 1.0))
+      + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+      + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+    float n_ = 0.142857142857;
+    vec3 ns = n_ * D.wyz - D.xzx;
+    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+    vec4 x_ = floor(j * ns.z);
+    vec4 y_ = floor(j - 7.0 * x_);
+    vec4 x = x_ *ns.x + ns.yyyy;
+    vec4 y = y_ *ns.x + ns.yyyy;
+    vec4 h = 1.0 - abs(x) - abs(y);
+    vec4 b0 = vec4(x.xy, y.xy);
+    vec4 b1 = vec4(x.zw, y.zw);
+    vec4 s0 = floor(b0)*2.0 + 1.0;
+    vec4 s1 = floor(b1)*2.0 + 1.0;
+    vec4 sh = -step(h, vec4(0.0));
+    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+    vec3 p0 = vec3(a0.xy, h.x);
+    vec3 p1 = vec3(a0.zw, h.y);
+    vec3 p2 = vec3(a1.xy, h.z);
+    vec3 p3 = vec3(a1.zw, h.w);
+    vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+    p0 *= norm.x;
+    p1 *= norm.y;
+    p2 *= norm.z;
+    p3 *= norm.w;
+    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+    m = m * m;
+    return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+  }
 
-interface Pest {
-  id: string;
-  type: keyof typeof PEST_TYPES;
-  mesh: THREE.Mesh;
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPos.xyz;
+    
+    vec3 pos = position;
+    
+    // Animazione vento realistica con noise
+    float windNoise = snoise(vec3(worldPos.x * windFrequency, worldPos.z * windFrequency, time * 0.5));
+    float windEffect = windNoise * windStrength * (pos.y * 0.15);
+    
+    // Movimento ondulatorio secondario
+    float wave = sin(time * 2.0 + worldPos.x * 0.5) * 0.02;
+    
+    pos.x += windEffect + wave;
+    pos.z += windEffect * 0.5;
+    
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    vViewPosition = -mvPosition.xyz;
+    
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const leafFragmentShader = `
+  uniform vec3 leafColor;
+  uniform vec3 lightPosition;
+  uniform float translucency;
+  uniform float subsurfaceIntensity;
+  uniform sampler2D leafTexture;
+  uniform float time;
+  
+  varying vec3 vNormal;
+  varying vec2 vUv;
+  varying vec3 vWorldPosition;
+  varying vec3 vViewPosition;
+
+  void main() {
+    vec3 normal = normalize(vNormal);
+    vec3 lightDir = normalize(lightPosition - vWorldPosition);
+    vec3 viewDir = normalize(vViewPosition);
+    
+    // Subsurface Scattering per foglie traslucide
+    vec3 backLightDir = -lightDir;
+    float backDiff = max(dot(normal, backLightDir), 0.0);
+    float subsurface = pow(backDiff, 2.0) * subsurfaceIntensity;
+    
+    // Fresnel per bordi luminosi
+    float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
+    
+    // Pattern venature procedurali
+    float veinPattern = smoothstep(0.48, 0.52, sin(vUv.y * 40.0 + sin(vUv.x * 25.0) * 3.0));
+    vec3 veinColor = leafColor * 0.6;
+    vec3 baseColor = mix(leafColor, veinColor, veinPattern * 0.25);
+    
+    // Variazione colore naturale
+    float colorVariation = snoise(vec3(vUv * 10.0, time * 0.1)) * 0.1;
+    baseColor += colorVariation;
+    
+    // Illuminazione principale
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfDir), 0.0), 32.0) * 0.3;
+    
+    // Colore finale con SSS
+    vec3 diffuse = baseColor * (diff * 0.7 + 0.3);
+    vec3 scatter = baseColor * subsurface * vec3(0.3, 0.6, 0.2) * translucency;
+    vec3 rim = vec3(0.2, 0.5, 0.1) * fresnel * 0.3;
+    
+    vec3 finalColor = diffuse + scatter + rim + vec3(spec);
+    
+    // Tone mapping
+    finalColor = finalColor / (finalColor + vec3(1.0));
+    finalColor = pow(finalColor, vec3(1.0/2.2));
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+  }
+  
+  // Noise function per fragment shader
+  vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+  float snoise(vec3 v) {
+    const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+    vec3 i = floor(v + dot(v, C.yyy));
+    vec3 x0 = v - i + dot(i, C.xxx);
+    vec3 g = step(x0.yzx, x0.xyz);
+    vec3 l = 1.0 - g;
+    vec3 i1 = min(g.xyz, l.zxy);
+    vec3 i2 = max(g.xyz, l.zxy);
+    vec3 x1 = x0 - i1 + C.xxx;
+    vec3 x2 = x0 - i2 + C.yyy;
+    vec3 x3 = x0 - 0.5;
+    i = mod289(i);
+    vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+    float n_ = 0.142857142857;
+    vec3 ns = n_ * vec3(1.0, 2.0, 1.0) - vec3(0.0, 1.0, 0.0);
+    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+    vec4 x_ = floor(j * ns.z);
+    vec4 y_ = floor(j - 7.0 * x_);
+    vec4 x = x_ * ns.x + ns.yyyy;
+    vec4 y = y_ * ns.x + ns.yyyy;
+    vec4 h = 1.0 - abs(x) - abs(y);
+    vec4 b0 = vec4(x.xy, y.xy);
+    vec4 b1 = vec4(x.zw, y.zw);
+    vec4 s0 = floor(b0)*2.0 + 1.0;
+    vec4 s1 = floor(b1)*2.0 + 1.0;
+    vec4 sh = -step(h, vec4(0.0));
+    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+    vec3 p0 = vec3(a0.xy, h.x);
+    vec3 p1 = vec3(a0.zw, h.y);
+    vec3 p2 = vec3(a1.xy, h.z);
+    vec3 p3 = vec3(a1.zw, h.w);
+    vec4 norm = inversesqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+    m = m * m;
+    return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+  }
+`;
+
+// ============================================
+// COMPONENTE PIANTA 3D CON GLB
+// ============================================
+
+interface Plant3DProps {
+  position: [number, number, number];
+  scale?: number;
   health: number;
-  position: THREE.Vector3;
-  targetPosition: THREE.Vector3;
-  isAlive: boolean;
+  modelType: 'plant03' | 'plant04';
+  onHit?: () => void;
 }
 
-interface SprayParticle {
-  mesh: THREE.Mesh;
-  velocity: THREE.Vector3;
-  life: number;
+function Plant3D({ position, scale = 1, health, modelType, onHit }: Plant3DProps) {
+  const meshRef = useRef<THREE.Group>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+  
+  // Carica il modello GLB
+  const modelPath = modelType === 'plant03' 
+    ? require('@/assets/models/plant03.glb')
+    : require('@/assets/models/plant04.glb');
+  
+  const { scene, nodes, materials } = useGLTF(modelPath);
+  
+  // Uniforms per shader personalizzato
+  const uniforms = useMemo(() => ({
+    time: { value: 0 },
+    windStrength: { value: 0.15 },
+    windFrequency: { value: 0.8 },
+    leafColor: { value: new THREE.Color(0x2d5a27) },
+    lightPosition: { value: new THREE.Vector3(10, 20, 10) },
+    translucency: { value: 0.6 },
+    subsurfaceIntensity: { value: 0.8 },
+  }), []);
+
+  // Animazione
+  useFrame((state) => {
+    if (meshRef.current) {
+      // Aggiorna tempo per shader
+      uniforms.time.value = state.clock.elapsedTime;
+      
+      // Leggera oscillazione della pianta
+      meshRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.5) * 0.02;
+    }
+  });
+
+  // Colore basato sulla salute
+  const healthColor = useMemo(() => {
+    const t = health / 100;
+    return new THREE.Color().lerpColors(
+      new THREE.Color(0x8B4513), // Marrone (morta)
+      new THREE.Color(0x228B22), // Verde (sana)
+      t
+    );
+  }, [health]);
+
+  return (
+    <group ref={meshRef} position={position} scale={scale}>
+      <Float 
+        speed={1.5} 
+        rotationIntensity={0.1} 
+        floatIntensity={0.2}
+      >
+        <primitive 
+          object={scene.clone()} 
+          scale={0.5}
+          castShadow
+          receiveShadow
+        />
+      </Float>
+      
+      {/* Particelle luminose intorno alla pianta */}
+      <Sparkles 
+        count={20}
+        scale={2}
+        size={2}
+        speed={0.3}
+        color={healthColor}
+        opacity={0.5}
+      />
+      
+      {/* Ombra a contatto */}
+      <ContactShadows 
+        position={[0, -0.5, 0]}
+        opacity={0.4}
+        scale={3}
+        blur={2}
+        far={1}
+      />
+      
+      {/* Indicatore salute */}
+      <mesh position={[0, 2.5, 0]}>
+        <planeGeometry args={[1.5, 0.15]} />
+        <meshBasicMaterial color="#333" transparent opacity={0.8} />
+      </mesh>
+      <mesh position={[-0.75 + (health / 100) * 0.75, 2.5, 0.01]}>
+        <planeGeometry args={[health / 100 * 1.5, 0.12]} />
+        <meshBasicMaterial color={healthColor} />
+      </mesh>
+    </group>
+  );
 }
+
+// ============================================
+// COMPONENTE SPRUZZINO 3D CON GLB
+// ============================================
+
+interface SprayBottle3DProps {
+  position: [number, number, number];
+  isSpraying: boolean;
+  targetPosition?: [number, number, number];
+}
+
+function SprayBottle3D({ position, isSpraying, targetPosition }: SprayBottle3DProps) {
+  const meshRef = useRef<THREE.Group>(null);
+  const particlesRef = useRef<THREE.Points>(null);
+  
+  // Carica il modello GLB dello spray
+  const { scene, nodes, materials } = useGLTF(require('@/assets/models/spray.glb'));
+  
+  // Particelle spray
+  const particleCount = 200;
+  const particlePositions = useMemo(() => {
+    const positions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3] = 0;
+      positions[i * 3 + 1] = 0;
+      positions[i * 3 + 2] = 0;
+    }
+    return positions;
+  }, []);
+
+  const particleVelocities = useRef<Float32Array>(new Float32Array(particleCount * 3));
+
+  useFrame((state, delta) => {
+    if (meshRef.current) {
+      // Rotazione verso il target
+      if (targetPosition) {
+        const targetVec = new THREE.Vector3(...targetPosition);
+        meshRef.current.lookAt(targetVec);
+      }
+      
+      // Animazione leggera
+      meshRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 2) * 0.05;
+    }
+
+    // Animazione particelle spray
+    if (particlesRef.current && isSpraying) {
+      const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
+      
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        
+        // Reset particelle che escono dal range
+        if (positions[i3 + 2] > 5 || Math.random() < 0.02) {
+          positions[i3] = (Math.random() - 0.5) * 0.2;
+          positions[i3 + 1] = (Math.random() - 0.5) * 0.2;
+          positions[i3 + 2] = 0;
+          
+          particleVelocities.current[i3] = (Math.random() - 0.5) * 0.1;
+          particleVelocities.current[i3 + 1] = (Math.random() - 0.5) * 0.1;
+          particleVelocities.current[i3 + 2] = Math.random() * 0.3 + 0.2;
+        }
+        
+        // Aggiorna posizioni
+        positions[i3] += particleVelocities.current[i3];
+        positions[i3 + 1] += particleVelocities.current[i3 + 1] - delta * 0.5; // Gravità
+        positions[i3 + 2] += particleVelocities.current[i3 + 2];
+      }
+      
+      particlesRef.current.geometry.attributes.position.needsUpdate = true;
+    }
+  });
+
+  return (
+    <group ref={meshRef} position={position}>
+      {/* Modello spray GLB */}
+      <primitive 
+        object={scene.clone()} 
+        scale={0.3}
+        rotation={[0, Math.PI / 2, 0]}
+        castShadow
+      />
+      
+      {/* Particelle spray */}
+      {isSpraying && (
+        <points ref={particlesRef} position={[0.5, 0, 0]}>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={particleCount}
+              array={particlePositions}
+              itemSize={3}
+            />
+          </bufferGeometry>
+          <pointsMaterial
+            size={0.05}
+            color="#87CEEB"
+            transparent
+            opacity={0.6}
+            sizeAttenuation
+            blending={THREE.AdditiveBlending}
+          />
+        </points>
+      )}
+      
+      {/* Luce dello spray */}
+      {isSpraying && (
+        <pointLight 
+          position={[0.5, 0, 0]} 
+          color="#87CEEB" 
+          intensity={2} 
+          distance={3}
+        />
+      )}
+    </group>
+  );
+}
+
+// ============================================
+// COMPONENTE PARASSITA 3D
+// ============================================
+
+interface Pest3DProps {
+  id: string;
+  position: [number, number, number];
+  type: 'caterpillar' | 'spider' | 'aphid' | 'beetle';
+  health: number;
+  onDeath: (id: string) => void;
+}
+
+function Pest3D({ id, position, type, health, onDeath }: Pest3DProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [isDead, setIsDead] = useState(false);
+  
+  // Colori per tipo di parassita
+  const pestColors = {
+    caterpillar: '#8BC34A',
+    spider: '#795548',
+    aphid: '#4CAF50',
+    beetle: '#3E2723'
+  };
+
+  useFrame((state, delta) => {
+    if (meshRef.current && !isDead) {
+      // Movimento ondulatorio
+      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 3 + position[0]) * 0.1;
+      meshRef.current.rotation.y += delta * 0.5;
+      
+      // Movimento verso la pianta
+      meshRef.current.position.z -= delta * 0.2;
+    }
+  });
+
+  useEffect(() => {
+    if (health <= 0 && !isDead) {
+      setIsDead(true);
+      onDeath(id);
+    }
+  }, [health, isDead, id, onDeath]);
+
+  if (isDead) return null;
+
+  return (
+    <Float speed={2} rotationIntensity={0.3} floatIntensity={0.5}>
+      <mesh ref={meshRef} position={position} castShadow>
+        {type === 'caterpillar' && (
+          <>
+            <capsuleGeometry args={[0.1, 0.4, 8, 16]} />
+            <MeshDistortMaterial
+              color={pestColors[type]}
+              speed={2}
+              distort={0.2}
+              radius={1}
+            />
+          </>
+        )}
+        {type === 'spider' && (
+          <>
+            <sphereGeometry args={[0.15, 16, 16]} />
+            <meshPhysicalMaterial
+              color={pestColors[type]}
+              roughness={0.3}
+              metalness={0.1}
+            />
+          </>
+        )}
+        {type === 'aphid' && (
+          <>
+            <sphereGeometry args={[0.08, 12, 12]} />
+            <MeshTransmissionMaterial
+              color={pestColors[type]}
+              transmission={0.5}
+              thickness={0.2}
+              roughness={0.1}
+            />
+          </>
+        )}
+        {type === 'beetle' && (
+          <>
+            <boxGeometry args={[0.2, 0.1, 0.25]} />
+            <meshPhysicalMaterial
+              color={pestColors[type]}
+              roughness={0.2}
+              metalness={0.8}
+              clearcoat={1}
+              clearcoatRoughness={0.1}
+            />
+          </>
+        )}
+      </mesh>
+    </Float>
+  );
+}
+
+// ============================================
+// AMBIENTE 3D CON ILLUMINAZIONE AAA
+// ============================================
+
+function GameEnvironment() {
+  return (
+    <>
+      {/* Illuminazione HDR basata su immagine */}
+      <Environment preset="forest" background blur={0.5} />
+      
+      {/* Luce solare principale */}
+      <directionalLight
+        position={[10, 20, 10]}
+        intensity={2}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-far={50}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
+      />
+      
+      {/* Luce ambientale */}
+      <ambientLight intensity={0.3} color="#B4D7E8" />
+      
+      {/* Luce di riempimento */}
+      <pointLight position={[-10, 5, -10]} intensity={0.5} color="#FFE4B5" />
+      
+      {/* Luce rim per contorni */}
+      <spotLight
+        position={[0, 10, -15]}
+        angle={0.5}
+        penumbra={1}
+        intensity={1}
+        color="#87CEEB"
+      />
+      
+      {/* Terreno */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
+        <planeGeometry args={[50, 50]} />
+        <meshStandardMaterial 
+          color="#3d2817"
+          roughness={0.9}
+          metalness={0}
+        />
+      </mesh>
+      
+      {/* Nebbia volumetrica */}
+      <fog attach="fog" args={['#87CEEB', 10, 50]} />
+    </>
+  );
+}
+
+// ============================================
+// POST-PROCESSING AAA
+// ============================================
+
+function PostProcessingAAA() {
+  return (
+    <EffectComposer multisampling={4}>
+      {/* Anti-aliasing SMAA */}
+      <SMAA />
+      
+      {/* Bloom per effetti luminosi */}
+      <Bloom
+        intensity={0.5}
+        luminanceThreshold={0.8}
+        luminanceSmoothing={0.9}
+        mipmapBlur
+      />
+      
+      {/* Profondità di campo */}
+      <DepthOfField
+        focusDistance={0.01}
+        focalLength={0.02}
+        bokehScale={3}
+      />
+      
+      {/* Vignettatura cinematografica */}
+      <Vignette
+        offset={0.3}
+        darkness={0.5}
+        blendFunction={BlendFunction.NORMAL}
+      />
+      
+      {/* Aberrazione cromatica leggera */}
+      <ChromaticAberration
+        offset={[0.001, 0.001]}
+        blendFunction={BlendFunction.NORMAL}
+      />
+      
+      {/* Tone mapping cinematografico */}
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      
+      {/* Regolazione colore */}
+      <BrightnessContrast brightness={0.05} contrast={0.1} />
+      <HueSaturation saturation={0.1} />
+    </EffectComposer>
+  );
+}
+
+// ============================================
+// SCENA 3D PRINCIPALE
+// ============================================
+
+interface GameSceneProps {
+  plants: Array<{ id: string; position: [number, number, number]; health: number; type: 'plant03' | 'plant04' }>;
+  pests: Array<{ id: string; position: [number, number, number]; type: 'caterpillar' | 'spider' | 'aphid' | 'beetle'; health: number }>;
+  sprayPosition: [number, number, number];
+  isSpraying: boolean;
+  onPestDeath: (id: string) => void;
+}
+
+function GameScene({ plants, pests, sprayPosition, isSpraying, onPestDeath }: GameSceneProps) {
+  return (
+    <>
+      {/* Camera */}
+      <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={60} />
+      
+      {/* Controlli */}
+      <OrbitControls 
+        enablePan={false}
+        minDistance={5}
+        maxDistance={20}
+        minPolarAngle={Math.PI / 6}
+        maxPolarAngle={Math.PI / 2.5}
+      />
+      
+      {/* Ambiente */}
+      <GameEnvironment />
+      
+      {/* Piante */}
+      {plants.map((plant) => (
+        <Plant3D
+          key={plant.id}
+          position={plant.position}
+          health={plant.health}
+          modelType={plant.type}
+          scale={1.5}
+        />
+      ))}
+      
+      {/* Parassiti */}
+      {pests.map((pest) => (
+        <Pest3D
+          key={pest.id}
+          id={pest.id}
+          position={pest.position}
+          type={pest.type}
+          health={pest.health}
+          onDeath={onPestDeath}
+        />
+      ))}
+      
+      {/* Spruzzino */}
+      <SprayBottle3D
+        position={sprayPosition}
+        isSpraying={isSpraying}
+      />
+      
+      {/* Post-processing */}
+      <PostProcessingAAA />
+    </>
+  );
+}
+
+// ============================================
+// COMPONENTE PRINCIPALE GAME
+// ============================================
 
 export default function GameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const glRef = useRef<GLView>(null);
-  const rendererRef = useRef<Renderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const plantModelRef = useRef<THREE.Group | null>(null);
-  const sprayModelRef = useRef<THREE.Group | null>(null);
-  const pestsRef = useRef<Pest[]>([]);
-  const sprayParticlesRef = useRef<SprayParticle[]>([]);
-  const animationFrameRef = useRef<number | null>(null);
-  const lastSpawnTimeRef = useRef<number>(0);
   
-  // Game State
+  // Stato del gioco
   const [isLoading, setIsLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [gameState, setGameState] = useState<'loading' | 'playing' | 'paused' | 'gameover' | 'victory'>('loading');
-  const [level, setLevel] = useState(1);
-  const [wave, setWave] = useState(1);
-  const [totalWaves, setTotalWaves] = useState(3);
-  const [score, setScore] = useState(0);
-  const [plantHealth, setPlantHealth] = useState(GAME_CONFIG.INITIAL_PLANT_HEALTH);
-  const [ammo, setAmmo] = useState(GAME_CONFIG.INITIAL_AMMO);
-  const [isSpraying, setIsSpraying] = useState(false);
-  const [pestsKilled, setPestsKilled] = useState(0);
   const [isPremium, setIsPremium] = useState(false);
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [score, setScore] = useState(0);
+  const [wave, setWave] = useState(1);
+  const [maxWaves, setMaxWaves] = useState(3);
+  const [ammo, setAmmo] = useState(99);
+  const [combo, setCombo] = useState(0);
+  const [isSpraying, setIsSpraying] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   
-  // Touch position for spray direction
-  const [touchPosition, setTouchPosition] = useState({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT / 2 });
+  // Piante
+  const [plants, setPlants] = useState([
+    { id: 'plant1', position: [-2, 0, 0] as [number, number, number], health: 100, type: 'plant03' as const },
+    { id: 'plant2', position: [0, 0, 0] as [number, number, number], health: 100, type: 'plant04' as const },
+    { id: 'plant3', position: [2, 0, 0] as [number, number, number], health: 100, type: 'plant03' as const },
+  ]);
+  
+  // Parassiti
+  const [pests, setPests] = useState<Array<{
+    id: string;
+    position: [number, number, number];
+    type: 'caterpillar' | 'spider' | 'aphid' | 'beetle';
+    health: number;
+  }>>([]);
+  
+  // Posizione spray
+  const [sprayPosition, setSprayPosition] = useState<[number, number, number]>([0, 2, 5]);
 
-  // Check premium status
+  // Animazioni
+  const scoreScale = useSharedValue(1);
+  const comboOpacity = useSharedValue(0);
+
+  // Carica stato premium
   useEffect(() => {
-    const checkPremium = async () => {
-      const premium = await AsyncStorage.getItem('isPremium');
-      setIsPremium(premium === 'true');
+    const loadPremiumStatus = async () => {
+      try {
+        const premium = await AsyncStorage.getItem('isPremium');
+        setIsPremium(premium === 'true');
+      } catch (error) {
+        console.error('Error loading premium status:', error);
+      }
+      setIsLoading(false);
     };
-    checkPremium();
+    loadPremiumStatus();
   }, []);
 
-  // Load 3D models
-  const loadModels = async (gl: WebGLRenderingContext) => {
-    try {
-      setLoadingProgress(10);
-      
-      // Create renderer
-      const renderer = new Renderer({ gl });
-      renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
-      renderer.setClearColor(0x1a1a2e, 1);
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      rendererRef.current = renderer;
-      
-      setLoadingProgress(20);
-      
-      // Create scene
-      const scene = new THREE.Scene();
-      scene.fog = new THREE.Fog(0x1a1a2e, 5, 20);
-      sceneRef.current = scene;
-      
-      setLoadingProgress(30);
-      
-      // Create camera
-      const camera = new THREE.PerspectiveCamera(
-        75,
-        gl.drawingBufferWidth / gl.drawingBufferHeight,
-        0.1,
-        100
-      );
-      camera.position.set(0, 2, 5);
-      camera.lookAt(0, 1, 0);
-      cameraRef.current = camera;
-      
-      setLoadingProgress(40);
-      
-      // Add lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-      scene.add(ambientLight);
-      
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-      directionalLight.position.set(5, 10, 5);
-      directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 2048;
-      directionalLight.shadow.mapSize.height = 2048;
-      scene.add(directionalLight);
-      
-      const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x2d5016, 0.5);
-      scene.add(hemisphereLight);
-      
-      setLoadingProgress(50);
-      
-      // Create ground/terrain
-      const groundGeometry = new THREE.PlaneGeometry(20, 20);
-      const groundMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x2d5016,
-        roughness: 0.8,
-        metalness: 0.1,
-      });
-      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-      ground.rotation.x = -Math.PI / 2;
-      ground.position.y = 0;
-      ground.receiveShadow = true;
-      scene.add(ground);
-      
-      setLoadingProgress(60);
-      
-      // Load plant model (plant03.glb or plant04.glb)
-      const loader = new GLTFLoader();
-      
-      try {
-        // Try to load the GLB model
-        const plantAsset = Asset.fromModule(require('@/assets/models/plant03.glb'));
-        await plantAsset.downloadAsync();
-        
-        const plantGltf = await new Promise<THREE.Group>((resolve, reject) => {
-          loader.load(
-            plantAsset.localUri || plantAsset.uri,
-            (gltf) => resolve(gltf.scene),
-            undefined,
-            reject
-          );
-        });
-        
-        plantGltf.scale.set(1, 1, 1);
-        plantGltf.position.set(0, 0, 0);
-        plantGltf.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-          }
-        });
-        scene.add(plantGltf);
-        plantModelRef.current = plantGltf;
-        
-        setLoadingProgress(75);
-      } catch (e) {
-        console.log('GLB load failed, creating procedural plant:', e);
-        // Fallback: Create procedural 3D plant
-        const plantGroup = createProceduralPlant();
-        scene.add(plantGroup);
-        plantModelRef.current = plantGroup;
-        setLoadingProgress(75);
-      }
-      
-      // Load spray bottle model
-      try {
-        const sprayAsset = Asset.fromModule(require('@/assets/models/spray.glb'));
-        await sprayAsset.downloadAsync();
-        
-        const sprayGltf = await new Promise<THREE.Group>((resolve, reject) => {
-          loader.load(
-            sprayAsset.localUri || sprayAsset.uri,
-            (gltf) => resolve(gltf.scene),
-            undefined,
-            reject
-          );
-        });
-        
-        sprayGltf.scale.set(0.5, 0.5, 0.5);
-        sprayGltf.position.set(2, 1, 3);
-        sprayGltf.rotation.y = -Math.PI / 4;
-        scene.add(sprayGltf);
-        sprayModelRef.current = sprayGltf;
-        
-        setLoadingProgress(90);
-      } catch (e) {
-        console.log('Spray GLB load failed, creating procedural spray:', e);
-        // Fallback: Create procedural spray bottle
-        const sprayGroup = createProceduralSprayBottle();
-        scene.add(sprayGroup);
-        sprayModelRef.current = sprayGroup;
-        setLoadingProgress(90);
-      }
-      
-      // Add sky dome
-      const skyGeometry = new THREE.SphereGeometry(50, 32, 32);
-      const skyMaterial = new THREE.MeshBasicMaterial({
-        color: 0x1a1a2e,
-        side: THREE.BackSide,
-      });
-      const sky = new THREE.Mesh(skyGeometry, skyMaterial);
-      scene.add(sky);
-      
-      setLoadingProgress(100);
-      setIsLoading(false);
-      setGameState('playing');
-      
-      // Start game loop
-      startGameLoop(renderer, scene, camera);
-      
-    } catch (error) {
-      console.error('Error loading 3D models:', error);
-      setIsLoading(false);
+  // Genera parassiti
+  useEffect(() => {
+    if (!isLoading && !gameOver && !isPaused) {
+      const spawnPest = () => {
+        const types: Array<'caterpillar' | 'spider' | 'aphid' | 'beetle'> = ['caterpillar', 'spider', 'aphid', 'beetle'];
+        const newPest = {
+          id: `pest_${Date.now()}_${Math.random()}`,
+          position: [
+            (Math.random() - 0.5) * 8,
+            Math.random() * 2 + 1,
+            -10
+          ] as [number, number, number],
+          type: types[Math.floor(Math.random() * types.length)],
+          health: 100
+        };
+        setPests(prev => [...prev, newPest]);
+      };
+
+      const interval = setInterval(spawnPest, 2000 / wave);
+      return () => clearInterval(interval);
     }
-  };
+  }, [isLoading, wave, gameOver, isPaused]);
 
-  // Create procedural 3D plant (fallback if GLB fails)
-  const createProceduralPlant = (): THREE.Group => {
-    const plantGroup = new THREE.Group();
-    
-    // Main stem
-    const stemGeometry = new THREE.CylinderGeometry(0.05, 0.08, 2, 8);
-    const stemMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x4a7c3f,
-      roughness: 0.7,
-    });
-    const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-    stem.position.y = 1;
-    stem.castShadow = true;
-    plantGroup.add(stem);
-    
-    // Create leaves
-    const leafMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3a7d3a,
-      roughness: 0.6,
-      side: THREE.DoubleSide,
-    });
-    
-    for (let i = 0; i < 7; i++) {
-      const leafGroup = new THREE.Group();
-      
-      // Create cannabis-style leaf with multiple fingers
-      const fingerCount = 5 + Math.floor(Math.random() * 4);
-      for (let f = 0; f < fingerCount; f++) {
-        const fingerLength = 0.3 + Math.random() * 0.2;
-        const fingerWidth = 0.05 + Math.random() * 0.03;
-        const fingerGeometry = new THREE.ConeGeometry(fingerWidth, fingerLength, 4);
-        const finger = new THREE.Mesh(fingerGeometry, leafMaterial);
-        
-        const angle = ((f - Math.floor(fingerCount / 2)) / fingerCount) * Math.PI * 0.6;
-        finger.position.x = Math.sin(angle) * 0.1;
-        finger.position.y = fingerLength / 2;
-        finger.position.z = Math.cos(angle) * 0.05;
-        finger.rotation.z = -angle * 0.5;
-        finger.castShadow = true;
-        
-        leafGroup.add(finger);
-      }
-      
-      const height = 0.5 + i * 0.25;
-      const angle = (i / 7) * Math.PI * 2 + Math.random() * 0.5;
-      leafGroup.position.set(
-        Math.cos(angle) * 0.15,
-        height,
-        Math.sin(angle) * 0.15
-      );
-      leafGroup.rotation.y = angle;
-      leafGroup.rotation.x = Math.PI * 0.3;
-      leafGroup.scale.setScalar(0.8 + Math.random() * 0.4);
-      
-      plantGroup.add(leafGroup);
-    }
-    
-    // Add buds at top
-    const budGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-    const budMaterial = new THREE.MeshStandardMaterial({
-      color: 0x7cb342,
-      roughness: 0.4,
-    });
-    
-    for (let i = 0; i < 3; i++) {
-      const bud = new THREE.Mesh(budGeometry, budMaterial);
-      const angle = (i / 3) * Math.PI * 2;
-      bud.position.set(
-        Math.cos(angle) * 0.1,
-        2 + Math.random() * 0.2,
-        Math.sin(angle) * 0.1
-      );
-      bud.scale.setScalar(0.5 + Math.random() * 0.3);
-      bud.castShadow = true;
-      plantGroup.add(bud);
-    }
-    
-    return plantGroup;
-  };
-
-  // Create procedural spray bottle (fallback if GLB fails)
-  const createProceduralSprayBottle = (): THREE.Group => {
-    const sprayGroup = new THREE.Group();
-    
-    // Bottle body
-    const bodyGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.6, 16);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2196F3,
-      roughness: 0.3,
-      metalness: 0.2,
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 0.3;
-    sprayGroup.add(body);
-    
-    // Spray head
-    const headGeometry = new THREE.CylinderGeometry(0.08, 0.12, 0.15, 16);
-    const headMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.2,
-    });
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 0.68;
-    sprayGroup.add(head);
-    
-    // Nozzle
-    const nozzleGeometry = new THREE.CylinderGeometry(0.02, 0.03, 0.1, 8);
-    const nozzle = new THREE.Mesh(nozzleGeometry, headMaterial);
-    nozzle.position.set(0.08, 0.75, 0);
-    nozzle.rotation.z = -Math.PI / 4;
-    sprayGroup.add(nozzle);
-    
-    // Trigger
-    const triggerGeometry = new THREE.BoxGeometry(0.03, 0.1, 0.05);
-    const trigger = new THREE.Mesh(triggerGeometry, headMaterial);
-    trigger.position.set(-0.1, 0.65, 0);
-    sprayGroup.add(trigger);
-    
-    sprayGroup.position.set(2, 1, 3);
-    sprayGroup.rotation.y = -Math.PI / 4;
-    
-    return sprayGroup;
-  };
-
-  // Create pest 3D mesh
-  const createPest3D = (type: keyof typeof PEST_TYPES): THREE.Mesh => {
-    const pestConfig = PEST_TYPES[type];
-    
-    // Create pest body
-    const geometry = new THREE.SphereGeometry(pestConfig.scale, 16, 16);
-    geometry.scale(1, 0.6, 1.5); // Make it more bug-like
-    
-    const material = new THREE.MeshStandardMaterial({
-      color: pestConfig.color,
-      roughness: 0.5,
-      metalness: 0.1,
-    });
-    
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
-    
-    // Add legs
-    const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    for (let i = 0; i < 6; i++) {
-      const legGeometry = new THREE.CylinderGeometry(0.01, 0.01, pestConfig.scale * 0.8, 4);
-      const leg = new THREE.Mesh(legGeometry, legMaterial);
-      const angle = ((i % 3) - 1) * 0.4;
-      const side = i < 3 ? 1 : -1;
-      leg.position.set(side * pestConfig.scale * 0.3, -pestConfig.scale * 0.2, angle * pestConfig.scale);
-      leg.rotation.z = side * Math.PI / 4;
-      mesh.add(leg);
-    }
-    
-    // Add eyes
-    const eyeGeometry = new THREE.SphereGeometry(pestConfig.scale * 0.15, 8, 8);
-    const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    leftEye.position.set(pestConfig.scale * 0.2, pestConfig.scale * 0.2, pestConfig.scale * 0.5);
-    mesh.add(leftEye);
-    
-    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    rightEye.position.set(-pestConfig.scale * 0.2, pestConfig.scale * 0.2, pestConfig.scale * 0.5);
-    mesh.add(rightEye);
-    
-    return mesh;
-  };
-
-  // Spawn pest
-  const spawnPest = () => {
-    if (!sceneRef.current) return;
-    
-    const types = Object.keys(PEST_TYPES) as (keyof typeof PEST_TYPES)[];
-    const type = types[Math.floor(Math.random() * types.length)];
-    const pestConfig = PEST_TYPES[type];
-    
-    const mesh = createPest3D(type);
-    
-    // Random spawn position around the plant
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 5 + Math.random() * 3;
-    const x = Math.cos(angle) * distance;
-    const z = Math.sin(angle) * distance;
-    
-    mesh.position.set(x, 0.3, z);
-    sceneRef.current.add(mesh);
-    
-    const pest: Pest = {
-      id: `pest_${Date.now()}_${Math.random()}`,
-      type,
-      mesh,
-      health: pestConfig.health,
-      position: new THREE.Vector3(x, 0.3, z),
-      targetPosition: new THREE.Vector3(0, 0.5, 0), // Target the plant
-      isAlive: true,
-    };
-    
-    pestsRef.current.push(pest);
-  };
-
-  // Create spray particles
-  const createSprayParticles = (origin: THREE.Vector3, direction: THREE.Vector3) => {
-    if (!sceneRef.current) return;
-    
-    const particleCount = 20;
-    const particleMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00bcd4,
-      transparent: true,
-      opacity: 0.7,
-    });
-    
-    for (let i = 0; i < particleCount; i++) {
-      const particleGeometry = new THREE.SphereGeometry(0.02, 4, 4);
-      const particle = new THREE.Mesh(particleGeometry, particleMaterial.clone());
-      particle.position.copy(origin);
-      
-      const spread = 0.3;
-      const velocity = direction.clone().multiplyScalar(0.3 + Math.random() * 0.2);
-      velocity.x += (Math.random() - 0.5) * spread;
-      velocity.y += (Math.random() - 0.5) * spread;
-      velocity.z += (Math.random() - 0.5) * spread;
-      
-      sceneRef.current.add(particle);
-      sprayParticlesRef.current.push({
-        mesh: particle,
-        velocity,
-        life: 1.0,
-      });
-    }
-  };
-
-  // Handle spray action
+  // Gestione spray
   const handleSpray = useCallback(() => {
-    if (ammo <= 0 || gameState !== 'playing') return;
-    
-    setAmmo(prev => prev - 1);
-    setIsSpraying(true);
-    
-    if (Platform.OS !== 'web') {
+    if (ammo > 0 && !gameOver) {
+      setIsSpraying(true);
+      setAmmo(prev => prev - 1);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      // Colpisci parassiti nel raggio
+      setPests(prev => prev.map(pest => {
+        const distance = Math.sqrt(
+          Math.pow(pest.position[0] - sprayPosition[0], 2) +
+          Math.pow(pest.position[2] - sprayPosition[2], 2)
+        );
+        
+        if (distance < 3) {
+          return { ...pest, health: pest.health - 50 };
+        }
+        return pest;
+      }));
+      
+      setTimeout(() => setIsSpraying(false), 500);
     }
-    
-    // Calculate spray direction from touch position
-    if (cameraRef.current && sprayModelRef.current) {
-      const sprayOrigin = sprayModelRef.current.position.clone();
-      sprayOrigin.y += 0.5;
-      
-      // Direction towards center of screen / plant
-      const direction = new THREE.Vector3(0, 0, -1);
-      direction.applyQuaternion(cameraRef.current.quaternion);
-      
-      createSprayParticles(sprayOrigin, direction);
-      
-      // Check for pest hits
-      pestsRef.current.forEach(pest => {
-        if (!pest.isAlive) return;
-        
-        const distance = sprayOrigin.distanceTo(pest.position);
-        if (distance < GAME_CONFIG.SPRAY_RANGE) {
-          // Calculate angle to pest
-          const toPest = pest.position.clone().sub(sprayOrigin).normalize();
-          const angle = direction.angleTo(toPest);
-          
-          if (angle < 0.5) { // Within spray cone
-            const damage = GAME_CONFIG.SPRAY_DAMAGE * (1 - distance / GAME_CONFIG.SPRAY_RANGE);
-            pest.health -= damage;
-            
-            if (pest.health <= 0) {
-              pest.isAlive = false;
-              if (sceneRef.current) {
-                sceneRef.current.remove(pest.mesh);
-              }
-              setPestsKilled(prev => prev + 1);
-              setScore(prev => prev + 100);
-              
-              if (Platform.OS !== 'web') {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
-            }
-          }
-        }
-      });
-    }
-    
-    setTimeout(() => setIsSpraying(false), 100);
-  }, [ammo, gameState]);
+  }, [ammo, gameOver, sprayPosition]);
 
-  // Game loop
-  const startGameLoop = (renderer: Renderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) => {
-    let lastTime = 0;
+  // Gestione morte parassita
+  const handlePestDeath = useCallback((id: string) => {
+    setScore(prev => prev + 100 * (combo + 1));
+    setCombo(prev => prev + 1);
     
-    const animate = (time: number) => {
-      const deltaTime = (time - lastTime) / 1000;
-      lastTime = time;
-      
-      if (gameState === 'playing') {
-        // Spawn pests
-        if (time - lastSpawnTimeRef.current > GAME_CONFIG.PEST_SPAWN_INTERVAL) {
-          const pestsInWave = pestsRef.current.filter(p => p.isAlive).length;
-          if (pestsInWave < GAME_CONFIG.WAVE_PEST_COUNT) {
-            spawnPest();
-          }
-          lastSpawnTimeRef.current = time;
-        }
-        
-        // Update pests
-        pestsRef.current.forEach(pest => {
-          if (!pest.isAlive) return;
-          
-          // Move towards plant
-          const direction = pest.targetPosition.clone().sub(pest.position).normalize();
-          const speed = PEST_TYPES[pest.type].speed;
-          pest.position.add(direction.multiplyScalar(speed));
-          pest.mesh.position.copy(pest.position);
-          
-          // Rotate to face direction
-          pest.mesh.lookAt(pest.targetPosition);
-          
-          // Check if reached plant
-          if (pest.position.distanceTo(pest.targetPosition) < 0.5) {
-            // Damage plant
-            setPlantHealth(prev => {
-              const newHealth = prev - PEST_TYPES[pest.type].damage;
-              if (newHealth <= 0) {
-                setGameState('gameover');
-              }
-              return Math.max(0, newHealth);
-            });
-            
-            // Remove pest after attacking
-            pest.isAlive = false;
-            if (sceneRef.current) {
-              sceneRef.current.remove(pest.mesh);
-            }
-          }
-        });
-        
-        // Update spray particles
-        sprayParticlesRef.current = sprayParticlesRef.current.filter(particle => {
-          particle.life -= deltaTime * 2;
-          if (particle.life <= 0) {
-            if (sceneRef.current) {
-              sceneRef.current.remove(particle.mesh);
-            }
-            return false;
-          }
-          
-          particle.mesh.position.add(particle.velocity);
-          particle.velocity.y -= 0.01; // Gravity
-          (particle.mesh.material as THREE.MeshBasicMaterial).opacity = particle.life;
-          
-          return true;
-        });
-        
-        // Animate plant (subtle sway)
-        if (plantModelRef.current) {
-          plantModelRef.current.rotation.z = Math.sin(time * 0.001) * 0.02;
-        }
-        
-        // Check wave completion
-        const alivePests = pestsRef.current.filter(p => p.isAlive).length;
-        if (pestsKilled >= GAME_CONFIG.WAVE_PEST_COUNT * wave && alivePests === 0) {
-          if (wave >= totalWaves) {
-            // Level complete
-            handleLevelComplete();
-          } else {
-            // Next wave
-            setWave(prev => prev + 1);
-            setPestsKilled(0);
-          }
-        }
-      }
-      
-      renderer.render(scene, camera);
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
+    // Animazione score
+    scoreScale.value = withSequence(
+      withSpring(1.3),
+      withSpring(1)
+    );
     
-    animationFrameRef.current = requestAnimationFrame(animate);
-  };
+    // Animazione combo
+    comboOpacity.value = withSequence(
+      withTiming(1, { duration: 100 }),
+      withTiming(0, { duration: 1000 })
+    );
+    
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [combo]);
 
-  // Handle level complete
-  const handleLevelComplete = async () => {
-    setGameState('victory');
-    
-    // Save progress
-    const stats = await AsyncStorage.getItem('gameStats');
-    const parsed = stats ? JSON.parse(stats) : {};
-    await AsyncStorage.setItem('gameStats', JSON.stringify({
-      ...parsed,
-      highScore: Math.max(parsed.highScore || 0, score),
-      totalPestsKilled: (parsed.totalPestsKilled || 0) + pestsKilled,
-      levelsCompleted: (parsed.levelsCompleted || 0) + 1,
-      currentLevel: level + 1,
-    }));
-    
-    // Check if need to show paywall (after level 1 for non-premium)
-    if (level === 1 && !isPremium) {
-      setTimeout(() => {
-        router.push('/paywall');
-      }, 2000);
-    }
-  };
-
-  // Touch handlers
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        setTouchPosition({ x: locationX, y: locationY });
-        handleSpray();
-      },
-      onPanResponderMove: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        setTouchPosition({ x: locationX, y: locationY });
-      },
-      onPanResponderRelease: () => {
-        setIsSpraying(false);
-      },
-    })
-  ).current;
-
-  // Cleanup
+  // Reset combo dopo inattività
   useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
+    const timeout = setTimeout(() => setCombo(0), 2000);
+    return () => clearTimeout(timeout);
+  }, [combo]);
 
-  // Context creation handler
-  const onContextCreate = async (gl: WebGLRenderingContext) => {
-    await loadModels(gl);
-  };
+  // Verifica game over
+  useEffect(() => {
+    const allPlantsDead = plants.every(p => p.health <= 0);
+    if (allPlantsDead) {
+      setGameOver(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [plants]);
+
+  // Verifica paywall dopo livello 1
+  useEffect(() => {
+    if (currentLevel > 1 && !isPremium) {
+      router.push('/paywall');
+    }
+  }, [currentLevel, isPremium, router]);
+
+  // Stili animati
+  const scoreAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scoreScale.value }]
+  }));
+
+  const comboAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: comboOpacity.value,
+    transform: [{ scale: interpolate(comboOpacity.value, [0, 1], [0.5, 1]) }]
+  }));
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Caricamento modelli 3D...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Logo */}
-      <View style={[styles.logoContainer, { top: insets.top + 10 }]}>
-        <Image
-          source={require('@/assets/images/logo.png')}
-          style={styles.logo}
-          contentFit="contain"
-        />
+      {/* Canvas 3D */}
+      <View style={styles.canvasContainer}>
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          gl={{ 
+            antialias: true,
+            alpha: false,
+            powerPreference: 'high-performance',
+            preserveDrawingBuffer: true
+          }}
+          onCreated={({ gl }) => {
+            gl.setClearColor('#87CEEB');
+          }}
+        >
+          <Suspense fallback={null}>
+            <GameScene
+              plants={plants}
+              pests={pests}
+              sprayPosition={sprayPosition}
+              isSpraying={isSpraying}
+              onPestDeath={handlePestDeath}
+            />
+          </Suspense>
+        </Canvas>
       </View>
-      
-      {/* 3D Game View */}
-      <GLView
-        ref={glRef}
-        style={styles.glView}
-        onContextCreate={onContextCreate}
-        {...panResponder.panHandlers}
-      />
-      
-      {/* Loading Overlay */}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#4CAF50" />
-          <ThemedText style={styles.loadingText}>
-            Caricamento modelli 3D... {loadingProgress}%
-          </ThemedText>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${loadingProgress}%` }]} />
-          </View>
-        </View>
-      )}
-      
-      {/* Game UI Overlay */}
-      {gameState === 'playing' && (
-        <View style={[styles.uiOverlay, { paddingTop: insets.top + 60 }]}>
-          {/* Top Bar */}
-          <View style={styles.topBar}>
-            <View style={styles.levelBadge}>
-              <ThemedText style={styles.levelText}>LV {level}</ThemedText>
-            </View>
-            
-            <View style={styles.scoreContainer}>
-              <ThemedText style={styles.scoreText}>{score}</ThemedText>
-              <ThemedText style={styles.waveText}>Wave {wave}/{totalWaves}</ThemedText>
-            </View>
-            
-            <View style={styles.ammoContainer}>
-              <ThemedText style={styles.ammoIcon}>💧</ThemedText>
-              <ThemedText style={styles.ammoText}>{ammo}</ThemedText>
-            </View>
+
+      {/* HUD */}
+      <View style={[styles.hud, { paddingTop: insets.top }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>✕</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelText}>LV {currentLevel}</Text>
           </View>
           
-          {/* Health Bar */}
-          <View style={styles.healthBarContainer}>
-            <View style={styles.healthBar}>
-              <View 
-                style={[
-                  styles.healthFill, 
-                  { 
-                    width: `${plantHealth}%`,
-                    backgroundColor: plantHealth > 50 ? '#4CAF50' : plantHealth > 25 ? '#FFC107' : '#F44336',
-                  }
-                ]} 
-              />
-            </View>
-            <ThemedText style={styles.healthIcon}>💚</ThemedText>
-          </View>
+          <Animated.View style={[styles.scoreContainer, scoreAnimatedStyle]}>
+            <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
+            <Text style={styles.waveText}>Wave {wave}/{maxWaves}</Text>
+          </Animated.View>
           
-          {/* Instructions */}
-          <View style={styles.instructionsContainer}>
-            <ThemedText style={styles.instructionsText}>
-              Tocca per spruzzare
-            </ThemedText>
+          <View style={styles.ammoContainer}>
+            <Text style={styles.ammoIcon}>💧</Text>
+            <Text style={styles.ammoText}>{ammo}</Text>
           </View>
         </View>
-      )}
-      
-      {/* Game Over Overlay */}
-      {gameState === 'gameover' && (
+
+        {/* Barra salute totale */}
+        <View style={styles.healthBarContainer}>
+          <View style={styles.healthBarBackground}>
+            <View 
+              style={[
+                styles.healthBarFill, 
+                { width: `${plants.reduce((sum, p) => sum + p.health, 0) / plants.length}%` }
+              ]} 
+            />
+          </View>
+          <Text style={styles.healthIcon}>💚</Text>
+        </View>
+
+        {/* Combo indicator */}
+        {combo > 0 && (
+          <Animated.View style={[styles.comboContainer, comboAnimatedStyle]}>
+            <Text style={styles.comboText}>COMBO x{combo}</Text>
+          </Animated.View>
+        )}
+      </View>
+
+      {/* Pulsante spray */}
+      <Pressable
+        style={styles.sprayButton}
+        onPressIn={handleSpray}
+        disabled={ammo <= 0 || gameOver}
+      >
+        <Text style={styles.sprayButtonText}>
+          {ammo > 0 ? '🔫 SPRAY' : '❌ NO AMMO'}
+        </Text>
+      </Pressable>
+
+      {/* Istruzioni */}
+      <View style={[styles.instructions, { paddingBottom: insets.bottom + 80 }]}>
+        <Text style={styles.instructionsText}>Tocca per spruzzare sui parassiti</Text>
+      </View>
+
+      {/* Game Over overlay */}
+      {gameOver && (
         <View style={styles.gameOverOverlay}>
-          <ThemedText style={styles.gameOverTitle}>Game Over</ThemedText>
-          <ThemedText style={styles.gameOverScore}>Punteggio: {score}</ThemedText>
-          <ThemedText style={styles.gameOverKills}>Parassiti eliminati: {pestsKilled}</ThemedText>
-          <View style={styles.gameOverButtons}>
-            <ThemedText 
-              style={styles.retryButton}
-              onPress={() => {
-                setGameState('playing');
-                setPlantHealth(GAME_CONFIG.INITIAL_PLANT_HEALTH);
-                setAmmo(GAME_CONFIG.INITIAL_AMMO);
-                setScore(0);
-                setPestsKilled(0);
-                setWave(1);
-                pestsRef.current.forEach(p => {
-                  if (sceneRef.current) sceneRef.current.remove(p.mesh);
-                });
-                pestsRef.current = [];
-              }}
-            >
-              Riprova
-            </ThemedText>
-            <ThemedText 
-              style={styles.homeButton}
-              onPress={() => router.push('/(tabs)')}
-            >
-              Home
-            </ThemedText>
-          </View>
-        </View>
-      )}
-      
-      {/* Victory Overlay */}
-      {gameState === 'victory' && (
-        <View style={styles.victoryOverlay}>
-          <ThemedText style={styles.victoryTitle}>Vittoria!</ThemedText>
-          <ThemedText style={styles.victoryScore}>Punteggio: {score}</ThemedText>
-          <ThemedText style={styles.victoryKills}>Parassiti eliminati: {pestsKilled}</ThemedText>
-          <ThemedText 
-            style={styles.continueButton}
+          <Text style={styles.gameOverTitle}>GAME OVER</Text>
+          <Text style={styles.gameOverScore}>Punteggio: {score.toLocaleString()}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
             onPress={() => {
-              if (level === 1 && !isPremium) {
-                router.push('/paywall');
-              } else {
-                setLevel(prev => prev + 1);
-                setGameState('playing');
-                setPlantHealth(GAME_CONFIG.INITIAL_PLANT_HEALTH);
-                setAmmo(GAME_CONFIG.INITIAL_AMMO);
-                setWave(1);
-                setPestsKilled(0);
-              }
+              setGameOver(false);
+              setScore(0);
+              setWave(1);
+              setAmmo(99);
+              setPlants(plants.map(p => ({ ...p, health: 100 })));
+              setPests([]);
             }}
           >
-            {level === 1 && !isPremium ? 'Continua' : 'Livello Successivo'}
-          </ThemedText>
+            <Text style={styles.retryButtonText}>RIPROVA</Text>
+          </TouchableOpacity>
         </View>
       )}
+
+      {/* Logo */}
+      <Image
+        source={require('@/assets/images/logo.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
     </View>
   );
 }
 
+// ============================================
+// STILI
+// ============================================
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#000',
   },
-  logoContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  logo: {
-    width: 150,
-    height: 50,
-  },
-  glView: {
+  loadingContainer: {
     flex: 1,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26, 26, 46, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#1a1a2e',
   },
   loadingText: {
     color: '#fff',
-    fontSize: 16,
-    marginTop: 20,
-  },
-  progressBar: {
-    width: 200,
-    height: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 4,
     marginTop: 16,
-    overflow: 'hidden',
+    fontSize: 16,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-    borderRadius: 4,
+  canvasContainer: {
+    flex: 1,
   },
-  uiOverlay: {
+  hud: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     padding: 16,
   },
-  topBar: {
+  header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 20,
+  },
   levelBadge: {
-    backgroundColor: '#FFC107',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   levelText: {
     color: '#000',
@@ -908,11 +1080,14 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     color: '#fff',
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   waveText: {
-    color: '#9CA3AF',
+    color: '#ccc',
     fontSize: 12,
   },
   ammoContainer: {
@@ -920,125 +1095,122 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   ammoIcon: {
     fontSize: 16,
     marginRight: 4,
   },
   ammoText: {
-    color: '#fff',
+    color: '#87CEEB',
+    fontSize: 18,
     fontWeight: 'bold',
-    fontSize: 16,
   },
   healthBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 12,
   },
-  healthBar: {
+  healthBarBackground: {
     flex: 1,
     height: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 6,
     overflow: 'hidden',
   },
-  healthFill: {
+  healthBarFill: {
     height: '100%',
+    backgroundColor: '#4CAF50',
     borderRadius: 6,
   },
   healthIcon: {
     fontSize: 20,
     marginLeft: 8,
   },
-  instructionsContainer: {
+  comboContainer: {
     position: 'absolute',
-    bottom: -SCREEN_HEIGHT + 150,
+    top: 120,
+    alignSelf: 'center',
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  comboText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  sprayButton: {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  sprayButtonText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  instructions: {
+    position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   instructionsText: {
-    color: '#9CA3AF',
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
   },
   gameOverOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   gameOverTitle: {
-    color: '#F44336',
+    color: '#FF4444',
     fontSize: 48,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   gameOverScore: {
     color: '#fff',
     fontSize: 24,
-    marginBottom: 8,
-  },
-  gameOverKills: {
-    color: '#9CA3AF',
-    fontSize: 16,
-    marginBottom: 40,
-  },
-  gameOverButtons: {
-    flexDirection: 'row',
-    gap: 20,
+    marginBottom: 32,
   },
   retryButton: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-    overflow: 'hidden',
-  },
-  homeButton: {
-    backgroundColor: '#607D8B',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-    overflow: 'hidden',
-  },
-  victoryOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  victoryTitle: {
-    color: '#4CAF50',
-    fontSize: 48,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  victoryScore: {
-    color: '#fff',
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  victoryKills: {
-    color: '#9CA3AF',
-    fontSize: 16,
-    marginBottom: 40,
-  },
-  continueButton: {
-    backgroundColor: '#4CAF50',
     paddingHorizontal: 40,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 30,
+  },
+  retryButtonText: {
     color: '#fff',
+    fontSize: 20,
     fontWeight: 'bold',
-    fontSize: 18,
-    overflow: 'hidden',
+  },
+  logo: {
+    position: 'absolute',
+    top: 50,
+    alignSelf: 'center',
+    width: 120,
+    height: 60,
+    opacity: 0.8,
   },
 });
+
+// Precarica i modelli GLB
+useGLTF.preload(require('@/assets/models/plant03.glb'));
+useGLTF.preload(require('@/assets/models/plant04.glb'));
+useGLTF.preload(require('@/assets/models/spray.glb'));
