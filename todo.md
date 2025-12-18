@@ -380,3 +380,16 @@
 - [x] Salvataggio locale con AsyncStorage
 - [x] Auto-sync periodico ogni 60 secondi
 - [x] Metodi helper per score, currency, inventory, achievements
+
+
+## SISTEMA COMBATTIMENTO AVANZATO
+
+- [x] Boss Battles con 3 boss (Re Locusta, Regina Ragno, Bruco Titano)
+- [x] Pattern di attacco multipli (charge, projectile, aoe, summon)
+- [x] Weak points con damage multiplier
+- [x] Sistema fasi boss con scaling difficolta
+- [x] 10 Power-ups (damage boost, speed, heal, shield, multishot, freeze, magnet, xp/coin boost, invincibility)
+- [x] Sistema rarita power-ups (common, rare, epic, legendary)
+- [x] Combo System con 6 tier (good, great, excellent, perfect, legendary)
+- [x] Critical hits e perfect hits
+- [x] Combo multiplier fino a 3x
