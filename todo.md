@@ -132,3 +132,12 @@
 - [ ] Copiare ESATTAMENTE il codice Game.jsx dal repository KS originale
 - [x] Animazioni 3D per parassiti che attaccano le piante
 - [x] Effetto spray 3D con particelle
+
+
+## Build APK
+- [ ] Configurare EAS (eas.json)
+- [ ] Eseguire eas build -p android --profile preview
+- [ ] Scaricare APK generato
+
+- [x] Creare GitHub Actions workflow per build APK automatico
+- [x] Push workflow su GitHub
