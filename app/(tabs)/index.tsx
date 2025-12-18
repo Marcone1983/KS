@@ -76,6 +76,7 @@ export default function HomeScreen() {
     { title: 'Tutorial', icon: 'help', route: '/tutorial', color: '#64748b' },
     { title: 'Sfide', icon: 'target', route: '/challenges', color: '#f43f5e' },
     { title: 'Statistiche', icon: 'stats', route: '/stats', color: '#06b6d4' },
+    { title: 'Boss Arena', icon: 'skull', route: '/boss-arena', color: '#ef4444' },
   ];
 
   const handleNavigation = (route: string) => {
