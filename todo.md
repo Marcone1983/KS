@@ -264,3 +264,50 @@
 - [ ] Post-processing effetti
 - [ ] Fisica realistica
 - [ ] AI parassiti avanzata
+
+
+## CREAZIONE ASSET 3D GLB
+
+### Nutrienti e Fertilizzanti
+- [x] Bottiglia Acqua 3D (water_bottle.glb)
+- [x] Sacco Fertilizzante 3D (fertilizer_bag.glb)
+- [x] Cristallo Nutriente Verde (nutrient_crystal_green.glb)
+- [x] Cristallo Nutriente Blu (nutrient_crystal_blue.glb)
+- [x] Cristallo Nutriente Oro (nutrient_crystal_gold.glb)
+- [x] Goccia Essenza Magica (magic_essence.glb)
+- [x] Polvere Dorata (golden_powder.glb)
+
+### Parassiti e Nemici
+- [x] Afide 3D (aphid.glb)
+- [x] Ragnetto Rosso 3D (spider_mite.glb)
+- [x] Bruco 3D (caterpillar.glb)
+- [x] Mosca Bianca 3D (whitefly.glb)
+- [x] Cocciniglia 3D (mealybug.glb)
+- [x] Tripide 3D (thrip.glb)
+- [x] Boss Locusta 3D (locust_boss.glb)
+
+### Power-up e Pozioni
+- [x] Super Spray 3D (super_spray.glb)
+- [x] Pozione Salute 3D (health_potion.glb)
+- [x] Scudo Barriera 3D (shield_barrier.glb)
+- [x] Elisir Crescita 3D (growth_elixir.glb)
+- [x] Siero Definitivo 3D (ultimate_serum.glb)
+- [x] Bomba Insetticida 3D (insecticide_bomb.glb)
+
+### Oggetti Marketplace
+- [x] Vaso Decorativo Base (pot_basic.glb)
+- [x] Vaso Decorativo Premium (pot_premium.glb)
+- [x] Vaso Decorativo Leggendario (pot_legendary.glb)
+- [x] Lampada Crescita (grow_lamp.glb)
+- [x] Sistema Irrigazione (irrigation_system.glb)
+- [x] Serra Mini (mini_greenhouse.glb)
+- [x] Recinzione Garden (garden_fence.glb)
+- [x] Fontana Decorativa (decorative_fountain.glb)
+
+### Badge e Trofei
+- [x] Badge Bronzo (badge_bronze.glb)
+- [x] Badge Argento (badge_silver.glb)
+- [x] Badge Oro (badge_gold.glb)
+- [x] Trofeo Campione (trophy_champion.glb)
+- [x] Corona Premium (crown_premium.glb)
+
