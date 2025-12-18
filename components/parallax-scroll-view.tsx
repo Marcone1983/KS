@@ -33,22 +33,20 @@ export default function ParallaxScrollView({
   // Include top safe area inset in header height for proper layout
   const headerHeight = HEADER_HEIGHT + insets.top;
 
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          translateY: interpolate(
-            scrollOffset.value,
-            [-headerHeight, 0, headerHeight],
-            [-headerHeight / 2, 0, headerHeight * 0.75],
-          ),
-        },
-        {
-          scale: interpolate(scrollOffset.value, [-headerHeight, 0, headerHeight], [2, 1, 1]),
-        },
-      ],
-    };
-  });
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          scrollOffset.value,
+          [-headerHeight, 0, headerHeight],
+          [-headerHeight / 2, 0, headerHeight * 0.75],
+        ),
+      },
+      {
+        scale: interpolate(scrollOffset.value, [-headerHeight, 0, headerHeight], [2, 1, 1]),
+      },
+    ] as const,
+  }));
 
   return (
     <Animated.ScrollView
