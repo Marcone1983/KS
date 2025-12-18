@@ -372,3 +372,11 @@
 - [x] Sistema feedback tattile avanzato (23 pattern haptic: tap, spray, pest_death, level_up, achievement, etc.)
 - [x] Schermata statistiche dettagliate con 4 categorie
 - [x] Home page con 22+ link a tutte le sezioni
+
+
+## CLOUD SYNC E PERSISTENZA
+
+- [x] Hook useCloudSync per sincronizzazione progressi
+- [x] Salvataggio locale con AsyncStorage
+- [x] Auto-sync periodico ogni 60 secondi
+- [x] Metodi helper per score, currency, inventory, achievements
