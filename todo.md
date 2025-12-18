@@ -409,3 +409,11 @@
 - [x] Schermata Skill Tree con nodi interattivi, filtri categoria, modal dettaglio
 - [x] Schermata Prestige con orb animato, stats run, perk shop
 - [x] Schermata Daily Rewards con calendario 30 giorni, countdown, streak bonus
+
+
+## SISTEMA QUEST
+
+- [x] Hook useQuests con 13 quest (main story, side, daily, weekly)
+- [x] Sistema obiettivi multipli con progress tracking
+- [x] Schermata Quest Log con filtri per tipo, modal dettaglio, claim rewards
+- [x] Sistema prerequisiti e sblocco quest progressivo

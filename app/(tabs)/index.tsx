@@ -80,6 +80,7 @@ export default function HomeScreen() {
     { title: 'Skill Tree', icon: 'tree', route: '/skill-tree', color: '#6366f1' },
     { title: 'Prestige', icon: 'crown', route: '/prestige', color: '#a855f7' },
     { title: 'Daily Rewards', icon: 'gift', route: '/daily-rewards', color: '#22c55e' },
+    { title: 'Missioni', icon: 'scroll', route: '/quests', color: '#fbbf24' },
   ];
 
   const handleNavigation = (route: string) => {
