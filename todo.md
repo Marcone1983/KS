@@ -319,3 +319,16 @@
 - [x] Usare parassiti 3D (aphid.glb, spider_mite.glb, etc.) nel gioco
 - [ ] Visualizzare preview 3D dei prodotti nello shop
 
+
+
+## CREAZIONE SUONI AUDIO
+
+- [x] UI base (tap x3, back, open, close, tab_switch, notif, success, error, toggle, slider)
+- [x] Transizioni (splash_home, enter_game, page)
+- [x] Shop/Inventory (open, buy, buy_rare, denied, add_item, equip)
+- [x] Breeding (open, select, start, loop, complete, strain_unlock, growth_tick, plant_levelup)
+- [x] Spray (start, loop, stop, hit_leaf x3, empty, refill)
+- [x] Pests (spawn, idle_loop, hit x2, die_fall, wave_complete)
+- [x] Progress (xp_tick, challenge_start, challenge_complete, challenge_fail)
+- [x] Ambiente (day_loop, night_loop, wind_gust, leaves_rustle)
+
