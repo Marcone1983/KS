@@ -356,3 +356,10 @@
 - [x] Achievements e badge system (24 achievements con 5 categorie, badge 3D, progress tracking)
 - [x] Daily challenges (già implementato con filtri, progress bar, ricompense)
 - [x] Sistema di trading tra utenti (browse, my offers, create, 3D animation)
+
+## FUNZIONALITÀ AVANZATE
+
+- [x] Sistema weather dinamico con effetti 3D (pioggia, sole, neve, temporale, nebbia, vento)
+- [x] Mini-giochi bonus (catch the drop, pest defense, speed spray)
+- [x] Sistema guild/clan con chat e eventi cooperativi (home, members, chat, events, emblema 3D)
+- [x] Seasonal events con contenuti esclusivi (progress bar, milestones, sfide, shop esclusivo, decorazioni 3D)
