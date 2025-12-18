@@ -352,7 +352,7 @@
 - [x] Leaderboard globale e sistema social
 - [x] Tutorial interattivo per nuovi utenti
 - [x] Ottimizzazione performance 3D (hook use-3d-performance con LOD, object pooling, auto-adjust)
-- [ ] Sistema notifiche push
-- [ ] Achievements e badge system
-- [ ] Daily challenges
-- [ ] Sistema di trading tra utenti
+- [x] Sistema notifiche push (hook use-notifications con daily reminder, plant reminders, challenges)
+- [x] Achievements e badge system (24 achievements con 5 categorie, badge 3D, progress tracking)
+- [x] Daily challenges (già implementato con filtri, progress bar, ricompense)
+- [x] Sistema di trading tra utenti (browse, my offers, create, 3D animation)
