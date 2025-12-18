@@ -344,3 +344,15 @@
 - [x] Integrare ambient loops
 - [x] Creare pagina Settings audio con slider volume
 
+
+
+## SVILUPPO CONTINUO
+
+- [x] Sistema inventario per oggetti acquistati
+- [x] Leaderboard globale e sistema social
+- [x] Tutorial interattivo per nuovi utenti
+- [x] Ottimizzazione performance 3D (hook use-3d-performance con LOD, object pooling, auto-adjust)
+- [ ] Sistema notifiche push
+- [ ] Achievements e badge system
+- [ ] Daily challenges
+- [ ] Sistema di trading tra utenti
