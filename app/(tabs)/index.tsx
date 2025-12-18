@@ -83,6 +83,7 @@ export default function HomeScreen() {
     { title: 'Missioni', icon: 'scroll', route: '/quests', color: '#fbbf24' },
     { title: 'Gacha', icon: 'slot', route: '/gacha', color: '#a855f7' },
     { title: 'Collezione', icon: 'book', route: '/collection', color: '#06b6d4' },
+    { title: 'Pet', icon: 'paw', route: '/pets', color: '#f97316' },
   ];
 
   const handleNavigation = (route: string) => {
