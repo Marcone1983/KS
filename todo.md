@@ -363,3 +363,12 @@
 - [x] Mini-giochi bonus (catch the drop, pest defense, speed spray)
 - [x] Sistema guild/clan con chat e eventi cooperativi (home, members, chat, events, emblema 3D)
 - [x] Seasonal events con contenuti esclusivi (progress bar, milestones, sfide, shop esclusivo, decorazioni 3D)
+
+
+## POLISH E ANIMAZIONI
+
+- [x] Animazioni di transizione avanzate (fade, slide, scale, flip, bounce, staggered list, pulse, shake)
+- [x] Effetti particellari 3D (instanced mesh, configurable particles)
+- [x] Sistema feedback tattile avanzato (23 pattern haptic: tap, spray, pest_death, level_up, achievement, etc.)
+- [x] Schermata statistiche dettagliate con 4 categorie
+- [x] Home page con 22+ link a tutte le sezioni
