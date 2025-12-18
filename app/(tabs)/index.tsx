@@ -66,6 +66,16 @@ export default function HomeScreen() {
     { title: 'Skills', icon: 'star', route: '/skills', color: '#6366f1' },
     { title: 'Customize', icon: 'brush', route: '/customize', color: '#14b8a6' },
     { title: 'Growing Lab', icon: 'leaf', route: '/growing', color: '#10b981' },
+    { title: 'Mini Giochi', icon: 'game', route: '/minigames', color: '#f97316' },
+    { title: 'Guild', icon: 'users', route: '/guild', color: '#8b5cf6' },
+    { title: 'Eventi', icon: 'calendar', route: '/events', color: '#06b6d4' },
+    { title: 'Achievements', icon: 'medal', route: '/achievements', color: '#fbbf24' },
+    { title: 'Trading', icon: 'exchange', route: '/trading', color: '#ec4899' },
+    { title: 'Inventario', icon: 'bag', route: '/inventory', color: '#84cc16' },
+    { title: 'Leaderboard', icon: 'ranking', route: '/leaderboard', color: '#ef4444' },
+    { title: 'Tutorial', icon: 'help', route: '/tutorial', color: '#64748b' },
+    { title: 'Sfide', icon: 'target', route: '/challenges', color: '#f43f5e' },
+    { title: 'Statistiche', icon: 'stats', route: '/stats', color: '#06b6d4' },
   ];
 
   const handleNavigation = (route: string) => {
