@@ -397,3 +397,11 @@
 - [x] Schermata Boss Arena 3D con HUD completo
 - [x] Integrazione combo system e power-ups nella battaglia
 - [x] Sistema risultati con statistiche e ricompense
+
+
+## PROGRESSION AVANZATO
+
+- [x] Skill Tree con 15 skill sbloccabili (4 categorie: offense, defense, utility, mastery)
+- [x] Sistema Prestige con 10 perk permanenti e bonus moltiplicatore
+- [x] Daily Login Rewards con ciclo 30 giorni e streak bonus
+- [x] Boss Arena 3D con HUD completo
