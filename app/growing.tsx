@@ -6,18 +6,27 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Canvas, useFrame } from '@react-three/fiber/native';
-import { PerspectiveCamera, OrbitControls, Text as DreiText } from '@react-three/drei/native';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber/native';
+import { PerspectiveCamera, OrbitControls, Float, Sparkles } from '@react-three/drei/native';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { Asset } from 'expo-asset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence, withSpring, Easing } from 'react-native-reanimated';
 import { useSounds } from '@/hooks/use-sounds';
+import { 
+  PlantGrowthViewer, 
+  StageTimeline, 
+  TimeLapseControls,
+  GROWTH_STAGES 
+} from '@/components/growth/PlantGrowthSystem';
 
 const { width } = Dimensions.get('window');
 
 interface Plant {
   id: string;
   name: string;
+  strain: string;
   stage: number;
   maxStage: number;
   health: number;
@@ -26,7 +35,13 @@ interface Plant {
   growthProgress: number;
   lastWatered: number;
   lastFed: number;
-  color: string;
+  daysGrown: number;
+  genetics: {
+    thc: number;
+    cbd: number;
+    yield: number;
+    flowerTime: number;
+  };
 }
 
 interface TutorMessage {
@@ -35,97 +50,9 @@ interface TutorMessage {
   type: 'tip' | 'warning' | 'success';
 }
 
-// 3D Growing Plant Component
-function GrowingPlant3D({ plant, isSelected }: { plant: Plant; isSelected: boolean }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const scale = plant.stage / plant.maxStage;
-  
-  useFrame((state) => {
-    if (groupRef.current) {
-      // Gentle breathing animation
-      const breathe = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.02;
-      groupRef.current.scale.set(breathe, breathe, breathe);
-      
-      if (isSelected) {
-        groupRef.current.rotation.y += 0.005;
-      }
-    }
-  });
-
-  const stemHeight = 0.3 + scale * 1.2;
-  const leafCount = Math.floor(scale * 7) + 2;
-  const budSize = scale * 0.25;
-
-  return (
-    <group ref={groupRef}>
-      {/* Pot */}
-      <mesh position={[0, -0.5, 0]}>
-        <cylinderGeometry args={[0.3, 0.25, 0.4, 16]} />
-        <meshStandardMaterial color="#8B4513" />
-      </mesh>
-      
-      {/* Soil */}
-      <mesh position={[0, -0.28, 0]}>
-        <cylinderGeometry args={[0.28, 0.28, 0.05, 16]} />
-        <meshStandardMaterial color="#3d2914" />
-      </mesh>
-      
-      {/* Stem */}
-      <mesh position={[0, stemHeight / 2 - 0.3, 0]}>
-        <cylinderGeometry args={[0.03 + scale * 0.02, 0.05, stemHeight, 8]} />
-        <meshStandardMaterial color="#2d5016" />
-      </mesh>
-      
-      {/* Leaves */}
-      {Array.from({ length: leafCount }).map((_, i) => {
-        const angle = (i / leafCount) * Math.PI * 2;
-        const height = -0.1 + (i / leafCount) * stemHeight * 0.8;
-        const leafSize = 0.1 + (i / leafCount) * 0.15 * scale;
-        return (
-          <mesh
-            key={i}
-            position={[
-              Math.cos(angle) * 0.15,
-              height,
-              Math.sin(angle) * 0.15,
-            ]}
-            rotation={[0.5, angle, 0.3]}
-          >
-            <coneGeometry args={[leafSize, leafSize * 2, 4]} />
-            <meshStandardMaterial color={plant.color} />
-          </mesh>
-        );
-      })}
-      
-      {/* Top Bud (only visible in later stages) */}
-      {scale > 0.5 && (
-        <mesh position={[0, stemHeight - 0.2, 0]}>
-          <sphereGeometry args={[budSize, 16, 16]} />
-          <meshStandardMaterial 
-            color={plant.color} 
-            emissive={plant.color} 
-            emissiveIntensity={0.3} 
-          />
-        </mesh>
-      )}
-      
-      {/* Health indicator ring */}
-      <mesh position={[0, -0.6, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.35, 0.4, 32]} />
-        <meshStandardMaterial 
-          color={plant.health > 70 ? '#22c55e' : plant.health > 30 ? '#f59e0b' : '#ef4444'} 
-          emissive={plant.health > 70 ? '#22c55e' : plant.health > 30 ? '#f59e0b' : '#ef4444'}
-          emissiveIntensity={0.5}
-        />
-      </mesh>
-    </group>
-  );
-}
-
 // 3D Tutor Character
 function Tutor3D({ message }: { message: string | null }) {
   const tutorRef = useRef<THREE.Group>(null);
-  const [bobOffset, setBobOffset] = useState(0);
   
   useFrame((state) => {
     if (tutorRef.current) {
@@ -238,50 +165,135 @@ function StatusBar({ label, value, maxValue, color, icon }: { label: string; val
   );
 }
 
-const TUTOR_TIPS: TutorMessage[] = [
-  { id: '1', text: 'Ricorda di innaffiare la pianta ogni 2 ore!', type: 'tip' },
-  { id: '2', text: 'I nutrienti aiutano la crescita più veloce', type: 'tip' },
-  { id: '3', text: 'La pianta ha bisogno di acqua!', type: 'warning' },
-  { id: '4', text: 'Ottimo lavoro! La pianta sta crescendo bene!', type: 'success' },
-];
+// Stage Info Card
+function StageInfoCard({ stage }: { stage: number }) {
+  const stageInfo = GROWTH_STAGES[stage - 1];
+  if (!stageInfo) return null;
+  
+  return (
+    <View style={styles.stageInfoCard}>
+      <View style={styles.stageInfoHeader}>
+        <ThemedText style={styles.stageInfoTitle}>
+          Stadio {stage}: {stageInfo.nameIt}
+        </ThemedText>
+        <View style={[
+          styles.phaseBadge, 
+          { backgroundColor: stageInfo.phase === 'vegetative' ? '#22c55e' : '#f59e0b' }
+        ]}>
+          <ThemedText style={styles.phaseBadgeText}>
+            {stageInfo.phase === 'vegetative' ? 'Vegetativa' : 'Fioritura'}
+          </ThemedText>
+        </View>
+      </View>
+      <ThemedText style={styles.stageInfoDesc}>{stageInfo.descriptionIt}</ThemedText>
+      <View style={styles.stageInfoStats}>
+        <View style={styles.stageInfoStat}>
+          <ThemedText style={styles.statIcon}>💧</ThemedText>
+          <ThemedText style={styles.statLabel}>Acqua: {stageInfo.waterNeeds}</ThemedText>
+        </View>
+        <View style={styles.stageInfoStat}>
+          <ThemedText style={styles.statIcon}>🧪</ThemedText>
+          <ThemedText style={styles.statLabel}>Nutrienti: {stageInfo.nutrientNeeds}</ThemedText>
+        </View>
+        <View style={styles.stageInfoStat}>
+          <ThemedText style={styles.statIcon}>💡</ThemedText>
+          <ThemedText style={styles.statLabel}>Luce: {stageInfo.lightHours}h</ThemedText>
+        </View>
+        <View style={styles.stageInfoStat}>
+          <ThemedText style={styles.statIcon}>📅</ThemedText>
+          <ThemedText style={styles.statLabel}>Giorni: {stageInfo.daysRequired}</ThemedText>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function GrowingLabScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { play, playLoop, stopLoop } = useSounds();
+  
   const [plant, setPlant] = useState<Plant>({
     id: '1',
-    name: 'Cannabis Classica',
-    stage: 2,
-    maxStage: 5,
-    health: 85,
-    water: 60,
-    nutrients: 45,
-    growthProgress: 40,
+    name: 'Kurstaki Kush',
+    strain: 'Indica Dominant',
+    stage: 1,
+    maxStage: 8,
+    health: 100,
+    water: 80,
+    nutrients: 70,
+    growthProgress: 0,
     lastWatered: Date.now(),
     lastFed: Date.now(),
-    color: '#22c55e',
+    daysGrown: 0,
+    genetics: {
+      thc: 22,
+      cbd: 1,
+      yield: 450,
+      flowerTime: 56,
+    },
   });
+  
   const [tutorMessage, setTutorMessage] = useState<string | null>(null);
   const [isWatering, setIsWatering] = useState(false);
   const [isFeeding, setIsFeeding] = useState(false);
   const [dayNightCycle, setDayNightCycle] = useState<'day' | 'night'>('day');
+  const [isTimeLapseActive, setIsTimeLapseActive] = useState(false);
+  const [timeLapseSpeed, setTimeLapseSpeed] = useState(1);
+
+  // Load saved plant data
+  useEffect(() => {
+    const loadPlantData = async () => {
+      try {
+        const savedPlant = await AsyncStorage.getItem('growing_plant');
+        if (savedPlant) {
+          setPlant(JSON.parse(savedPlant));
+        }
+      } catch (error) {
+        console.error('Error loading plant data:', error);
+      }
+    };
+    loadPlantData();
+  }, []);
+
+  // Save plant data
+  useEffect(() => {
+    const savePlantData = async () => {
+      try {
+        await AsyncStorage.setItem('growing_plant', JSON.stringify(plant));
+      } catch (error) {
+        console.error('Error saving plant data:', error);
+      }
+    };
+    savePlantData();
+  }, [plant]);
 
   // Simulate growth over time
   useEffect(() => {
+    if (isTimeLapseActive) return; // Skip normal growth during time-lapse
+    
     const interval = setInterval(() => {
       setPlant(prev => {
-        const newWater = Math.max(0, prev.water - 0.5);
-        const newNutrients = Math.max(0, prev.nutrients - 0.3);
+        const newWater = Math.max(0, prev.water - 0.3);
+        const newNutrients = Math.max(0, prev.nutrients - 0.2);
         const healthPenalty = (newWater < 20 ? 1 : 0) + (newNutrients < 20 ? 0.5 : 0);
-        const newHealth = Math.max(0, Math.min(100, prev.health - healthPenalty + (newWater > 50 && newNutrients > 50 ? 0.2 : 0)));
+        const newHealth = Math.max(0, Math.min(100, prev.health - healthPenalty + (newWater > 50 && newNutrients > 50 ? 0.1 : 0)));
         
         let newProgress = prev.growthProgress;
+        let newDaysGrown = prev.daysGrown;
+        
         if (newHealth > 50 && newWater > 30 && newNutrients > 30) {
-          newProgress = Math.min(100, prev.growthProgress + 0.1);
+          newProgress = Math.min(100, prev.growthProgress + 0.05);
+          newDaysGrown = prev.daysGrown + 0.01; // Simulate time passing
         }
         
-        const newStage = Math.min(prev.maxStage, Math.floor(newProgress / 20) + 1);
+        // Calculate stage based on progress (8 stages = 12.5% each)
+        const newStage = Math.min(prev.maxStage, Math.floor(newProgress / 12.5) + 1);
+        
+        // Play level up sound when stage changes
+        if (newStage > prev.stage) {
+          play('plant_levelup');
+        }
         
         return {
           ...prev,
@@ -290,25 +302,34 @@ export default function GrowingLabScreen() {
           health: newHealth,
           growthProgress: newProgress,
           stage: newStage,
+          daysGrown: newDaysGrown,
         };
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isTimeLapseActive, play]);
 
-  // Tutor messages
+  // Tutor messages based on plant state
   useEffect(() => {
+    const stageInfo = GROWTH_STAGES[plant.stage - 1];
+    
     if (plant.water < 30) {
-      setTutorMessage('La pianta ha sete! Innaffiala!');
+      setTutorMessage('La pianta ha sete! Innaffiala subito!');
     } else if (plant.nutrients < 30) {
-      setTutorMessage('Aggiungi nutrienti per una crescita migliore!');
+      setTutorMessage('Aggiungi nutrienti per una crescita ottimale!');
+    } else if (plant.health < 50) {
+      setTutorMessage('Attenzione! La salute della pianta è bassa!');
+    } else if (plant.stage >= 5 && stageInfo?.phase === 'flowering') {
+      setTutorMessage('Fase fioritura! Riduci le ore di luce a 12h.');
+    } else if (plant.stage === 8) {
+      setTutorMessage('Pronta per il raccolto! I tricomi sono ambrati.');
     } else if (plant.health > 80) {
-      setTutorMessage('Ottimo lavoro! La pianta è in salute!');
+      setTutorMessage('Ottimo lavoro! La pianta sta crescendo bene!');
     } else {
       setTutorMessage(null);
     }
-  }, [plant.water, plant.nutrients, plant.health]);
+  }, [plant.water, plant.nutrients, plant.health, plant.stage]);
 
   const handleWater = () => {
     setIsWatering(true);
@@ -317,7 +338,11 @@ export default function GrowingLabScreen() {
     setTimeout(() => {
       stopLoop('spray_loop');
       play('spray_refill');
-      setPlant(prev => ({ ...prev, water: Math.min(100, prev.water + 30), lastWatered: Date.now() }));
+      setPlant(prev => ({ 
+        ...prev, 
+        water: Math.min(100, prev.water + 30), 
+        lastWatered: Date.now() 
+      }));
       setIsWatering(false);
     }, 2000);
   };
@@ -326,14 +351,69 @@ export default function GrowingLabScreen() {
     setIsFeeding(true);
     play('inv_add_item');
     setTimeout(() => {
-      play('plant_levelup');
-      setPlant(prev => ({ ...prev, nutrients: Math.min(100, prev.nutrients + 25), lastFed: Date.now() }));
+      play('growth_tick');
+      setPlant(prev => ({ 
+        ...prev, 
+        nutrients: Math.min(100, prev.nutrients + 25), 
+        lastFed: Date.now() 
+      }));
       setIsFeeding(false);
     }, 2000);
   };
 
   const toggleDayNight = () => {
     setDayNightCycle(prev => prev === 'day' ? 'night' : 'day');
+  };
+
+  const handleStageChange = (newStage: number) => {
+    setPlant(prev => ({
+      ...prev,
+      stage: newStage,
+      growthProgress: (newStage - 1) * 12.5,
+    }));
+  };
+
+  const handleTimeLapseToggle = () => {
+    setIsTimeLapseActive(prev => !prev);
+    if (!isTimeLapseActive) {
+      play('breed_start');
+    }
+  };
+
+  const handleTimeLapseReset = () => {
+    setIsTimeLapseActive(false);
+    setPlant(prev => ({
+      ...prev,
+      stage: 1,
+      growthProgress: 0,
+      daysGrown: 0,
+    }));
+  };
+
+  const handleHarvest = () => {
+    if (plant.stage === 8) {
+      Alert.alert(
+        'Raccolto!',
+        `Hai raccolto ${plant.name}!\n\nResa: ${plant.genetics.yield}g\nTHC: ${plant.genetics.thc}%\nCBD: ${plant.genetics.cbd}%`,
+        [
+          {
+            text: 'Nuova Pianta',
+            onPress: () => {
+              setPlant(prev => ({
+                ...prev,
+                stage: 1,
+                growthProgress: 0,
+                daysGrown: 0,
+                health: 100,
+                water: 80,
+                nutrients: 70,
+              }));
+            },
+          },
+        ]
+      );
+      play('strain_unlock');
+    }
   };
 
   return (
@@ -358,36 +438,41 @@ export default function GrowingLabScreen() {
         </View>
 
         <ThemedText style={styles.title}>Growing Lab 3D</ThemedText>
-        <ThemedText style={styles.subtitle}>{plant.name} - Stadio {plant.stage}/{plant.maxStage}</ThemedText>
+        <ThemedText style={styles.subtitle}>
+          {plant.name} - {plant.strain}
+        </ThemedText>
 
-        {/* 3D Plant View */}
+        {/* 3D Plant View with 8-Stage System */}
         <View style={styles.plantView3D}>
-          <Canvas>
-            <ambientLight intensity={dayNightCycle === 'day' ? 0.6 : 0.2} />
-            <pointLight position={[5, 5, 5]} intensity={dayNightCycle === 'day' ? 1 : 0.3} />
-            {dayNightCycle === 'night' && (
-              <pointLight position={[0, 3, 0]} intensity={0.5} color="#a855f7" />
-            )}
-            <PerspectiveCamera makeDefault position={[0, 0.5, 3]} />
-            <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2} />
-            
-            <Suspense fallback={null}>
-              <GrowingPlant3D plant={plant} isSelected={true} />
-              <Tutor3D message={tutorMessage} />
-              <Particles type="water" active={isWatering} />
-              <Particles type="nutrient" active={isFeeding} />
-            </Suspense>
-          </Canvas>
+          <PlantGrowthViewer 
+            currentStage={plant.stage}
+            onStageChange={handleStageChange}
+            isTimeLapseActive={isTimeLapseActive}
+            timeLapseSpeed={timeLapseSpeed}
+          />
           
           {/* Day/Night Toggle */}
           <Pressable style={styles.dayNightToggle} onPress={toggleDayNight}>
             <ThemedText style={styles.dayNightIcon}>{dayNightCycle === 'day' ? '☀️' : '🌙'}</ThemedText>
           </Pressable>
+          
+          {/* Harvest Button (only at stage 8) */}
+          {plant.stage === 8 && (
+            <Pressable style={styles.harvestButton} onPress={handleHarvest}>
+              <ThemedText style={styles.harvestButtonText}>🌿 Raccogli</ThemedText>
+            </Pressable>
+          )}
         </View>
+
+        {/* Stage Info Card */}
+        <StageInfoCard stage={plant.stage} />
 
         {/* Tutor Message */}
         {tutorMessage && (
           <View style={styles.tutorBubble}>
+            <View style={styles.tutorAvatar}>
+              <ThemedText style={styles.tutorAvatarEmoji}>🌱</ThemedText>
+            </View>
             <ThemedText style={styles.tutorText}>{tutorMessage}</ThemedText>
           </View>
         )}
@@ -398,6 +483,29 @@ export default function GrowingLabScreen() {
           <StatusBar label="Acqua" value={plant.water} maxValue={100} color="#3b82f6" icon="💧" />
           <StatusBar label="Nutrienti" value={plant.nutrients} maxValue={100} color="#f59e0b" icon="🧪" />
           <StatusBar label="Crescita" value={plant.growthProgress} maxValue={100} color="#22c55e" icon="📈" />
+        </View>
+
+        {/* Genetics Info */}
+        <View style={styles.geneticsContainer}>
+          <ThemedText style={styles.geneticsTitle}>Genetica</ThemedText>
+          <View style={styles.geneticsGrid}>
+            <View style={styles.geneticItem}>
+              <ThemedText style={styles.geneticValue}>{plant.genetics.thc}%</ThemedText>
+              <ThemedText style={styles.geneticLabel}>THC</ThemedText>
+            </View>
+            <View style={styles.geneticItem}>
+              <ThemedText style={styles.geneticValue}>{plant.genetics.cbd}%</ThemedText>
+              <ThemedText style={styles.geneticLabel}>CBD</ThemedText>
+            </View>
+            <View style={styles.geneticItem}>
+              <ThemedText style={styles.geneticValue}>{plant.genetics.yield}g</ThemedText>
+              <ThemedText style={styles.geneticLabel}>Resa</ThemedText>
+            </View>
+            <View style={styles.geneticItem}>
+              <ThemedText style={styles.geneticValue}>{plant.genetics.flowerTime}d</ThemedText>
+              <ThemedText style={styles.geneticLabel}>Fioritura</ThemedText>
+            </View>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -421,17 +529,25 @@ export default function GrowingLabScreen() {
           </Pressable>
         </View>
 
-        {/* Growth Timeline */}
-        <View style={styles.timeline}>
-          <ThemedText style={styles.timelineTitle}>Fasi di Crescita</ThemedText>
-          <View style={styles.timelineStages}>
-            {['🌱', '🌿', '🪴', '🌳', '🌲'].map((emoji, i) => (
-              <View key={i} style={[styles.timelineStage, plant.stage > i && styles.timelineStageActive]}>
-                <ThemedText style={styles.timelineEmoji}>{emoji}</ThemedText>
-                <ThemedText style={styles.timelineLabel}>Fase {i + 1}</ThemedText>
-              </View>
-            ))}
-          </View>
+        {/* Time-Lapse Controls */}
+        <TimeLapseControls
+          isActive={isTimeLapseActive}
+          speed={timeLapseSpeed}
+          onToggle={handleTimeLapseToggle}
+          onSpeedChange={setTimeLapseSpeed}
+          onReset={handleTimeLapseReset}
+        />
+
+        {/* Growth Timeline with 8 Stages */}
+        <StageTimeline 
+          currentStage={plant.stage} 
+          onStageSelect={handleStageChange}
+        />
+
+        {/* Days Counter */}
+        <View style={styles.daysCounter}>
+          <ThemedText style={styles.daysLabel}>Giorni di crescita</ThemedText>
+          <ThemedText style={styles.daysValue}>{Math.floor(plant.daysGrown)}</ThemedText>
         </View>
       </ScrollView>
     </LinearGradient>
@@ -448,12 +564,122 @@ const styles = StyleSheet.create({
   logo: { width: 120, height: 60 },
   title: { fontSize: 32, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#a7f3d0', textAlign: 'center', marginBottom: 24 },
-  plantView3D: { height: 300, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20, overflow: 'hidden', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  dayNightToggle: { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 8 },
+  plantView3D: { 
+    height: 350, 
+    backgroundColor: 'rgba(0,0,0,0.3)', 
+    borderRadius: 20, 
+    overflow: 'hidden', 
+    marginBottom: 16, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.1)' 
+  },
+  dayNightToggle: { 
+    position: 'absolute', 
+    top: 16, 
+    right: 16, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    borderRadius: 20, 
+    padding: 8 
+  },
   dayNightIcon: { fontSize: 24 },
-  tutorBubble: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 16, padding: 16, marginBottom: 16 },
-  tutorText: { color: '#166534', fontSize: 14, textAlign: 'center' },
-  statusContainer: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 16, padding: 16, marginBottom: 16 },
+  harvestButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: '#f59e0b',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  harvestButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  stageInfoCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  stageInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  stageInfoTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#166534',
+  },
+  phaseBadge: {
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  phaseBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  stageInfoDesc: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 12,
+  },
+  stageInfoStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  stageInfoStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  statIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#4b5563',
+  },
+  tutorBubble: { 
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)', 
+    borderRadius: 16, 
+    padding: 16, 
+    marginBottom: 16 
+  },
+  tutorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#22c55e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  tutorAvatarEmoji: {
+    fontSize: 20,
+  },
+  tutorText: { 
+    flex: 1,
+    color: '#166534', 
+    fontSize: 14,
+  },
+  statusContainer: { 
+    backgroundColor: 'rgba(0,0,0,0.3)', 
+    borderRadius: 16, 
+    padding: 16, 
+    marginBottom: 16 
+  },
   statusBarContainer: { marginBottom: 12 },
   statusBarHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   statusIcon: { fontSize: 16, marginRight: 8 },
@@ -461,18 +687,56 @@ const styles = StyleSheet.create({
   statusValue: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   statusBarBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, overflow: 'hidden' },
   statusBarFill: { height: '100%', borderRadius: 4 },
-  actionButtons: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  geneticsContainer: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  geneticsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  geneticsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  geneticItem: {
+    alignItems: 'center',
+  },
+  geneticValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#22c55e',
+  },
+  geneticLabel: {
+    fontSize: 12,
+    color: '#a7f3d0',
+  },
+  actionButtons: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   actionButton: { flex: 1, borderRadius: 16, padding: 16, alignItems: 'center' },
   waterButton: { backgroundColor: '#3b82f6' },
   feedButton: { backgroundColor: '#f59e0b' },
   buttonDisabled: { opacity: 0.6 },
   actionIcon: { fontSize: 32, marginBottom: 8 },
   actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  timeline: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 16, padding: 16 },
-  timelineTitle: { fontSize: 18, fontWeight: 'bold', color: '#166534', marginBottom: 16, textAlign: 'center' },
-  timelineStages: { flexDirection: 'row', justifyContent: 'space-between' },
-  timelineStage: { alignItems: 'center', opacity: 0.4 },
-  timelineStageActive: { opacity: 1 },
-  timelineEmoji: { fontSize: 28 },
-  timelineLabel: { fontSize: 10, color: '#166534', marginTop: 4 },
+  daysCounter: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  daysLabel: {
+    fontSize: 14,
+    color: '#a7f3d0',
+  },
+  daysValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
 });

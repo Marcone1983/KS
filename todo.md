@@ -417,3 +417,73 @@
 - [x] Sistema obiettivi multipli con progress tracking
 - [x] Schermata Quest Log con filtri per tipo, modal dettaglio, claim rewards
 - [x] Sistema prerequisiti e sblocco quest progressivo
+
+
+## SISTEMI AVANZATI AGGIUNTI
+
+- [x] Sistema Expeditions con spedizioni automatiche e pets
+- [x] Sistema Enchanting con upgrade e incantamenti oggetti
+- [x] Sistema Plant Fusion con ricette e fusione piante
+
+
+## SISTEMA CRESCITA PIANTE AVANZATO
+
+- [ ] Analizzare struttura modelli GLB esistenti (plant03.glb, plant04.glb)
+- [ ] Creare 5 stadi di crescita per plant03 con morphing (germoglio → piantina → vegetativa → fioritura → matura)
+- [ ] Creare 5 stadi di crescita per plant04 con morphing
+- [ ] Animazioni foglie che si aprono gradualmente
+- [ ] Animazioni boccioli che sbocciano
+- [ ] Sistema time-lapse per vedere crescita accelerata
+- [ ] Integrare nuovi modelli nel Growing Lab
+
+
+## 8 STADI CRESCITA REALISTICI
+
+### Vegetativa (4 stadi)
+- [ ] Stadio 1: Germoglio - piccola piantina appena nata
+- [ ] Stadio 2: Piantina giovane - prime foglie vere
+- [ ] Stadio 3: Vegetativa media - pianta che si sviluppa
+- [ ] Stadio 4: Vegetativa completa - pronta per fioritura
+
+### Fioritura (4 stadi)
+- [ ] Stadio 5: Pre-fioritura - peletti bianchi (pistilli)
+- [ ] Stadio 6: Fioritura iniziale - testine bianche, calici separati
+- [ ] Stadio 7: Fioritura piena - calici gonfi e attaccati, cime dense
+- [ ] Stadio 8: Maturazione - clorofilla degrada, foglie gialle, pronta raccolta
+
+### Implementazione
+- [ ] Creare modelli GLB per ogni stadio
+- [ ] Aggiornare Growing Lab con 8 stadi
+- [ ] Time-lapse per vedere crescita accelerata
+- [ ] Animazioni transizione tra stadi
+
+
+## 8 STADI DI CRESCITA PIANTA 3D
+
+### Stadi Vegetativi
+- [x] Stadio 1: Seedling (germoglio piccolo)
+- [x] Stadio 2: Young Plant (prime foglie vere)
+- [x] Stadio 3: Mid-Vegetative (pianta in sviluppo)
+- [x] Stadio 4: Full Vegetative (pronta per fioritura)
+
+### Stadi Fioritura
+- [x] Stadio 5: Pre-Flowering (pistilli bianchi iniziano)
+- [x] Stadio 6: Early Flowering (teste bianche visibili, calici separati)
+- [x] Stadio 7: Full Flowering (calici gonfi e connessi, cime dense)
+- [x] Stadio 8: Maturation (clorofilla degradata, foglie gialle, pronta raccolta)
+
+### Struttura Botanica
+- [x] Stelo centrale con nodi
+- [x] 2 rami opposti per nodo (perpendicolari)
+- [x] Nodo successivo con rami ruotati 90°
+- [x] Rami inferiori più lunghi, puntano verso l'alto
+- [x] Forma a candelabro/albero di Natale
+- [x] Cola principale più grande delle laterali
+
+### Animazioni e Time-lapse
+- [ ] Animazione apertura foglie
+- [ ] Animazione fioritura cime
+- [ ] Animazione comparsa pistilli
+- [x] Sistema time-lapse per crescita accelerata
+- [x] Transizioni fluide tra stadi
+
