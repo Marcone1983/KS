@@ -481,9 +481,38 @@
 - [x] Cola principale più grande delle laterali
 
 ### Animazioni e Time-lapse
-- [ ] Animazione apertura foglie
-- [ ] Animazione fioritura cime
-- [ ] Animazione comparsa pistilli
+- [x] Animazione apertura foglie
+- [x] Animazione fioritura cime
+- [x] Animazione comparsa pistilli
 - [x] Sistema time-lapse per crescita accelerata
 - [x] Transizioni fluide tra stadi
+
+
+
+## ANIMAZIONI MORPH TARGETS E BREEDING VISUALE
+
+### Animazioni Morph Targets
+- [x] Creare modelli GLB con morph targets per foglie
+- [x] Creare morph targets per apertura/chiusura foglie
+- [x] Creare morph targets per fioritura cime (bud blooming)
+- [x] Creare morph targets per pistilli che crescono
+- [x] Implementare sistema animazioni morph in React Three Fiber
+- [x] Animazione apertura foglie durante crescita vegetativa
+- [x] Animazione fioritura cime durante fase flowering
+- [x] Animazione comparsa pistilli bianchi/arancioni
+
+### Integrazione Stadi Crescita nel Gioco
+- [x] Visualizzare stadio corrente pianta nella schermata Game
+- [x] Progressione visuale durante il combattimento
+- [x] Transizioni animate tra stadi durante il gameplay
+- [x] Indicatore stadio nella HUD di gioco
+- [x] Effetti particellari per cambio stadio
+
+### Sistema Breeding Visuale 3D
+- [x] Schermata selezione piante genitori con preview 3D
+- [x] Animazione transizione DNA/genetica tra genitori
+- [x] Visualizzazione pianta prole con tratti ereditati
+- [x] Effetti particellari per processo breeding
+- [x] Preview caratteristiche genetiche risultanti
+- [x] Animazione fusione 3D delle due piante
 
