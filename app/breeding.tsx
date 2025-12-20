@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Dimensions, ActivityIndicator, FlatList, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Dimensions, ActivityIndicator, Modal, Share, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,8 +14,11 @@ import { useSounds } from '@/hooks/use-sounds';
 import { useGrowthSounds } from '@/hooks/use-growth-sounds';
 import { useHybridStorage, HybridPlant, GeneticTraits, createHybridFromBreeding } from '@/hooks/use-hybrid-storage';
 import { GeneticPreview } from '@/components/breeding/GeneticPreview';
+import { FamilyTree } from '@/components/breeding/FamilyTree';
+import { useBreedingAchievements, RARITY_CONFIG } from '@/hooks/use-breeding-achievements';
+import { AchievementNotificationsContainer, AchievementsPage } from '@/components/breeding/AchievementsUI';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface PlantVariety {
   id: string;
@@ -186,7 +189,7 @@ function GeneticsBar({ label, value, color }: { label: string; value: number; co
 }
 
 // Tab Button Component
-function TabButton({ title, active, onPress }: { title: string; active: boolean; onPress: () => void }) {
+function TabButton({ title, active, onPress, badge }: { title: string; active: boolean; onPress: () => void; badge?: number }) {
   return (
     <Pressable 
       style={[styles.tabButton, active && styles.tabButtonActive]} 
@@ -195,6 +198,11 @@ function TabButton({ title, active, onPress }: { title: string; active: boolean;
       <ThemedText style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>
         {title}
       </ThemedText>
+      {badge !== undefined && badge > 0 && (
+        <View style={styles.tabBadge}>
+          <ThemedText style={styles.tabBadgeText}>{badge}</ThemedText>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -278,10 +286,23 @@ export default function BreedingScreen() {
     saveHybrid, 
     toggleFavorite, 
     isFavorite,
-    sortHybrids 
+    sortHybrids,
+    exportCollection,
+    importCollection
   } = useHybridStorage();
   
-  const [activeTab, setActiveTab] = useState<'breed' | 'collection'>('breed');
+  // Achievements hook
+  const {
+    achievements,
+    unlockedAchievements,
+    totalPoints,
+    pendingNotifications,
+    checkNewHybrid,
+    dismissNotification,
+    getCategoryProgress,
+  } = useBreedingAchievements();
+  
+  const [activeTab, setActiveTab] = useState<'breed' | 'collection' | 'tree'>('breed');
   const [selectedParent1, setSelectedParent1] = useState<PlantVariety | HybridPlant | null>(null);
   const [selectedParent2, setSelectedParent2] = useState<PlantVariety | HybridPlant | null>(null);
   const [isBreeding, setIsBreeding] = useState(false);
@@ -290,6 +311,7 @@ export default function BreedingScreen() {
   const [showPreview, setShowPreview] = useState(true);
   const [sortBy, setSortBy] = useState<'date' | 'rarity' | 'thc'>('date');
   const [hybridDetailModal, setHybridDetailModal] = useState<HybridPlant | null>(null);
+  const [showAchievements, setShowAchievements] = useState(false);
 
   // Combined list of base varieties and saved hybrids for parent selection
   const allPlants = [
@@ -366,6 +388,11 @@ export default function BreedingScreen() {
     const success = await saveHybrid(offspring);
     if (success) {
       play('strain_unlock');
+      
+      // Check achievements after saving
+      const updatedHybrids = [...hybrids, offspring];
+      await checkNewHybrid(offspring, updatedHybrids);
+      
       // Reset for new breeding
       setOffspring(null);
       setSelectedParent1(null);
@@ -391,10 +418,54 @@ export default function BreedingScreen() {
     }
   };
 
+  const handleExportCollection = async () => {
+    try {
+      const jsonData = await exportCollection();
+      await Share.share({
+        message: jsonData,
+        title: 'KS Breeding Collection',
+      });
+    } catch (error) {
+      Alert.alert('Errore', 'Impossibile esportare la collezione');
+    }
+  };
+
+  const handleImportCollection = () => {
+    Alert.prompt(
+      'Importa Collezione',
+      'Incolla il JSON della collezione:',
+      async (text) => {
+        if (text) {
+          const success = await importCollection(text);
+          if (success) {
+            Alert.alert('Successo', 'Collezione importata con successo!');
+          } else {
+            Alert.alert('Errore', 'JSON non valido o corrotto');
+          }
+        }
+      },
+      'plain-text'
+    );
+  };
+
   const sortedHybrids = sortHybrids(sortBy);
+
+  // Base varieties for family tree
+  const baseVarietiesForTree = PLANT_VARIETIES.map(v => ({
+    id: v.id,
+    name: v.name,
+    rarity: v.rarity,
+    color: v.color,
+  }));
 
   return (
     <LinearGradient colors={['#14532d', '#166534', '#059669']} style={styles.container}>
+      {/* Achievement Notifications */}
+      <AchievementNotificationsContainer 
+        notifications={pendingNotifications}
+        onDismiss={dismissNotification}
+      />
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -408,16 +479,22 @@ export default function BreedingScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <ThemedText style={styles.backText}>← Indietro</ThemedText>
           </Pressable>
-          <Image source={require('@/assets/images/logo.png')} style={styles.logo} contentFit="contain" />
+          
+          {/* Achievement Points Button */}
+          <Pressable style={styles.achievementButton} onPress={() => setShowAchievements(true)}>
+            <ThemedText style={styles.achievementIcon}>🏆</ThemedText>
+            <ThemedText style={styles.achievementPoints}>{totalPoints}</ThemedText>
+          </Pressable>
         </View>
 
         <ThemedText style={styles.title}>Breeding Lab 3D</ThemedText>
         <ThemedText style={styles.subtitle}>Crea nuove varietà genetiche</ThemedText>
 
-        {/* Tabs */}
+        {/* Tabs - Now with 3 tabs */}
         <View style={styles.tabsContainer}>
           <TabButton title="Breeding" active={activeTab === 'breed'} onPress={() => setActiveTab('breed')} />
-          <TabButton title={`Collezione (${hybrids.length})`} active={activeTab === 'collection'} onPress={() => setActiveTab('collection')} />
+          <TabButton title="Collezione" active={activeTab === 'collection'} onPress={() => setActiveTab('collection')} badge={hybrids.length} />
+          <TabButton title="Albero" active={activeTab === 'tree'} onPress={() => setActiveTab('tree')} />
         </View>
 
         {activeTab === 'breed' ? (
@@ -582,11 +659,21 @@ export default function BreedingScreen() {
               </>
             )}
           </>
-        ) : (
+        ) : activeTab === 'collection' ? (
           /* Collection Tab */
           <>
             {/* Collection Stats */}
             <CollectionStats stats={stats} />
+
+            {/* Export/Import Buttons */}
+            <View style={styles.exportImportContainer}>
+              <Pressable style={styles.exportButton} onPress={handleExportCollection}>
+                <ThemedText style={styles.exportButtonText}>📤 Esporta</ThemedText>
+              </Pressable>
+              <Pressable style={styles.importButton} onPress={handleImportCollection}>
+                <ThemedText style={styles.importButtonText}>📥 Importa</ThemedText>
+              </Pressable>
+            </View>
 
             {/* Sort Options */}
             <View style={styles.sortContainer}>
@@ -633,6 +720,27 @@ export default function BreedingScreen() {
                 ))}
               </View>
             )}
+          </>
+        ) : (
+          /* Family Tree Tab */
+          <>
+            <View style={styles.treeContainer}>
+              {hybrids.length === 0 ? (
+                <View style={styles.emptyCollection}>
+                  <ThemedText style={styles.emptyText}>Nessun albero genealogico</ThemedText>
+                  <ThemedText style={styles.emptySubtext}>Crea ibridi per vedere la loro discendenza!</ThemedText>
+                </View>
+              ) : (
+                <FamilyTree 
+                  hybrids={hybrids}
+                  baseVarieties={baseVarietiesForTree}
+                  onNodePress={(nodeId) => {
+                    const hybrid = hybrids.find(h => h.id === nodeId);
+                    if (hybrid) setHybridDetailModal(hybrid);
+                  }}
+                />
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -688,6 +796,15 @@ export default function BreedingScreen() {
           </View>
         )}
       </Modal>
+
+      {/* Achievements Page Modal */}
+      <AchievementsPage
+        visible={showAchievements}
+        onClose={() => setShowAchievements(false)}
+        achievements={achievements}
+        totalPoints={totalPoints}
+        getCategoryProgress={getCategoryProgress}
+      />
     </LinearGradient>
   );
 }
@@ -699,16 +816,20 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   backButton: { padding: 8 },
   backText: { color: '#a7f3d0', fontSize: 16 },
-  logo: { width: 120, height: 60 },
+  achievementButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 6 },
+  achievementIcon: { fontSize: 18 },
+  achievementPoints: { color: '#f59e0b', fontSize: 16, fontWeight: 'bold' },
   title: { fontSize: 32, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#a7f3d0', textAlign: 'center', marginBottom: 16 },
   
   // Tabs
-  tabsContainer: { flexDirection: 'row', marginBottom: 20, gap: 12 },
-  tabButton: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
+  tabsContainer: { flexDirection: 'row', marginBottom: 20, gap: 8 },
+  tabButton: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   tabButtonActive: { backgroundColor: '#22c55e' },
-  tabButtonText: { color: '#a7f3d0', fontSize: 14, fontWeight: '600' },
+  tabButtonText: { color: '#a7f3d0', fontSize: 13, fontWeight: '600' },
   tabButtonTextActive: { color: '#fff' },
+  tabBadge: { backgroundColor: 'rgba(255,255,255,0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center' },
+  tabBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
   
   // Breeding Station
   breedingStation3D: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
@@ -769,10 +890,15 @@ const styles = StyleSheet.create({
   favoriteIconText: { fontSize: 16, color: '#f59e0b' },
   
   // Collection
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 16, padding: 16, marginBottom: 20 },
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 16, padding: 16, marginBottom: 16 },
   statItem: { alignItems: 'center' },
   statValue: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
   statLabel: { fontSize: 11, color: '#a7f3d0', marginTop: 4 },
+  exportImportContainer: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  exportButton: { flex: 1, backgroundColor: 'rgba(34, 197, 94, 0.3)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#22c55e' },
+  exportButtonText: { color: '#22c55e', fontSize: 14, fontWeight: '600' },
+  importButton: { flex: 1, backgroundColor: 'rgba(59, 130, 246, 0.3)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#3b82f6' },
+  importButtonText: { color: '#3b82f6', fontSize: 14, fontWeight: '600' },
   sortContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
   sortLabel: { color: '#a7f3d0', fontSize: 14 },
   sortButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.1)' },
@@ -782,6 +908,9 @@ const styles = StyleSheet.create({
   emptyCollection: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 18, color: '#fff', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#a7f3d0' },
+  
+  // Tree Tab
+  treeContainer: { height: height * 0.6, marginBottom: 20 },
   
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
