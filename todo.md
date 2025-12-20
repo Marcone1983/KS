@@ -516,3 +516,31 @@
 - [x] Preview caratteristiche genetiche risultanti
 - [x] Animazione fusione 3D delle due piante
 
+
+
+## SUONI ANIMAZIONI, SALVATAGGIO IBRIDI E PREVIEW GENETICA
+
+### Suoni Specifici per Animazioni
+- [x] Suono apertura foglie durante crescita
+- [x] Suono fioritura cime (blooming)
+- [x] Suono transizione tra stadi di crescita
+- [x] Suono comparsa pistilli
+- [x] Suono time-lapse accelerato
+- [x] Suoni per processo breeding (DNA fusion)
+- [x] Suono reveal prole (basato su rarità)
+
+### Sistema Salvataggio Ibridi
+- [x] Schema dati per piante ibride in AsyncStorage
+- [x] Funzione salvataggio nuova pianta ibrida
+- [x] Funzione caricamento collezione ibridi
+- [x] Integrazione ibridi salvati nel breeding lab
+- [x] Visualizzazione collezione ibridi salvati
+- [x] Possibilità di usare ibridi come genitori
+
+### Preview Genetica Pre-Breeding
+- [x] Calcolo probabilità ereditarietà tratti
+- [x] Visualizzazione range genetico possibile
+- [x] Indicatore rarità probabile prole
+- [x] Grafico distribuzione tratti attesi
+- [x] Bonus/malus per combinazioni specifiche
+
